@@ -1,0 +1,77 @@
+
+body {padding: 40px 0 150px}
+
+.infobar {
+    margin:0;
+    position:fixed;
+    left:0;
+    top:0;
+    width:100%;
+    background:#666;
+    color:#fff;
+    opacity:1;
+    z-index:3000;
+    padding:8px
+
+}
+
+.tt-code {
+    padding: 4px;
+    border-radius: 5px;
+}
+
+.tt-xpath {
+    text-align:right;
+    color: #666;
+    font-family: sans-serif;
+    font-size:0.6em;
+    padding: 8px 4px 0;
+}
+
+#tests {
+    text-align:center;
+}
+
+#tooltip {
+    background:#efefef;
+    font-family: monospace;
+    color: #333;
+    max-width:400px;
+    border: 1px solid #aaa;
+    padding: 8px;
+    position: absolute;
+    left:-1000px;
+    top: 20px;
+    z-index: 4000;
+    box-shadow: 1px 1px 4px #ddd;
+    border-radius: 5px;
+}
+
+.xml-element-tag {
+    color: #01005F;
+}
+
+.xml-element-name {
+    color: #1818B4;
+}
+
+.xml-attr-name {
+    color: #189518;
+}
+
+.xml-attr-value {
+    color: #8B1410;
+}
+
+.xml-text {
+    color: #000000;
+}
+
+.ace_comment {
+    color: #189518;
+    font-style: italic;
+}
+
+.xml-match {
+    background-color: #FFFF00;
+}

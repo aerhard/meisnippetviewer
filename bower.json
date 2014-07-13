@@ -1,0 +1,21 @@
+{
+	"name" : "MEISnippetViewer",
+	"authors" : ["aerhard"],
+	"description" : "JavaScript viewer for music snippets encoded in the MEI format",
+	"main" : ["./build/meisnippetviewer.js"],
+	"keywords" : ["music", "engraving", "HTML5", "jQuery", "MEI", "interactive"],
+	"license" : "Apache2",
+	"ignore" : ["**/.*", "node_modules", "bower_components", "test"],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/aerhard/MEItoVexFlow.git"
+  },
+  "dependencies" : {
+		"jquery" : "~2.1.0",
+    "vexflow" : "*"
+	},
+  "devDependencies" : {
+    "requirejs": "~2.1.2",
+    "meitovexflow": "git://github.com/aerhard/MEItoVexFlow.git#master"
+  }
+}

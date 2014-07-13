@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>Jasmine Spec Runner</title>
+
+    <link rel="shortcut icon" type="image/png" href="lib/jasmine-1.3.1/jasmine_favicon.png">
+    <link rel="stylesheet" type="text/css" href="lib/jasmine-1.3.1/jasmine.css">
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine.js"></script>
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine-html.js"></script>
+
+    <!-- include source files here... -->
+
+    <script src="../bower_components/vexflow/build/vexflow/vexflow-min.js"></script>
+    <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
+
+    <!-- MEISnippetViewer development -->
+    <script src="../bower_components/requirejs/require.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventReference.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Hyphenation.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaffInfo.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/System.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/LinkCollections.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/PointerCollections.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Measure.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/SystemInfo.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveConnector.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveVoices.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/tables.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Converter.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Util.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/vexflow-overrides.js"></script>
+
+    <!-- MEISnippetViewer production -->
+    <!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
+
+
+    <script>
+        var run = function () {
+            var jasmineEnv = jasmine.getEnv();
+            jasmineEnv.updateInterval = 1000;
+
+            var htmlReporter = new jasmine.HtmlReporter();
+
+            jasmineEnv.addReporter(htmlReporter);
+
+            jasmineEnv.specFilter = function (spec) {
+                return htmlReporter.specFilter(spec);
+            };
+
+            var currentWindowOnload = window.onload;
+
+            window.onload = function () {
+                if (currentWindowOnload) {
+                    currentWindowOnload();
+                }
+                execJasmine();
+            };
+
+            function execJasmine() {
+                jasmineEnv.execute();
+            }
+
+        };
+
+
+        if (typeof require === 'undefined') {
+            run();
+        } else {
+            require.config({
+                baseUrl : "../src",
+                paths : {
+                    "test" : "../test"
+                }
+            });
+
+            require([
+                'test/core/Document',
+                'test/core/Logger',
+                'test/core/RuntimeError'
+            ], run);
+        }
+
+
+    </script>
+
+</head>
+
+<body>
+</body>
+</html>

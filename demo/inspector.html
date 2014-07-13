@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>MEI Inspector</title>
+        <meta charset="utf-8">
+
+        <link rel="stylesheet" href="inspector.css"/>
+
+        <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
+
+        <!-- VexFlow Sources -->
+        <script src="../bower_components/vexflow/src/header.js"></script>
+        <script src="../bower_components/vexflow/src/vex.js"></script>
+        <script src="../bower_components/vexflow/src/flow.js"></script>
+        <script src="../bower_components/vexflow/src/fraction.js"></script>
+        <script src="../bower_components/vexflow/src/fonts/vexflow_font.js"></script>
+        <script src="../bower_components/vexflow/src/glyph.js"></script>
+        <script src="../bower_components/vexflow/src/tables.js"></script>
+
+        <!-- it is currently necessary to specify custom stave line thicknesses at this place;
+        changing it later leads to wrong bar line lengths in VexFlow. -->
+        <script>
+            Vex.Flow.STAVE_LINE_THICKNESS = 1;
+        </script>
+
+        <script src="../bower_components/vexflow/src/stave.js"></script>
+        <script src="../bower_components/vexflow/src/staveconnector.js"></script>
+        <script src="../bower_components/vexflow/src/tabstave.js"></script>
+        <script src="../bower_components/vexflow/src/voice.js"></script>
+        <script src="../bower_components/vexflow/src/voicegroup.js"></script>
+        <script src="../bower_components/vexflow/src/modifier.js"></script>
+        <script src="../bower_components/vexflow/src/modifiercontext.js"></script>
+        <script src="../bower_components/vexflow/src/accidental.js"></script>
+        <script src="../bower_components/vexflow/src/dot.js"></script>
+        <script src="../bower_components/vexflow/src/tickcontext.js"></script>
+        <script src="../bower_components/vexflow/src/tickable.js"></script>
+        <script src="../bower_components/vexflow/src/note.js"></script>
+        <script src="../bower_components/vexflow/src/bend.js"></script>
+        <script src="../bower_components/vexflow/src/stem.js"></script>
+        <script src="../bower_components/vexflow/src/notehead.js"></script>
+        <script src="../bower_components/vexflow/src/stemmablenote.js"></script>
+        <script src="../bower_components/vexflow/src/stavenote.js"></script>
+        <script src="../bower_components/vexflow/src/tabnote.js"></script>
+        <script src="../bower_components/vexflow/src/barnote.js"></script>
+        <script src="../bower_components/vexflow/src/clefnote.js"></script>
+        <script src="../bower_components/vexflow/src/timesignote.js"></script>
+        <script src="../bower_components/vexflow/src/ghostnote.js"></script>
+        <script src="../bower_components/vexflow/src/formatter.js"></script>
+        <script src="../bower_components/vexflow/src/stavetie.js"></script>
+        <script src="../bower_components/vexflow/src/stavehairpin.js"></script>
+        <script src="../bower_components/vexflow/src/tabtie.js"></script>
+        <script src="../bower_components/vexflow/src/tabslide.js"></script>
+        <script src="../bower_components/vexflow/src/beam.js"></script>
+        <script src="../bower_components/vexflow/src/vibrato.js"></script>
+        <script src="../bower_components/vexflow/src/annotation.js"></script>
+        <script src="../bower_components/vexflow/src/tuning.js"></script>
+        <script src="../bower_components/vexflow/src/stavemodifier.js"></script>
+        <script src="../bower_components/vexflow/src/keysignature.js"></script>
+        <script src="../bower_components/vexflow/src/timesignature.js"></script>
+        <script src="../bower_components/vexflow/src/clef.js"></script>
+        <script src="../bower_components/vexflow/src/music.js"></script>
+        <script src="../bower_components/vexflow/src/keymanager.js"></script>
+        <script src="../bower_components/vexflow/src/renderer.js"></script>
+        <script src="../bower_components/vexflow/src/stavebarline.js"></script>
+        <script src="../bower_components/vexflow/src/stavevolta.js"></script>
+        <script src="../bower_components/vexflow/src/staverepetition.js"></script>
+        <script src="../bower_components/vexflow/src/stavesection.js"></script>
+        <script src="../bower_components/vexflow/src/stavetempo.js"></script>
+        <script src="../bower_components/vexflow/src/stavetext.js"></script>
+        <script src="../bower_components/vexflow/src/articulation.js"></script>
+        <script src="../bower_components/vexflow/src/tremolo.js"></script>
+        <script src="../bower_components/vexflow/src/raphaelcontext.js"></script>
+        <script src="../bower_components/vexflow/src/canvascontext.js"></script>
+        <script src="../bower_components/vexflow/src/tuplet.js"></script>
+        <script src="../bower_components/vexflow/src/boundingbox.js"></script>
+        <script src="../bower_components/vexflow/src/textnote.js"></script>
+        <script src="../bower_components/vexflow/src/strokes.js"></script>
+        <script src="../bower_components/vexflow/src/stringnumber.js"></script>
+        <script src="../bower_components/vexflow/src/frethandfinger.js"></script>
+        <script src="../bower_components/vexflow/src/gracenote.js"></script>
+        <script src="../bower_components/vexflow/src/gracenotegroup.js"></script>
+        <script src="../bower_components/vexflow/src/curve.js"></script>
+
+        <!-- MEISnippetViewer development -->
+        <!--<script src="../bower_components/requirejs/require.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventReference.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Hyphenation.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaffInfo.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/System.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/LinkCollections.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/PointerCollections.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Measure.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/SystemInfo.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveConnector.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveVoices.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/tables.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Converter.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Util.js"></script>-->
+        <!--<script type="text/JavaScript" src="../bower_components/meitovexflow/src/vexflow-overrides.js"></script>-->
+
+        <!-- MEISnippetViewer development -->
+        <!--<script src="../bower_components/requirejs/require.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/meilib.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/MEI2VF.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/EventLink.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/EventReference.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/Hyphenation.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaffInfo.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/System.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/LinkCollections.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/PointerCollections.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/Measure.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/SystemInfo.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaveConnector.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaveVoices.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/tables.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/Converter.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/Util.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/Verses.js"></script>-->
+        <!--<script type="text/JavaScript" src="../../MEI2VF/src/vexflow-overrides.js"></script>-->
+
+        
+        <!-- MEISnippetViewer production -->
+        <script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>
+
+        <script type="text/JavaScript" src="../bower_components/meitovexflow/tests/loadxmldoc.js"></script>
+
+        <script type="text/JavaScript" src="Inspector.js"></script>
+
+        <script type="text/JavaScript">
+
+            $(document).ready(function () {
+
+                var run = function() {
+                    var inspector = new Inspector();
+                    inspector.render('../bower_components/meitovexflow/tests/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine: true});
+                    inspector.render('../bower_components/meitovexflow/tests/TC.GraceNotes.xml', {page_height:400});
+                    inspector.render('../bower_components/meitovexflow/tests/TC.PageLayoutAutoWidths.xml');
+
+                };
+
+                // Performs the tests either with requirejs or with the minified script,
+                // depending on whether the requirejs library is loaded or not.
+                // Toggle between requirejs and the minified code
+                // by (un)commenting the corresponding script tags above.
+                if (typeof require === 'undefined') {
+                    run();
+                } else {
+                    require.config({
+                        baseUrl: "../src"
+                    });
+                    require(['main'], run);
+                }
+            });
+        </script>
+    </head>
+    <body>
+        <div class="infobar">
+            INFO <span id="measureinfo"></span>
+        </div>
+        <div id="tests" class="test-page"></div>
+        <div id="tooltip"></div>
+        <script src="//localhost:35729/livereload.js"></script>
+    </body>
+</html>
