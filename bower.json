@@ -8,7 +8,7 @@
 	"ignore" : ["**/.*", "node_modules", "bower_components", "test"],
   "repository": {
     "type": "git",
-    "url": "git://github.com/aerhard/MEItoVexFlow.git"
+    "url": "git://github.com/aerhard/meisnippetviewer.git"
   },
   "dependencies" : {
 		"jquery" : "~2.1.0",
