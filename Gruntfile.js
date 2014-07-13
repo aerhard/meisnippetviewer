@@ -3,7 +3,6 @@ module.exports = function (grunt) {
   'use strict';
 
   // Load plugins. 
-  grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-connect');
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-contrib-concat');
