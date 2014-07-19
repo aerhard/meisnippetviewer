@@ -85,6 +85,7 @@ module.exports = function (grunt) {
           'bower_components/meitovexflow/src/EventLink.js',
           'bower_components/meitovexflow/src/EventReference.js',
           'bower_components/meitovexflow/src/Hyphenation.js',
+          'bower_components/meitovexflow/src/Verses.js',
           'bower_components/meitovexflow/src/LinkCollections.js',
           'bower_components/meitovexflow/src/PointerCollections.js',
           'bower_components/meitovexflow/src/Measure.js',

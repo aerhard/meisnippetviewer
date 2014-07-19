@@ -170,13 +170,17 @@ MeiLib.EventEnumerator.prototype.step_ahead = function() {++this.i_next;
  *
  * @param evnt an XML DOM object
  * @param meter the time signature object { count, unit }
+ * @param {Boolean} zeroGraceNotes Specifies if all grace notes should return the duration 0
  */
-MeiLib.durationOf = function(evnt, meter) {
+MeiLib.durationOf = function(evnt, meter, zeroGraceNotes) {
 
-  var IsZeroDurEvent = function(evnt, tagName) {
+  var IsZeroDurEvent = zeroGraceNotes
+    ? function (evnt, tagName) {
     return evnt.hasAttribute('grace') || tagName === 'clef';
+  } : function (evnt, tagName) {
+    return tagName === 'clef';
   };
-  IsSimpleEvent = function(tagName) {
+  var IsSimpleEvent = function(tagName) {
     return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
   }
   var durationOf_SimpleEvent = function(simple_evnt, meter) {
@@ -301,12 +305,12 @@ MeiLib.tstamp2id = function(tstamp, layer, meter) {
     evnt = eventList.nextEvent();
     dist = distF();
     if (!evnt.hasAttribute('grace') && evnt.localName !== 'clef') {
-      ts_acc += MeiLib.durationOf(evnt, meter) *
+      ts_acc += MeiLib.durationOf(evnt, meter, true) *
                 eventList.outputProportion.numbase /
                 eventList.outputProportion.num;
     }
-    m = meter;
-    e = evnt;
+//    m = meter;
+//    e = evnt;
   }
 
   if (dist === undefined)
@@ -1339,7 +1343,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          */
         lyricsFont : {
           family : 'Times',
-          size : 15
+          size : 13,
+          spacing: 1.3,
         },
         /**
          * @cfg {Object} annotFont the font used for annotations (for example,
@@ -1506,6 +1511,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          * @property {MEI2VF.Hyphenation} hyphenation
          */
         me.hyphenation = new m2v.Hyphenation(me.cfg.lyricsFont, me.printSpace.right, me.cfg.maxHyphenDistance);
+        me.verses = new m2v.Verses(me.cfg.lyricsFont, me.printSpace.right, me.cfg.maxHyphenDistance);
         /**
          * contains all note-like objects in the current MEI document, accessible
          * by their xml:id
@@ -1520,11 +1526,6 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          * @property {Number} currentSystem_n
          */
         me.currentSystem_n = 0;
-        /**
-         * Grace note or grace chord objects to be added to the next non-grace note or chord
-         * @property {Vex.Flow.StaveNote[]} currentGraceNotes
-         */
-        me.currentGraceNotes = [];
         /**
          * indicates if a system break is currently to be processed
          * @property {Boolean} pendingSystemBreak
@@ -1589,7 +1590,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         me.ties.setContext(ctx).draw();
         me.slurs.setContext(ctx).draw();
         me.hairpins.setContext(ctx).draw();
-        me.hyphenation.setContext(ctx).draw();
+        me.verses.drawHyphens(ctx);
         return me;
       },
 
@@ -1700,6 +1701,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           system : system
         });
 
+        me.verses.addLineBreaks(me.systemInfo.getAllStaffInfos(), {
+          system : system
+        });
+
         me.systems[me.currentSystem_n] = system;
         return system;
       },
@@ -1709,12 +1714,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        */
       processSections : function(xmlDoc) {
         var me = this;
-        $(xmlDoc).find('section, ending').each(function() {
-          if (this.localName === 'ending') {
-            me.processEnding(this);
-          } else {
+        $(xmlDoc).find('section').each(function() {
             me.processSection(this);
-          }
         });
       },
 
@@ -1723,6 +1724,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        */
       processSection : function(element) {
         var me = this, i, j, sectionChildren = $(element).children();
+        me.verses.initHyphenations( $(element).find('syl') );
         for ( i = 0, j = sectionChildren.length; i < j; i += 1) {
           me.processSectionChild(sectionChildren[i]);
         }
@@ -1769,6 +1771,9 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             break;
           case 'sb' :
             me.setPendingSystemBreak(element);
+            break;
+          case 'ending' :
+            me.processEnding(element);
             break;
           default :
             throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.NotSupported', 'Element <' + element.localName + '> is not supported in <section>');
@@ -1867,6 +1872,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           n : measure_n,
           staffs : staffs,
           voices : currentStaveVoices,
+          verses : me.verses,
           startConnectorCfg : (atSystemStart) ? {
             labelMode : me.cfg.labelMode,
             models : me.systemInfo.startConnectorInfos,
@@ -2058,12 +2064,15 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        */
       addStaffVolta : function(staff) {
         var volta = this.currentVoltaType;
-        if (volta.start)
-          staff.setVoltaType(Vex.Flow.Volta.type.BEGIN, volta.start + '.', 30, 0);
-        if (volta.end)
-          staff.setVoltaType(Vex.Flow.Volta.type.END, "", 30, 0);
-        if (!volta.start && !volta.end)
-          staff.setVoltaType(Vex.Flow.Volta.type.MID, "", 30, 0);
+        if (volta.start) {
+          staff.setVoltaType(Vex.Flow.Volta.type.BEGIN, volta.start + '.', 30);
+        } else if (volta.end) {
+          //TODO: fix type.BEGIN and type.END interference in vexflow, then remove else!
+          //[think through in which cases we actually need type.END]
+          staff.setVoltaType(Vex.Flow.Volta.type.END, "", 30);
+        } else if (!volta.start && !volta.end) {
+          staff.setVoltaType(Vex.Flow.Volta.type.MID, "", 30);
+        }
       },
 
       /**
@@ -2098,17 +2107,36 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * object
        */
       processStaffEvents : function(staffs, staff_element, measure_n, currentStaveVoices) {
-        var me = this, staff, staff_n, readEvents, layerElements, i, j, layer_events, layerDir, staffInfo;
+        var me = this, staff, staff_n, readEvents, layerElements, i, j, layer_events, layerDir, currentGraceNotes = [], GN = VF.GraceNote, staffInfo;
 
         staff_n = +$(staff_element).attr('n');
         staff = staffs[staff_n];
 
         staffInfo = me.systemInfo.getStaffInfo(staff_n);
 
+        var evalEvent = function (event) {
+          if (event instanceof GN) {
+            currentGraceNotes.push(event);
+            return null;
+          }
+          if ($.isArray(event)) {
+            var n = [];
+            for (var i=0,j=event.length;i<j;i++) {
+              var ev = evalEvent(event[i]);
+              if (ev !== null) n.push(ev);
+            }
+            return n;
+          }
+          if (currentGraceNotes.length > 0) {
+            event.addModifier(0, new Vex.Flow.GraceNoteGroup(currentGraceNotes, false).beamNotes());
+            currentGraceNotes = [];
+          }
+          return event;
+        };
+
         readEvents = function() {
           var event = me.processNoteLikeElement(this, staff, staff_n, layerDir, staffInfo);
-          // return event.vexNote;
-          return event ? (event.vexNote || event) : null;
+          return evalEvent(event.vexNote || event);
         };
 
         layerElements = $(staff_element).find('layer');
@@ -2123,6 +2151,13 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           currentStaveVoices.addVoice(me.createVexVoice(layer_events, staffInfo.meter), staff_n);
 
         }
+
+//        $(staff_element).find('layer').each(function() {
+//          me.resolveUnresolvedTimestamps(this, staff_n, measure_n, staffInfo.meter);
+//          staffInfo.checkInitialClef();
+//          layer_events = $(this).children().map(readEvents).get();
+//          currentStaveVoices.addVoice(me.createVexVoice(layer_events, staffInfo.meter), staff_n);
+//        });
 
 //        layerElements.each(function() {
 //        });
@@ -2205,7 +2240,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           case 'tuplet' :
             return me.processTuplet(element, staff, staff_n, layerDir, staffInfo);
           case 'chord' :
-            return me.processChord(element, staff, staff_n, layerDir);
+            return me.processChord(element, staff, staff_n, layerDir, staffInfo);
           case 'clef' :
             return me.processClef(element, staff, staff_n, layerDir, staffInfo);
           case 'anchoredText' :
@@ -2243,7 +2278,13 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           };
 
           me.setStemDir(element, note_opts, layerDir);
-          note = (atts.grace) ? new VF.GraceNote(note_opts) : new VF.StaveNote(note_opts);
+
+          if (atts.grace) {
+            note = new VF.GraceNote(note_opts);
+            note.slash = atts['stem.mod'] === '1slash';
+          } else {
+            note = new VF.StaveNote(note_opts);
+          }
 
           if (mei_staff_n === staff_n) {
             note.setStave(staff);
@@ -2302,20 +2343,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             layerDir : layerDir
           };
 
-          if (atts.grace) {
-            note.slash = atts['stem.mod'] === '1slash';
-            me.currentGraceNotes.push(note);
-            return;
-          } else {
-            if (me.currentGraceNotes.length > 0) {
-              note.addModifier(0, new Vex.Flow.GraceNoteGroup(me.currentGraceNotes, false).beamNotes());
-              me.currentGraceNotes = [];
-            }
-            return {
-              vexNote : note,
-              id : xml_id
-            };
-          }
+          return {
+            vexNote : note,
+            id : xml_id
+          };
 
         } catch (e1) {
           throw new m2v.RUNTIME_ERROR('BadArguments', 'A problem occurred processing the <note>: ' + m2v.Util.attsToString(element) + '\nORIGINAL ERROR MESSAGE: ' + e1.toString());
@@ -2325,7 +2356,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       /**
        * @method processChord
        */
-      processChord : function(element, staff, staff_n, layerDir) {
+      processChord : function(element, staff, staff_n, layerDir, staffInfo) {
         var me = this, i, j, hasDots, children, keys = [], duration, durations = [], durAtt, xml_id, chord, chord_opts, atts;
 
         children = $(element).children();
@@ -2364,7 +2395,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           };
 
           me.setStemDir(element, chord_opts, layerDir);
-          chord = (atts.grace) ? new VF.GraceNote(chord_opts) : new VF.StaveNote(chord_opts);
+
+          if (atts.grace) {
+            chord = new VF.GraceNote(chord_opts);
+            chord.slash = atts['stem.mod'] === '1slash';
+          } else {
+            chord = new VF.StaveNote(chord_opts);
+          }
+
           chord.setStave(staff);
 
           var allNoteIndices = [];
@@ -2392,19 +2430,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             layerDir : layerDir
           };
 
-          if (atts.grace) {
-            me.currentGraceNotes.push(chord);
-            return;
-          } else {
-            if (me.currentGraceNotes.length > 0) {
-              chord.addModifier(0, new Vex.Flow.GraceNoteGroup(me.currentGraceNotes, false).beamNotes());
-              me.currentGraceNotes = [];
-            }
-            return {
-              vexNote : chord,
-              id : xml_id
-            };
-          }
+          return {
+            vexNote : chord,
+            id : xml_id
+          };
         } catch (e) {
           throw new m2v.RUNTIME_ERROR('BadArguments', 'A problem occurred processing the <chord>:' + e.toString());
           // 'A problem occurred processing the <chord>: ' +
@@ -2612,13 +2641,23 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * layer
        */
       processBeam : function(element, staff, staff_n, layerDir, staffInfo) {
-        var me = this, elements;
+        var me = this, elements, regularBeamElements = [], GN = VF.GraceNote;
+
         var process = function() {
+          // make sure to get vexNote out of wrapped note objects
           var proc_element = me.processNoteLikeElement(this, staff, staff_n, layerDir, staffInfo);
-          return proc_element ? (proc_element.vexNote || proc_element) : null;
+          return proc_element.vexNote || proc_element;
         };
         elements = $(element).children().map(process).get();
-        if (elements.length > 0) me.allBeams.push(new VF.Beam(elements));
+
+        // exclude grace notes from regular beams:
+        for (var i= 0,j=elements.length;i<j;i++) {
+          if (!(elements[i] instanceof GN)) {
+            regularBeamElements.push(elements[i]);
+          }
+        }
+
+        if (regularBeamElements.length > 0) me.allBeams.push(new VF.Beam(regularBeamElements));
         return elements;
       },
 
@@ -2635,7 +2674,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @method processTuplet
        * @param {XMLElement} element the MEI tuplet element
        * @param {Vex.Flow.Staff} staff the containing staff
-       * @param {Number} the number of the containing staff
+       * @param {Number} staff_n the number of the containing staff
        * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
        * layer
        */
@@ -2644,7 +2683,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         var process = function() {
           // make sure to get vexNote out of wrapped note objects
           var proc_element = me.processNoteLikeElement(this, staff, staff_n, layerDir, staffInfo);
-          return proc_element ? (proc_element.vexNote || proc_element) : null;
+          return proc_element.vexNote || proc_element;
         };
         elements = $(element).children().map(process).get();
 
@@ -2660,6 +2699,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         bracketVisible = element.getAttribute('bracket.visible');
         if (bracketVisible) {
           tuplet.setBracketed((bracketVisible === 'true') ? true : false);
+        } else {
+          if (elements[0] instanceof VF.GraceNote) {
+            tuplet.setBracketed(false);
+          }
         }
 
         bracketPlace = element.getAttribute('bracket.place');
@@ -2733,7 +2776,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       },
 
       /**
-       * @method parse_slure_attribute
+       * @method parse_slur_attribute
        */
       parse_slur_attribute : function(slur_str) {
         var result = [], numbered_tokens, numbered_token, i, j, num;
@@ -2797,15 +2840,26 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @method processSyllables
        */
       processSyllables : function(note, element, staff_n) {
-        var me = this, annot, syl;
-        syl = me.processSyllable(element);
-        if (syl) {
-          annot = me.createAnnot(syl.text, me.cfg.lyricsFont).setVerticalJustification(me.BOTTOM);
-          note.addAnnotation(0, annot);
-          if (syl.wordpos) {
-            me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+        var me = this, annot, syl, verse, text_line, verse_n, syls;
+        // syl = me.processSyllable(element);
+        syls = $(element).find('syl');
+        $.each(syls, function(i) {
+          syl = {
+            text : $(this).text(),
+            wordpos : $(this).attr('wordpos'),
+            verse_n : $(this).parents('verse').attr('n'),
+          };
+          if (syl) {
+            annot = me.createAnnot(syl.text, me.cfg.lyricsFont).
+              setVerticalJustification(me.BOTTOM).
+              setLineSpacing(me.cfg.lyricsFont.spacing);
+            note.addAnnotation(0, annot);
+            me.verses.addSyllable(annot, syl.wordpos, syl.verse_n, staff_n)
+            if (syl.wordpos) {
+              me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+            }
           }
-        }
+        });
       },
 
       // processSyllable : function(mei_note) {
@@ -2829,7 +2883,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         if (syl) {
           return {
             text : $(syl).text(),
-            wordpos : $(syl).attr('wordpos')
+            wordpos : $(syl).attr('wordpos'),
+            verse_n : $(syl).parents('verse').attr('n'),
           };
         }
       },
@@ -3216,6 +3271,103 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           }
         }
       }
+    };
+
+    return m2v;
+
+  }(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
+;var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
+
+    /**
+     * @class MEI2VF.Verses
+     * @private
+     *
+     * @constructor
+     * @param {Object} cfg
+     */
+    m2v.Verses = function(font, printSpaceRight, maxHyphenDistance) {
+      var me = this;
+      me.hyphenations = {};
+      me.verses = {};
+      me.printSpaceRight = printSpaceRight;
+      me.font = font;
+      me.maxHyphenDistance = maxHyphenDistance;
+    };
+
+    m2v.Verses.prototype = {
+
+      newHyphenation : function() {
+        return new m2v.Hyphenation(this.font, this.printSpaceRight, this.maxHyphenDistance);
+      },
+
+      addHyphenation : function(verse_n) {
+        var me = this;
+        if (!me.hyphenations[verse_n]) {
+          me.hyphenations[verse_n] = me.newHyphenation();
+        }
+        return me;
+      },
+
+      getHyphenation : function(verse_n) {
+        var me = this, hyphenation;
+        hyphenation = me.hyphenations[verse_n];
+        if (!hyphenation) {
+          hyphenation = me.newHyphenation();
+          me.hyphenations[verse_n] = hyphenation;
+        }
+        return hyphenation;
+      },
+
+      initHyphenations : function(elems) {
+        var me = this, verse_n;
+        $.each(elems, function(i) {
+          verse_n = $(elems[i]).parents('verse').attr('n') || '1';
+          me.addHyphenation(verse_n);
+        });
+      },
+
+      drawHyphens : function(ctx) {
+        var me = this, verse_n, i, hyph;
+        for (verse_n in me.hyphenations) {
+          me.getHyphenation(verse_n).setContext(ctx).draw();
+        };
+        return me;
+      },
+
+      format : function() {
+        var me = this, verse_n, text_line, verse, i, j;
+        text_line = 0;
+        for (verse_n in me.verses) {
+          verse = me.verses[verse_n];
+          for (i = 0, j = verse.length; i < j; i++) {
+            verse[i].setTextLine(text_line);
+          }
+          text_line += 1;
+        };
+        return me;
+      },
+
+      addLineBreaks : function(staffInfos, measureX) {
+        var me = this;
+        for (verse_n in me.hyphenations){
+          me.hyphenations[verse_n].addLineBreaks(staffInfos, measureX);
+        };
+        return me;
+      },
+
+      addSyllable : function(annot, wordpos, verse_n, staff_n) {
+        var me = this;
+        verse_n = verse_n || '1';
+        if (!me.verses[verse_n]) {
+          me.verses[verse_n] = [];
+        }
+        me.verses[verse_n].push(annot);
+        if (wordpos) {
+          me.hyphenations[verse_n].addSyllable(annot, wordpos, staff_n);
+        }
+        return me;
+      },
+
     };
 
     return m2v;
@@ -3931,6 +4083,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          */
         me.voices = config.voices;
         /**
+         * @cfg {MEI2VF.Verses} verses All verses in the entire score
+         */
+         me.verses = config.verses;
+        /**
          * @cfg {MEI2VF.Connectors} startConnectors an instance of
          * MEI2VF.Connectors handling all left connectors (only the first measure
          * in a system has data)
@@ -4117,7 +4273,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         while (i--) {
           staff = staffs[i];
           if (staff) {
-            me.maxEndModifierW = Math.max(me.maxEndModifierW, staff.glyph_end_x - staff.end_x);
+            me.maxEndModifierW = Math.max(me.maxEndModifierW, staff.getGlyphEndX() - staff.end_x);
           }
         }
       },
@@ -4144,11 +4300,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @param {String[]} labels The labels of all staves
        */
       format : function(x, labels) {
-        var me = this,
-            // the final width of the measure
-            width = me.w,
-            i = me.staffs.length,
-            staff;
+        var me = this, width = me.w, i = me.staffs.length, staff, k;
         while (i--) {
           if (me.staffs[i]) {
             staff = me.staffs[i];
@@ -4157,11 +4309,21 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
                 shift_y : -3
               });
             }
-            staff.x += x;
-            staff.glyph_start_x += x;
-            staff.start_x = staff.x + me.maxNoteStartX;
-            staff.bounds.x += x;
 
+            if (typeof staff.setX == "function") {
+              staff.setX(x);
+            } else {
+              /* Fallback if VexFlow doesn't have setter */
+              //TODO: remove when setX() is merged to standard VexFlow
+              staff.x = x;
+              staff.glyph_start_x = x + 5;
+              staff.bounds.x = x;
+              for (k = 0; k < staff.modifiers.length; k++) {
+                staff.modifiers[k].x = x;
+              }
+            }
+
+            staff.start_x = staff.x + me.maxNoteStartX;
             staff.setWidth(width);
 
             staff.end_x -= me.maxEndModifierW;
@@ -4169,6 +4331,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           }
         }
         me.voices.format(me.getFirstDefinedStaff());
+        me.verses.format();
       },
 
       /**
@@ -5735,6 +5898,8 @@ Vex.Flow.Annotation = ( function() {
       CENTER_STEM : 4
     };
 
+    Annotation.DEFAULT_FONT_SIZE = 10;
+
     // ## Prototype Methods
     //
     // Annotations inherit from `Modifier` and is positioned correctly when
@@ -5753,12 +5918,20 @@ Vex.Flow.Annotation = ( function() {
         this.vert_justification = Annotation.VerticalJustify.TOP;
         this.font = {
           family : "Arial",
-          size : 10,
+          size : Annotation.DEFAULT_FONT_SIZE,
           weight : ""
         };
 
+        // Line spacing, relative to font size
+        this.line_spacing = 1.1; 
+
         // The default width is calculated from the text.
         this.setWidth(Vex.Flow.textWidth(text));
+      },
+
+      setLineSpacing : function(spacing) {
+        this.line_spacing = spacing;
+        return this;
       },
 
       // Return the modifier type. Used by the `ModifierContext` to calculate
@@ -5832,7 +6005,7 @@ Vex.Flow.Annotation = ( function() {
           x = this.note.getStemX() - text_width / 2;
         }
 
-        var stem_ext, spacing;
+        var stem_ext, spacing, font_scale;
         var has_stem = this.note.hasStem();
         var stave = this.note.getStave();
 
@@ -5843,11 +6016,12 @@ Vex.Flow.Annotation = ( function() {
           spacing = stave.getSpacingBetweenLines();
         }
 
+        font_scale = this.font.size / Annotation.DEFAULT_FONT_SIZE * this.line_spacing;
         if (this.vert_justification == Annotation.VerticalJustify.BOTTOM) {
-          y = stave.getYForBottomText(this.text_line);
+          y = stave.getYForBottomText(this.text_line, font_scale);
           if (has_stem) {
             var stem_base = (this.note.getStemDirection() === 1 ? stem_ext.baseY : stem_ext.topY);
-            y = Math.max(y, stem_base + (spacing * (this.text_line + 2)));
+            y = Math.max(y, stem_base + ( spacing * (this.text_line + 1) * font_scale + ( spacing * (this.text_line) ) ) );
           }
         } else if (this.vert_justification == Annotation.VerticalJustify.CENTER) {
           var yt = this.note.getYForTopText(this.text_line) - 1;
@@ -6088,7 +6262,6 @@ Vex.Flow.StaveTie = ( function() {
   }());
 
 
-
 // TEMPORARY (modify VexFlow / discuss there, 7 July 2014)
 
 Vex.Flow.NoteHead.prototype.draw = function() {
@@ -6308,6 +6481,496 @@ Vex.Flow.Beam.prototype.calculateSlope = function() {
   this.y_shift = y_shift;
 };
 
+
+// Vex Flow
+// Mohit Muthanna <mohit@muthanna.com>
+//
+// Copyright Mohit Cheppudira 2010
+
+/** @constructor */
+Vex.Flow.Stave = (function() {
+  function Stave(x, y, width, options) {
+    if (arguments.length > 0) this.init(x, y, width, options);
+  }
+
+  var THICKNESS = (Vex.Flow.STAVE_LINE_THICKNESS > 1 ?
+        Vex.Flow.STAVE_LINE_THICKNESS : 0);
+  Stave.prototype = {
+    init: function(x, y, width, options) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.start_x = this.getGlyphStartX();
+      this.end_x = this.getGlyphEndX();
+      this.context = null;
+      this.glyphs = [];
+      this.end_glyphs = [];
+      this.modifiers = [];  // non-glyph stave items (barlines, coda, segno, etc.)
+      this.measure = 0;
+      this.clef = "treble";
+      this.font = {
+        family: "sans-serif",
+        size: 8,
+        weight: ""
+      };
+      this.options = {
+        vertical_bar_width: 10,       // Width around vertical bar end-marker
+        glyph_spacing_px: 10,
+        num_lines: 5,
+        fill_style: "#999999",
+        spacing_between_lines_px: 10, // in pixels
+        space_above_staff_ln: 4,      // in staff lines
+        space_below_staff_ln: 4,      // in staff lines
+        top_text_position: 1          // in staff lines
+      };
+      this.bounds = {x: this.x, y: this.y, w: this.width, h: 0};
+      Vex.Merge(this.options, options);
+
+      this.resetLines();
+
+      this.modifiers.push(
+          new Vex.Flow.Barline(Vex.Flow.Barline.type.SINGLE, this.x)); // beg bar
+      this.modifiers.push(
+          new Vex.Flow.Barline(Vex.Flow.Barline.type.SINGLE,
+          this.x + this.width)); // end bar
+    },
+
+    getGlyphStartX: function() {
+      return this.x + 5;
+    },
+
+    getGlyphEndX: function() {
+      return this.x + this.width;
+    },
+
+    resetLines: function() {
+      this.options.line_config = [];
+      for (var i = 0; i < this.options.num_lines; i++) {
+        this.options.line_config.push({visible: true});
+      }
+      this.height = (this.options.num_lines + this.options.space_above_staff_ln) *
+         this.options.spacing_between_lines_px;
+      this.options.bottom_text_position = this.options.num_lines + 1;
+    },
+
+    setNoteStartX: function(x) { this.start_x = x; return this; },
+    getNoteStartX: function() {
+      var start_x = this.start_x;
+
+      // Add additional space if left barline is REPEAT_BEGIN and there are other
+      // start modifiers than barlines
+      if (this.modifiers[0].barline == Vex.Flow.Barline.type.REPEAT_BEGIN &&
+          this.modifiers.length > 2)
+        start_x += 20;
+      return start_x;
+    },
+
+    getNoteEndX: function() { return this.end_x; },
+    getTieStartX: function() { return this.start_x; },
+    getTieEndX: function() { return this.x + this.width; },
+    setContext: function(context) { this.context = context; return this; },
+    getContext: function() { return this.context; },
+
+    setX: function(x) {
+      var i;
+      var dx = (typeof this.x == "number") ? x - this.x : 0;
+      console.log('dx: ' + dx.toString());
+      this.x = x;
+      this.bounds.x = x;
+      this.start_x += dx;
+      for (i = 0; i < this.modifiers.length; i++) {
+        this.modifiers[i].x = x;
+      }
+      return this;
+    },
+
+    getX: function() { return this.x; },
+    getNumLines: function() { return this.options.num_lines; },
+    setNumLines: function(lines) {
+      this.options.num_lines = parseInt(lines, 10);
+      this.resetLines();
+      return this;
+    },
+    setY: function(y) { this.y = y; return this; },
+
+    setWidth: function(width) {
+      this.width = width;
+      this.end_x = this.getGlyphEndX();
+
+      // reset the x position of the end barline
+      this.modifiers[1].setX(this.end_x);
+      return this;
+    },
+
+    getWidth: function() {
+      return this.width;
+    },
+
+    setMeasure: function(measure) { this.measure = measure; return this; },
+
+      // Bar Line functions
+    setBegBarType: function(type) {
+      // Only valid bar types at beginning of stave is none, single or begin repeat
+      if (type == Vex.Flow.Barline.type.SINGLE ||
+          type == Vex.Flow.Barline.type.REPEAT_BEGIN ||
+          type == Vex.Flow.Barline.type.NONE) {
+          this.modifiers[0] = new Vex.Flow.Barline(type, this.x);
+      }
+      return this;
+    },
+
+    setEndBarType: function(type) {
+      // Repeat end not valid at end of stave
+      if (type != Vex.Flow.Barline.type.REPEAT_BEGIN)
+        this.modifiers[1] = new Vex.Flow.Barline(type, this.x + this.width);
+      return this;
+    },
+
+    /**
+     * Gets the pixels to shift from the beginning of the stave
+     * following the modifier at the provided index
+     * @param  {Number} index The index from which to determine the shift
+     * @return {Number}       The amount of pixels shifted
+     */
+    getModifierXShift: function(index) {
+      if (typeof index === 'undefined') index = this.glyphs.length -1;
+      if (typeof index !== 'number') new Vex.RERR("InvalidIndex",
+        "Must be of number type");
+
+      var x = this.getGlyphStartX();
+      var bar_x_shift = 0;
+
+      for (var i = 0; i < index + 1; ++i) {
+        var glyph = this.glyphs[i];
+        x += glyph.getMetrics().width;
+        bar_x_shift += glyph.getMetrics().width;
+      }
+
+      // Add padding after clef, time sig, key sig
+      if (bar_x_shift > 0) bar_x_shift += this.options.vertical_bar_width + 10;
+
+      return bar_x_shift;
+    },
+
+    // Coda & Segno Symbol functions
+    setRepetitionTypeLeft: function(type, y) {
+      this.modifiers.push(new Vex.Flow.Repetition(type, this.x, y));
+      return this;
+    },
+
+    setRepetitionTypeRight: function(type, y) {
+      this.modifiers.push(new Vex.Flow.Repetition(type, this.x, y) );
+      return this;
+    },
+
+    // Volta functions
+    setVoltaType: function(type, number_t, y) {
+      this.modifiers.push(new Vex.Flow.Volta(type, number_t, this.x, y));
+      return this;
+    },
+
+    // Section functions
+    setSection: function(section, y) {
+      this.modifiers.push(new Vex.Flow.StaveSection(section, this.x, y));
+      return this;
+    },
+
+    // Tempo functions
+    setTempo: function(tempo, y) {
+      this.modifiers.push(new Vex.Flow.StaveTempo(tempo, this.x, y));
+      return this;
+    },
+
+    // Text functions
+    setText: function(text, position, options) {
+      this.modifiers.push(new Vex.Flow.StaveText(text, position, options));
+      return this;
+    },
+
+    getHeight: function() {
+      return this.height;
+    },
+
+    getSpacingBetweenLines: function() {
+      return this.options.spacing_between_lines_px;
+    },
+
+    getBoundingBox: function() {
+      return new Vex.Flow.BoundingBox(this.x, this.y, this.width, this.getBottomY() - this.y);
+      // body...
+    },
+
+    getBottomY: function() {
+      var options = this.options;
+      var spacing = options.spacing_between_lines_px;
+      var score_bottom = this.getYForLine(options.num_lines) +
+         (options.space_below_staff_ln * spacing);
+
+      return score_bottom;
+    },
+
+    getBottomLineY: function() {
+      return this.getYForLine(this.options.num_lines);
+    },
+
+    getYForLine: function(line) {
+      var options = this.options;
+      var spacing = options.spacing_between_lines_px;
+      var headroom = options.space_above_staff_ln;
+
+      var y = this.y + ((line * spacing) + (headroom * spacing)) -
+        (THICKNESS / 2);
+
+      return y;
+    },
+
+    getYForTopText: function(line, font_scale) {
+      var l = line || 0;
+      var scale = font_scale || 1;
+      return this.getYForLine(-(l * scale) - this.options.top_text_position);
+    },
+
+    getYForBottomText: function(line, font_scale) {
+      var l = line || 0;
+      var scale = font_scale || 1;
+      return this.getYForLine(this.options.bottom_text_position + (l * scale));
+    },
+
+    getYForNote: function(line) {
+      var options = this.options;
+      var spacing = options.spacing_between_lines_px;
+      var headroom = options.space_above_staff_ln;
+      var y = this.y + (headroom * spacing) + (5 * spacing) - (line * spacing);
+
+      return y;
+    },
+
+    getYForGlyphs: function() {
+      return this.getYForLine(3);
+    },
+
+    addGlyph: function(glyph) {
+      glyph.setStave(this);
+      this.glyphs.push(glyph);
+      this.start_x += glyph.getMetrics().width;
+      return this;
+    },
+
+    addEndGlyph: function(glyph) {
+      glyph.setStave(this);
+      this.end_glyphs.push(glyph);
+      this.end_x -= glyph.getMetrics().width;
+      return this;
+    },
+
+    addModifier: function(modifier) {
+      this.modifiers.push(modifier);
+      modifier.addToStave(this, (this.glyphs.length === 0));
+      return this;
+    },
+
+    addEndModifier: function(modifier) {
+      this.modifiers.push(modifier);
+      modifier.addToStaveEnd(this, (this.end_glyphs.length === 0));
+      return this;
+    },
+
+    addKeySignature: function(keySpec) {
+      this.addModifier(new Vex.Flow.KeySignature(keySpec));
+      return this;
+    },
+
+    addClef: function(clef) {
+      this.clef = clef;
+      this.addModifier(new Vex.Flow.Clef(clef));
+      return this;
+    },
+
+    addEndClef: function(clef) {
+      this.addEndModifier(new Vex.Flow.Clef(clef));
+      return this;
+    },
+
+    addTimeSignature: function(timeSpec, customPadding) {
+      this.addModifier(new Vex.Flow.TimeSignature(timeSpec, customPadding));
+      return this;
+    },
+
+    addEndTimeSignature: function(timeSpec, customPadding) {
+      this.addEndModifier(new Vex.Flow.TimeSignature(timeSpec, customPadding));
+    },
+
+    addTrebleGlyph: function() {
+      this.clef = "treble";
+      this.addGlyph(new Vex.Flow.Glyph("v83", 40));
+      return this;
+    },
+
+    /**
+     * All drawing functions below need the context to be set.
+     */
+    draw: function() {
+      if (!this.context) throw new Vex.RERR("NoCanvasContext",
+          "Can't draw stave without canvas context.");
+
+      var num_lines = this.options.num_lines;
+      var width = this.width;
+      var x = this.x;
+      var y;
+      var glyph;
+
+      // Render lines
+      for (var line=0; line < num_lines; line++) {
+        y = this.getYForLine(line);
+
+        this.context.save();
+        this.context.setFillStyle(this.options.fill_style);
+        this.context.setStrokeStyle(this.options.fill_style);
+        if (this.options.line_config[line].visible) {
+          this.context.fillRect(x, y, width, Vex.Flow.STAVE_LINE_THICKNESS);
+        }
+        this.context.restore();
+      }
+
+      // Render glyphs
+      x = this.getGlyphStartX();
+      for (var i = 0; i < this.glyphs.length; ++i) {
+        glyph = this.glyphs[i];
+        if (!glyph.getContext()) {
+          glyph.setContext(this.context);
+        }
+        glyph.renderToStave(x);
+        x += glyph.getMetrics().width;
+      }
+
+      // Render end glyphs
+      x = this.getGlyphEndX();
+      for (i = 0; i < this.end_glyphs.length; ++i) {
+        glyph = this.end_glyphs[i];
+        if (!glyph.getContext()) {
+          glyph.setContext(this.context);
+        }
+        x -= glyph.getMetrics().width;
+        glyph.renderToStave(x);
+      }
+
+      // Draw the modifiers (bar lines, coda, segno, repeat brackets, etc.)
+      for (i = 0; i < this.modifiers.length; i++) {
+        // Only draw modifier if it has a draw function
+        if (typeof this.modifiers[i].draw == "function")
+          this.modifiers[i].draw(this, this.getModifierXShift());
+      }
+
+      // Render measure numbers
+      if (this.measure > 0) {
+        this.context.save();
+        this.context.setFont(this.font.family, this.font.size, this.font.weight);
+        var text_width = this.context.measureText("" + this.measure).width;
+        y = this.getYForTopText(0) + 3;
+        this.context.fillText("" + this.measure, this.x - text_width / 2, y);
+        this.context.restore();
+      }
+
+      return this;
+    },
+
+    // Draw Simple barlines for backward compatability
+    // Do not delete - draws the beginning bar of the stave
+    drawVertical: function(x, isDouble) {
+      this.drawVerticalFixed(this.x + x, isDouble);
+    },
+
+    drawVerticalFixed: function(x, isDouble) {
+      if (!this.context) throw new Vex.RERR("NoCanvasContext",
+          "Can't draw stave without canvas context.");
+
+      var top_line = this.getYForLine(0);
+      var bottom_line = this.getYForLine(this.options.num_lines - 1);
+      if (isDouble)
+        this.context.fillRect(x - 3, top_line, 1, bottom_line - top_line + 1);
+      this.context.fillRect(x, top_line, 1, bottom_line - top_line + 1);
+    },
+
+    drawVerticalBar: function(x) {
+      this.drawVerticalBarFixed(this.x + x, false);
+    },
+
+    drawVerticalBarFixed: function(x) {
+      if (!this.context) throw new Vex.RERR("NoCanvasContext",
+          "Can't draw stave without canvas context.");
+
+      var top_line = this.getYForLine(0);
+      var bottom_line = this.getYForLine(this.options.num_lines - 1);
+      this.context.fillRect(x, top_line, 1, bottom_line - top_line + 1);
+    },
+
+    /**
+     * Get the current configuration for the Stave.
+     * @return {Array} An array of configuration objects.
+     */
+    getConfigForLines: function() {
+      return this.options.line_config;
+    },
+
+    /**
+     * Configure properties of the lines in the Stave
+     * @param line_number The index of the line to configure.
+     * @param line_config An configuration object for the specified line.
+     * @throws Vex.RERR "StaveConfigError" When the specified line number is out of
+     *   range of the number of lines specified in the constructor.
+     */
+    setConfigForLine: function(line_number, line_config) {
+      if (line_number >= this.options.num_lines || line_number < 0) {
+        throw new Vex.RERR("StaveConfigError",
+          "The line number must be within the range of the number of lines in the Stave.");
+      }
+      if (!line_config.hasOwnProperty('visible')) {
+        throw new Vex.RERR("StaveConfigError",
+          "The line configuration object is missing the 'visible' property.");
+      }
+      if (typeof(line_config.visible) !== 'boolean') {
+        throw new Vex.RERR("StaveConfigError",
+          "The line configuration objects 'visible' property must be true or false.");
+      }
+
+      this.options.line_config[line_number] = line_config;
+
+      return this;
+    },
+
+    /**
+     * Set the staff line configuration array for all of the lines at once.
+     * @param lines_configuration An array of line configuration objects.  These objects
+     *   are of the same format as the single one passed in to setLineConfiguration().
+     *   The caller can set null for any line config entry if it is desired that the default be used
+     * @throws Vex.RERR "StaveConfigError" When the lines_configuration array does not have
+     *   exactly the same number of elements as the num_lines configuration object set in
+     *   the constructor.
+     */
+    setConfigForLines: function(lines_configuration) {
+      if (lines_configuration.length !== this.options.num_lines) {
+        throw new Vex.RERR("StaveConfigError",
+          "The length of the lines configuration array must match the number of lines in the Stave");
+      }
+
+      // Make sure the defaults are present in case an incomplete set of
+      //  configuration options were supplied.
+      for (var line_config in lines_configuration) {
+        // Allow 'null' to be used if the caller just wants the default for a particular node.
+        if (!lines_configuration[line_config]) {
+          lines_configuration[line_config] = this.options.line_config[line_config];
+        }
+        Vex.Merge(this.options.line_config[line_config], lines_configuration[line_config]);
+      }
+
+      this.options.line_config = lines_configuration;
+
+      return this;
+    }
+  };
+
+  return Stave;
+}());
 ;var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
     /**
@@ -6565,19 +7228,17 @@ Vex.Flow.Beam.prototype.calculateSlope = function() {
 
       me.scale = cfg.page_scale;
 
+      // unwrap target if it's a jQuery object
+      var target = cfg.target[0] || cfg.target;
+
       layers = cfg.layers;
-
       h = cfg.page_height * cfg.page_scale;
-
       w = cfg.page_width * cfg.page_scale;
       j = layers.length;
 
-      canvasTemplate =
-      '<canvas width="' + w + '" height="' + h + '" style="position:absolute;background-color:transparent;"></canvas>';
-
+      // TODO das evtl noch anders lösen
       while (j--) {
         if (layers[j].type === 'vex') hasVexLayer = true;
-        canvases += canvasTemplate;
       }
 
       // add VexFlow layer if no VexFlow layer has been specified
@@ -6586,34 +7247,32 @@ Vex.Flow.Beam.prototype.calculateSlope = function() {
         layers.push({
           type : 'vex'
         });
-        canvases += canvasTemplate;
       }
 
-      div = $('<div class="outer-container" style="margin-left:' + (w / 2) + 'px;margin-right:' + (w / 2) +
-              'px;"><div class="inner-container" style="position:relative;width:100%;margin:auto;height:' + h +
-              'px;left:-' + (w / 2) + 'px">' + canvases + '</div></div>').appendTo(cfg.target).get(0);
+      var div = me.createOuterDiv(w);
+      div.appendChild(innerDiv = me.createInnerDiv(w, h));
 
-      var canvasElements = div.getElementsByTagName('canvas');
+      for (var i = 0, j = layers.length; i < j; i++) {
+        element = me.createCanvas(w, h);
+        innerDiv.appendChild(element);
 
-      j = layers.length;
-      while (j--) {
-        element = canvasElements[j];
-
-        if (layers[j].type === 'vex') {
-          me.vexLayerIndex = j;
+        if (layers[i].type === 'vex') {
+          me.vexLayerIndex = i;
           ctx = me.createVexContext(element, cfg.backend);
-          layers[j].element = element;
-          layers[j].ctx = ctx;
-        } else if (layers[j].type === 'highlighter') {
+          layers[i].element = element;
+          layers[i].ctx = ctx;
+        } else if (layers[i].type === 'highlighter') {
           ctx = element.getContext('2d');
-          layers[j].setElement(element);
-          layers[j].setContext(ctx);
-          layers[j].setScale(cfg.page_scale);
+          layers[i].setElement(element);
+          layers[i].setContext(ctx);
+          layers[i].setScale(cfg.page_scale);
         } else {
-          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[j].type + '" not valid.');
+          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
         }
         me.scaleContext(ctx, cfg);
       }
+
+      target.appendChild(div);
 
       /**
        * @property {Object} topCanvas the top canvas containing the regular
@@ -6621,6 +7280,51 @@ Vex.Flow.Beam.prototype.calculateSlope = function() {
        */
       me.topCanvas = layers[layers.length - 1].element;
       return layers;
+    },
+
+    /**
+     * Creates a single canvas element
+     * @param w
+     * @param h
+     * @returns {HTMLElement}
+     */
+    createCanvas : function (w, h) {
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.position = 'absolute';
+      canvas.style.background = 'transparent';
+      return canvas;
+    },
+
+    /**
+     * Creates the outer div wrapper for the canvases
+     * @param w
+     * @returns {HTMLElement}
+     */
+    createOuterDiv : function (w) {
+      var div = document.createElement('div');
+      div.className = "outer-container";
+      div.style.marginLeft = (w / 2) + 'px';
+      div.style.marginRight = (w / 2) + 'px';
+      return div;
+    },
+
+    /**
+     * Creates the inner div wrapper for the canvases
+     * @param w
+     * @param h
+     * @returns {HTMLElement}
+     */
+    createInnerDiv : function (w, h) {
+      var innerDiv = document.createElement('div');
+      innerDiv.className = "inner-container";
+      innerDiv.style.position = "relative";
+      innerDiv.style.width = "100%";
+      innerDiv.style.margin = "auto";
+      innerDiv.style.height = h + 'px';
+      innerDiv.style.left = (-w / 2) + 'px';
+      return innerDiv;
     },
 
     createVexContext : function (canvas, backend) {
@@ -6681,7 +7385,7 @@ Vex.Flow.Beam.prototype.calculateSlope = function() {
         }
       };
 
-      $(me.topCanvas).mousemove(function (e) {
+      me.topCanvas.addEventListener('mousemove', function (e) {
         var offset, mousePos, i;
         offset = $(this).offset();
         mousePos = {

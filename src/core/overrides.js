@@ -20,18 +20,18 @@ define([
   };
 
 
-  MEI2VF.Converter.prototype.dirToObj = function (elements) {
-    var me = this, directions = [];
-    $.each(elements, function () {
-      directions.push({
-        text : $(this).text().trim(),
-        startid : me.getMandatoryAttr(this, 'startid'),
-        place : me.getMandatoryAttr(this, 'place'),
-        element : this
-      });
-    });
-    return directions;
-  };
+//  MEI2VF.Converter.prototype.dirToObj = function (elements) {
+//    var me = this, directions = [];
+//    $.each(elements, function () {
+//      directions.push({
+//        text : $(this).text().trim(),
+//        startid : me.getMandatoryAttr(this, 'startid'),
+//        place : me.getMandatoryAttr(this, 'place'),
+//        element : this
+//      });
+//    });
+//    return directions;
+//  };
 
 
   MEI2VF.Directives.prototype.createVexFromInfos = function(notes_by_id) {
@@ -79,39 +79,6 @@ define([
   };
 
 
-  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
-    var syl = mei_note.getElementsByTagName('syl')[0];
-    if (syl) {
-      return {
-        text : $(syl).text(),
-        wordpos : syl.getAttribute('wordpos'),
-        element : syl
-      };
-    }
-  };
-
-  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-    var me = this, annot, syl;
-    syl = me.processSyllable(element);
-    if (syl) {
-      annot =
-      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
-      note.addAnnotation(0, annot);
-      if (syl.wordpos) {
-        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-      }
-    }
-  };
-
-  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
-    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
-    var place = ar.getAttribute('place');
-    if (place) {
-      vexArtic.setPosition(m2v.tables.positions[place]);
-    }
-    note.addArticulation(0, vexArtic);
-  };
-
   MEI2VF.Fermatas.prototype.addFermataToNote = function (note, place, index) {
     var vexArtic = new VF.Articulation(m2v.tables.fermata[place]);
     vexArtic.setPosition(m2v.tables.positions[place]);
@@ -124,6 +91,81 @@ define([
   //  vexArtic.setMeiElement(ar);
   //  note.addArticulation(index || 0, vexArtic);
   //  };
+
+
+
+  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
+    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
+    var place = ar.getAttribute('place');
+    if (place) {
+      vexArtic.setPosition(m2v.tables.positions[place]);
+    }
+    note.addArticulation(0, vexArtic);
+  };
+
+
+//  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
+//    var me = this, annot, syl;
+//    syl = me.processSyllable(element);
+//    if (syl) {
+//      annot =
+//      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
+//      note.addAnnotation(0, annot);
+//      if (syl.wordpos) {
+//        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+//      }
+//    }
+//  };
+
+
+
+  MEI2VF.Converter.prototype.processSyllables = function(note, element, staff_n) {
+    var me = this, annot, syl, verse, text_line, verse_n, syls;
+    // syl = me.processSyllable(element);
+    syls = $(element).find('syl');
+    $.each(syls, function(i) {
+      syl = {
+        text : $(this).text(),
+        wordpos : $(this).attr('wordpos'),
+        verse_n : $(this).parents('verse').attr('n'),
+      };
+      if (syl) {
+        annot = me.createAnnot(syl.text, me.cfg.lyricsFont).
+          setMeiElement(syl.element).
+          setVerticalJustification(me.BOTTOM).
+          setLineSpacing(me.cfg.lyricsFont.spacing);
+        note.addAnnotation(0, annot);
+        me.verses.addSyllable(annot, syl.wordpos, syl.verse_n, staff_n)
+        if (syl.wordpos) {
+          me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+        }
+      }
+    });
+  };
+
+//  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
+//    var syl = mei_note.getElementsByTagName('syl')[0];
+//    if (syl) {
+//      return {
+//        text : $(syl).text(),
+//        wordpos : syl.getAttribute('wordpos'),
+//        element : syl
+//      };
+//    }
+//  };
+
+  MEI2VF.Converter.prototype.processSyllable = function(mei_note) {
+    var syl = $(mei_note).find('syl')[0];
+    if (syl) {
+      return {
+        text : $(syl).text(),
+        wordpos : $(syl).attr('wordpos'),
+        verse_n : $(syl).parents('verse').attr('n'),
+        element : syl
+      };
+    }
+  };
+
 
 
 

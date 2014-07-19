@@ -82,7 +82,7 @@ define([
           if (!staff) {
             staff = me.getContainer(this.meiElement, allVexMeasureStaffs);
           }
-          this.setX(staff.glyph_start_x + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
+          this.setX(staff.getGlyphStartX() + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
         }
 
         this.setContext(ctx).preProcess().draw();

@@ -171,8 +171,8 @@ define([
       j = modifiers.length;
 
       if (staff.modifiers.length > 2) {
-        x = staff.glyph_start_x - 4;
-        w = staff.start_x - staff.glyph_start_x + 8;
+        x = staff.getGlyphStartX() - 4;
+        w = staff.start_x - x + 12;
         me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
       }
 

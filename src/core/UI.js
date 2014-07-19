@@ -26,19 +26,17 @@ define([
 
       me.scale = cfg.page_scale;
 
+      // unwrap target if it's a jQuery object
+      var target = cfg.target[0] || cfg.target;
+
       layers = cfg.layers;
-
       h = cfg.page_height * cfg.page_scale;
-
       w = cfg.page_width * cfg.page_scale;
       j = layers.length;
 
-      canvasTemplate =
-      '<canvas width="' + w + '" height="' + h + '" style="position:absolute;background-color:transparent;"></canvas>';
-
+      // TODO das evtl noch anders lösen
       while (j--) {
         if (layers[j].type === 'vex') hasVexLayer = true;
-        canvases += canvasTemplate;
       }
 
       // add VexFlow layer if no VexFlow layer has been specified
@@ -47,34 +45,32 @@ define([
         layers.push({
           type : 'vex'
         });
-        canvases += canvasTemplate;
       }
 
-      div = $('<div class="outer-container" style="margin-left:' + (w / 2) + 'px;margin-right:' + (w / 2) +
-              'px;"><div class="inner-container" style="position:relative;width:100%;margin:auto;height:' + h +
-              'px;left:-' + (w / 2) + 'px">' + canvases + '</div></div>').appendTo(cfg.target).get(0);
+      var div = me.createOuterDiv(w);
+      div.appendChild(innerDiv = me.createInnerDiv(w, h));
 
-      var canvasElements = div.getElementsByTagName('canvas');
+      for (var i = 0, j = layers.length; i < j; i++) {
+        element = me.createCanvas(w, h);
+        innerDiv.appendChild(element);
 
-      j = layers.length;
-      while (j--) {
-        element = canvasElements[j];
-
-        if (layers[j].type === 'vex') {
-          me.vexLayerIndex = j;
+        if (layers[i].type === 'vex') {
+          me.vexLayerIndex = i;
           ctx = me.createVexContext(element, cfg.backend);
-          layers[j].element = element;
-          layers[j].ctx = ctx;
-        } else if (layers[j].type === 'highlighter') {
+          layers[i].element = element;
+          layers[i].ctx = ctx;
+        } else if (layers[i].type === 'highlighter') {
           ctx = element.getContext('2d');
-          layers[j].setElement(element);
-          layers[j].setContext(ctx);
-          layers[j].setScale(cfg.page_scale);
+          layers[i].setElement(element);
+          layers[i].setContext(ctx);
+          layers[i].setScale(cfg.page_scale);
         } else {
-          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[j].type + '" not valid.');
+          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
         }
         me.scaleContext(ctx, cfg);
       }
+
+      target.appendChild(div);
 
       /**
        * @property {Object} topCanvas the top canvas containing the regular
@@ -82,6 +78,51 @@ define([
        */
       me.topCanvas = layers[layers.length - 1].element;
       return layers;
+    },
+
+    /**
+     * Creates a single canvas element
+     * @param w
+     * @param h
+     * @returns {HTMLElement}
+     */
+    createCanvas : function (w, h) {
+      var canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.position = 'absolute';
+      canvas.style.background = 'transparent';
+      return canvas;
+    },
+
+    /**
+     * Creates the outer div wrapper for the canvases
+     * @param w
+     * @returns {HTMLElement}
+     */
+    createOuterDiv : function (w) {
+      var div = document.createElement('div');
+      div.className = "outer-container";
+      div.style.marginLeft = (w / 2) + 'px';
+      div.style.marginRight = (w / 2) + 'px';
+      return div;
+    },
+
+    /**
+     * Creates the inner div wrapper for the canvases
+     * @param w
+     * @param h
+     * @returns {HTMLElement}
+     */
+    createInnerDiv : function (w, h) {
+      var innerDiv = document.createElement('div');
+      innerDiv.className = "inner-container";
+      innerDiv.style.position = "relative";
+      innerDiv.style.width = "100%";
+      innerDiv.style.margin = "auto";
+      innerDiv.style.height = h + 'px';
+      innerDiv.style.left = (-w / 2) + 'px';
+      return innerDiv;
     },
 
     createVexContext : function (canvas, backend) {
@@ -142,7 +183,7 @@ define([
         }
       };
 
-      $(me.topCanvas).mousemove(function (e) {
+      me.topCanvas.addEventListener('mousemove', function (e) {
         var offset, mousePos, i;
         offset = $(this).offset();
         mousePos = {

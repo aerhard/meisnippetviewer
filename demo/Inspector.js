@@ -23,6 +23,8 @@ Inspector.prototype = {
           '<div class="tt-code">' + me.processAreaInfo(noteArea) + '</div>' + me.getXPathString(noteArea.meiElement);
         } else {
           info = '(no MEI element provided)';
+          console.log('no mei element provided. parameters:');
+          console.log(arguments);
         }
 
         var elementOffset = $(element).offset();
@@ -46,6 +48,8 @@ Inspector.prototype = {
         var info, elementOffset;
         element.style.cursor = 'pointer';
         info = (area.alt.elem) ? me.getElementInfo(area.alt.elem) : '(no MEI element provided)';
+        console.log('no mei element provided. parameters:');
+        console.log(arguments);
         elementOffset = $(element).offset();
         me.tooltip.enterVariant(info, elementOffset.left + (area.ctx.x * this.scale), elementOffset.top +
                                                                                       (area.ctx.y1 * this.scale) + 20);
