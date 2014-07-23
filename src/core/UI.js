@@ -34,7 +34,6 @@ define([
       w = cfg.page_width * cfg.page_scale;
       j = layers.length;
 
-      // TODO das evtl noch anders lösen
       while (j--) {
         if (layers[j].type === 'vex') hasVexLayer = true;
       }

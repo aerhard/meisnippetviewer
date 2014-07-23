@@ -104,20 +104,6 @@ define([
   };
 
 
-//  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-//    var me = this, annot, syl;
-//    syl = me.processSyllable(element);
-//    if (syl) {
-//      annot =
-//      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
-//      note.addAnnotation(0, annot);
-//      if (syl.wordpos) {
-//        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-//      }
-//    }
-//  };
-
-
 
   MEI2VF.Converter.prototype.processSyllables = function(note, element, staff_n) {
     var me = this, annot, syl, verse, text_line, verse_n, syls;
@@ -127,11 +113,11 @@ define([
       syl = {
         text : $(this).text(),
         wordpos : $(this).attr('wordpos'),
-        verse_n : $(this).parents('verse').attr('n'),
+        verse_n : $(this).parents('verse').attr('n')
       };
       if (syl) {
         annot = me.createAnnot(syl.text, me.cfg.lyricsFont).
-          setMeiElement(syl.element).
+          setMeiElement(this).
           setVerticalJustification(me.BOTTOM).
           setLineSpacing(me.cfg.lyricsFont.spacing);
         note.addAnnotation(0, annot);
@@ -142,31 +128,6 @@ define([
       }
     });
   };
-
-//  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
-//    var syl = mei_note.getElementsByTagName('syl')[0];
-//    if (syl) {
-//      return {
-//        text : $(syl).text(),
-//        wordpos : syl.getAttribute('wordpos'),
-//        element : syl
-//      };
-//    }
-//  };
-
-  MEI2VF.Converter.prototype.processSyllable = function(mei_note) {
-    var syl = $(mei_note).find('syl')[0];
-    if (syl) {
-      return {
-        text : $(syl).text(),
-        wordpos : $(syl).attr('wordpos'),
-        verse_n : $(syl).parents('verse').attr('n'),
-        element : syl
-      };
-    }
-  };
-
-
 
 
   VF.Articulation.prototype.draw = function() {

@@ -5,7 +5,7 @@
 	"main" : ["./build/meisnippetviewer.js"],
 	"keywords" : ["music", "engraving", "HTML5", "jQuery", "MEI", "interactive"],
 	"license" : "Apache2",
-	"ignore" : ["**/.*", "node_modules", "bower_components", "test"],
+	"ignore" : ["**/.*", "node_modules", "bower_components", "test", "build/*.part"],
   "repository": {
     "type": "git",
     "url": "git://github.com/aerhard/meisnippetviewer.git"

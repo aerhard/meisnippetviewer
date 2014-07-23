@@ -1344,7 +1344,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         lyricsFont : {
           family : 'Times',
           size : 13,
-          spacing: 1.3,
+          spacing: 1.3
         },
         /**
          * @cfg {Object} annotFont the font used for annotations (for example,
@@ -2320,9 +2320,9 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           }
 
           // FIXME For now, we'll remove any child nodes of <note>
-          // $.each($(element).children(), function() {
-            // $(this).remove();
-          // });
+          $(element).children().each(function() {
+            $(this).remove();
+          });
 
           // Build a note object that keeps the xml:id
 
@@ -2847,7 +2847,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           syl = {
             text : $(this).text(),
             wordpos : $(this).attr('wordpos'),
-            verse_n : $(this).parents('verse').attr('n'),
+            verse_n : $(this).parents('verse').attr('n')
           };
           if (syl) {
             annot = me.createAnnot(syl.text, me.cfg.lyricsFont).
@@ -2884,7 +2884,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           return {
             text : $(syl).text(),
             wordpos : $(syl).attr('wordpos'),
-            verse_n : $(syl).parents('verse').attr('n'),
+            verse_n : $(syl).parents('verse').attr('n')
           };
         }
       },
@@ -3366,7 +3366,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           me.hyphenations[verse_n].addSyllable(annot, wordpos, staff_n);
         }
         return me;
-      },
+      }
 
     };
 
@@ -7546,8 +7546,11 @@ Vex.Flow.Stave = (function() {
                 measureN : i,
                 staffN : k
               });
-              me.calculateBarlineAreas(staff, y, y1 - y);
-              me.calculateStaffModifierAreas(staff, y, y1 - y);
+
+              var staffY = staff.getYForLine(0) - 5;
+              var staffH = staff.getYForLine(4) - staffY + 10;
+              me.calculateBarlineAreas(staff, staffY, staffH);
+              me.calculateStaffModifierAreas(staff, staffY, staffH);
             }
           }
         }
@@ -7555,11 +7558,8 @@ Vex.Flow.Stave = (function() {
 
     },
 
-    calculateBarlineAreas : function (staff) {
-      var me = this, staffY, staffH;
-
-      staffY = staff.getYForLine(0) - 5;
-      staffH = staff.getYForLine(4) - staffY + 10;
+    calculateBarlineAreas : function (staff, staffY, staffH) {
+      var me = this;
 
       if (staff.modifiers[0].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[0].x - 8, staffY, 16, staffH, null, 1));
@@ -7573,28 +7573,56 @@ Vex.Flow.Stave = (function() {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
       j = modifiers.length;
 
+      console.log(staff);
+
       if (staff.modifiers.length > 2) {
-        x = staff.glyph_start_x - 4;
-        w = staff.start_x - staff.glyph_start_x + 8;
-        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+        x = staff.getGlyphStartX() - 4;
+        w = staff.start_x - x + 12;
+//        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
       }
 
-      // var lastX = staff.x;
-      // var shift;
-      //
-      // window.x = staff;
-      // for ( i = 2; i < j; i += 1) {
-      //
-      // console.log(modifiers[i]);
-      //
-      // if (modifiers[i]) {
-      // shift = staff.getModifierXShift(0);
-      // //
-      // me.noteAreas.push(me.createNoteAreaObj(lastX, staffY, shift - lastX,
-      // staffH, null, 1));
-      // lastX = shift;
-      //
-      // }
+      for ( i = 2; i < j; i += 1) {
+        if (modifiers[i] instanceof VF.Clef) {
+          console.log('clef:');
+        } else if (modifiers[i] instanceof VF.KeySignature) {
+          console.log('keysig:');
+        } else if (modifiers[i] instanceof VF.TimeSignature) {
+          console.log('timesig:');
+        }
+      console.log(modifiers[i]);
+
+      }
+
+      j = staff.glyphs.length;
+      x = staff.getGlyphStartX();
+      var glyph, glyphXW = [], glyphXWindex = 0;
+      for (var i = 0; i < j; i++) {
+        glyph = staff.glyphs[i];
+        w = glyph.getMetrics().width;
+        console.log(glyph.getMetrics());
+        if (glyph.code) {
+//          glyphXW
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
+        } else {
+//          glyphXWindex++;
+        }
+        x += w;
+      }
+
+      j = staff.end_glyphs.length;
+      x = staff.getGlyphEndX();
+      var glyph;
+      for (var i = 0; i < j; i++) {
+        glyph = staff.end_glyphs[i];
+        if (glyph.code) {
+          w = glyph.getMetrics().width;
+          x -= w;
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
+        }
+      }
+
+
+
       //
       // // console.log(modifiers[i]);
       // // console.log(me.createNoteAreaObj(x, y, w, h,
@@ -7767,7 +7795,7 @@ Vex.Flow.Stave = (function() {
     },
 
 
-    // TODO is it necessary to attach ids to syllables etc or not!?
+    // TODO check: is it necessary to attach ids to syllables etc or not!?
     getVariantIds : function (ALT) {
       var i, j, alt, id, idgroups = [], ids, defaultItem;
       defaultItem = ALT.getDefaultItem();
@@ -7959,7 +7987,7 @@ Vex.Flow.Stave = (function() {
           if (!staff) {
             staff = me.getContainer(this.meiElement, allVexMeasureStaffs);
           }
-          this.setX(staff.glyph_start_x + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
+          this.setX(staff.getGlyphStartX() + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
         }
 
         this.setContext(ctx).preProcess().draw();
@@ -8672,18 +8700,18 @@ Vex.Flow.Stave = (function() {
   };
 
 
-  MEI2VF.Converter.prototype.dirToObj = function (elements) {
-    var me = this, directions = [];
-    $.each(elements, function () {
-      directions.push({
-        text : $(this).text().trim(),
-        startid : me.getMandatoryAttr(this, 'startid'),
-        place : me.getMandatoryAttr(this, 'place'),
-        element : this
-      });
-    });
-    return directions;
-  };
+//  MEI2VF.Converter.prototype.dirToObj = function (elements) {
+//    var me = this, directions = [];
+//    $.each(elements, function () {
+//      directions.push({
+//        text : $(this).text().trim(),
+//        startid : me.getMandatoryAttr(this, 'startid'),
+//        place : me.getMandatoryAttr(this, 'place'),
+//        element : this
+//      });
+//    });
+//    return directions;
+//  };
 
 
   MEI2VF.Directives.prototype.createVexFromInfos = function(notes_by_id) {
@@ -8731,39 +8759,6 @@ Vex.Flow.Stave = (function() {
   };
 
 
-  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
-    var syl = mei_note.getElementsByTagName('syl')[0];
-    if (syl) {
-      return {
-        text : $(syl).text(),
-        wordpos : syl.getAttribute('wordpos'),
-        element : syl
-      };
-    }
-  };
-
-  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-    var me = this, annot, syl;
-    syl = me.processSyllable(element);
-    if (syl) {
-      annot =
-      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
-      note.addAnnotation(0, annot);
-      if (syl.wordpos) {
-        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-      }
-    }
-  };
-
-  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
-    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
-    var place = ar.getAttribute('place');
-    if (place) {
-      vexArtic.setPosition(m2v.tables.positions[place]);
-    }
-    note.addArticulation(0, vexArtic);
-  };
-
   MEI2VF.Fermatas.prototype.addFermataToNote = function (note, place, index) {
     var vexArtic = new VF.Articulation(m2v.tables.fermata[place]);
     vexArtic.setPosition(m2v.tables.positions[place]);
@@ -8776,6 +8771,81 @@ Vex.Flow.Stave = (function() {
   //  vexArtic.setMeiElement(ar);
   //  note.addArticulation(index || 0, vexArtic);
   //  };
+
+
+
+  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
+    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
+    var place = ar.getAttribute('place');
+    if (place) {
+      vexArtic.setPosition(m2v.tables.positions[place]);
+    }
+    note.addArticulation(0, vexArtic);
+  };
+
+
+//  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
+//    var me = this, annot, syl;
+//    syl = me.processSyllable(element);
+//    if (syl) {
+//      annot =
+//      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
+//      note.addAnnotation(0, annot);
+//      if (syl.wordpos) {
+//        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+//      }
+//    }
+//  };
+
+
+
+  MEI2VF.Converter.prototype.processSyllables = function(note, element, staff_n) {
+    var me = this, annot, syl, verse, text_line, verse_n, syls;
+    // syl = me.processSyllable(element);
+    syls = $(element).find('syl');
+    $.each(syls, function(i) {
+      syl = {
+        text : $(this).text(),
+        wordpos : $(this).attr('wordpos'),
+        verse_n : $(this).parents('verse').attr('n')
+      };
+      if (syl) {
+        annot = me.createAnnot(syl.text, me.cfg.lyricsFont).
+          setMeiElement(this).
+          setVerticalJustification(me.BOTTOM).
+          setLineSpacing(me.cfg.lyricsFont.spacing);
+        note.addAnnotation(0, annot);
+        me.verses.addSyllable(annot, syl.wordpos, syl.verse_n, staff_n)
+        if (syl.wordpos) {
+          me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
+        }
+      }
+    });
+  };
+
+//  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
+//    var syl = mei_note.getElementsByTagName('syl')[0];
+//    if (syl) {
+//      return {
+//        text : $(syl).text(),
+//        wordpos : syl.getAttribute('wordpos'),
+//        element : syl
+//      };
+//    }
+//  };
+//
+//  MEI2VF.Converter.prototype.processSyllable = function(mei_note) {
+//    var syl = $(mei_note).find('syl')[0];
+//    if (syl) {
+//      return {
+//        text : $(syl).text(),
+//        wordpos : $(syl).attr('wordpos'),
+//        verse_n : $(syl).parents('verse').attr('n'),
+//        element : syl
+//      };
+//    }
+//  };
+
 
 
 

@@ -1,6 +1,7 @@
 define([
+  'vexflow',
   'core/RuntimeError'
-], function (RuntimeError, undefined) {
+], function (VF, RuntimeError, undefined) {
 
   /**
    * @class MSV.AreaHelper
@@ -143,8 +144,11 @@ define([
                 measureN : i,
                 staffN : k
               });
-              me.calculateBarlineAreas(staff, y, y1 - y);
-              me.calculateStaffModifierAreas(staff, y, y1 - y);
+
+              var staffY = staff.getYForLine(0) - 5;
+              var staffH = staff.getYForLine(4) - staffY + 10;
+              me.calculateBarlineAreas(staff, staffY, staffH);
+              me.calculateStaffModifierAreas(staff, staffY, staffH);
             }
           }
         }
@@ -152,11 +156,8 @@ define([
 
     },
 
-    calculateBarlineAreas : function (staff) {
-      var me = this, staffY, staffH;
-
-      staffY = staff.getYForLine(0) - 5;
-      staffH = staff.getYForLine(4) - staffY + 10;
+    calculateBarlineAreas : function (staff, staffY, staffH) {
+      var me = this;
 
       if (staff.modifiers[0].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[0].x - 8, staffY, 16, staffH, null, 1));
@@ -168,30 +169,54 @@ define([
 
     calculateStaffModifierAreas : function (staff, y, h) {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-      j = modifiers.length;
-
-      if (staff.modifiers.length > 2) {
-        x = staff.getGlyphStartX() - 4;
-        w = staff.start_x - x + 12;
-        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+//      j = modifiers.length;
+//
+//      console.log(staff);
+//      if (staff.modifiers.length > 2) {
+//        x = staff.getGlyphStartX() - 4;
+//        w = staff.start_x - x + 12;
+////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+//      }
+//
+//      for ( i = 2; i < j; i += 1) {
+//        if (modifiers[i] instanceof VF.Clef) {
+//          console.log('clef:');
+//        } else if (modifiers[i] instanceof VF.KeySignature) {
+//          console.log('keysig:');
+//        } else if (modifiers[i] instanceof VF.TimeSignature) {
+//          console.log('timesig:');
+//        }
+//      console.log(modifiers[i]);
+//      }
+//
+      j = staff.glyphs.length;
+      x = staff.getGlyphStartX();
+      var glyph, glyphXW = [], glyphXWindex = 0;
+      for (var i = 0; i < j; i++) {
+        glyph = staff.glyphs[i];
+        w = glyph.getMetrics().width;
+        console.log(glyph.getMetrics());
+        if (glyph.code) {
+//          glyphXW
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
+        } else {
+//          glyphXWindex++;
+        }
+        x += w;
       }
 
-      // var lastX = staff.x;
-      // var shift;
-      //
-      // window.x = staff;
-      // for ( i = 2; i < j; i += 1) {
-      //
-      // console.log(modifiers[i]);
-      //
-      // if (modifiers[i]) {
-      // shift = staff.getModifierXShift(0);
-      // //
-      // me.noteAreas.push(me.createNoteAreaObj(lastX, staffY, shift - lastX,
-      // staffH, null, 1));
-      // lastX = shift;
-      //
-      // }
+      j = staff.end_glyphs.length;
+      x = staff.getGlyphEndX();
+      var glyph;
+      for (var i = 0; i < j; i++) {
+        glyph = staff.end_glyphs[i];
+        if (glyph.code) {
+          w = glyph.getMetrics().width;
+          x -= w;
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
+        }
+      }
+
       //
       // // console.log(modifiers[i]);
       // // console.log(me.createNoteAreaObj(x, y, w, h,
@@ -364,7 +389,7 @@ define([
     },
 
 
-    // TODO is it necessary to attach ids to syllables etc or not!?
+    // TODO check: is it necessary to attach ids to syllables etc or not!?
     getVariantIds : function (ALT) {
       var i, j, alt, id, idgroups = [], ids, defaultItem;
       defaultItem = ALT.getDefaultItem();
