@@ -151,7 +151,6 @@
       w = cfg.page_width * cfg.page_scale;
       j = layers.length;
 
-      // TODO das evtl noch anders lösen
       while (j--) {
         if (layers[j].type === 'vex') hasVexLayer = true;
       }
@@ -486,28 +485,26 @@
 
     calculateStaffModifierAreas : function (staff, y, h) {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-      j = modifiers.length;
-
-      console.log(staff);
-
-      if (staff.modifiers.length > 2) {
-        x = staff.getGlyphStartX() - 4;
-        w = staff.start_x - x + 12;
-//        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
-      }
-
-      for ( i = 2; i < j; i += 1) {
-        if (modifiers[i] instanceof VF.Clef) {
-          console.log('clef:');
-        } else if (modifiers[i] instanceof VF.KeySignature) {
-          console.log('keysig:');
-        } else if (modifiers[i] instanceof VF.TimeSignature) {
-          console.log('timesig:');
-        }
-      console.log(modifiers[i]);
-
-      }
-
+//      j = modifiers.length;
+//
+//      console.log(staff);
+//      if (staff.modifiers.length > 2) {
+//        x = staff.getGlyphStartX() - 4;
+//        w = staff.start_x - x + 12;
+////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+//      }
+//
+//      for ( i = 2; i < j; i += 1) {
+//        if (modifiers[i] instanceof VF.Clef) {
+//          console.log('clef:');
+//        } else if (modifiers[i] instanceof VF.KeySignature) {
+//          console.log('keysig:');
+//        } else if (modifiers[i] instanceof VF.TimeSignature) {
+//          console.log('timesig:');
+//        }
+//      console.log(modifiers[i]);
+//      }
+//
       j = staff.glyphs.length;
       x = staff.getGlyphStartX();
       var glyph, glyphXW = [], glyphXWindex = 0;
@@ -535,8 +532,6 @@
           me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
         }
       }
-
-
 
       //
       // // console.log(modifiers[i]);
@@ -1699,20 +1694,6 @@
   };
 
 
-//  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-//    var me = this, annot, syl;
-//    syl = me.processSyllable(element);
-//    if (syl) {
-//      annot =
-//      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
-//      note.addAnnotation(0, annot);
-//      if (syl.wordpos) {
-//        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-//      }
-//    }
-//  };
-
-
 
   MEI2VF.Converter.prototype.processSyllables = function(note, element, staff_n) {
     var me = this, annot, syl, verse, text_line, verse_n, syls;
@@ -1737,31 +1718,6 @@
       }
     });
   };
-
-//  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
-//    var syl = mei_note.getElementsByTagName('syl')[0];
-//    if (syl) {
-//      return {
-//        text : $(syl).text(),
-//        wordpos : syl.getAttribute('wordpos'),
-//        element : syl
-//      };
-//    }
-//  };
-//
-//  MEI2VF.Converter.prototype.processSyllable = function(mei_note) {
-//    var syl = $(mei_note).find('syl')[0];
-//    if (syl) {
-//      return {
-//        text : $(syl).text(),
-//        wordpos : $(syl).attr('wordpos'),
-//        verse_n : $(syl).parents('verse').attr('n'),
-//        element : syl
-//      };
-//    }
-//  };
-
-
 
 
   VF.Articulation.prototype.draw = function() {

@@ -624,33 +624,28 @@ MeiLib.SliceMEI = function(MEI, params) {
   }
   var section = $(slice).find('section')[0];
   var inside_slice = false;
-  var found = false;
 
-  /*
-   * Iterate through each child of the section and remove everything outside
-   * the slice. Remove
+  /**
+   * Keep or remove child from section depending whether it's inside the section or not.
+   * If it's kept, remove unwanted staves
    */
-  var section_children = section.childNodes;
-  $(section_children).each(function() {
-    var child = this;
-
+  var keepOrRemove = function(elem, inside_slice, staffNSelector, params) {
     if (!inside_slice) {
-      if (child.localName === 'measure' && Number($(child).attr('n')) === params.start_n) {
+      if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.start_n) {
         inside_slice = true;
-        found = true;
       } else {
-        section.removeChild(child);
+        elem.parentNode.removeChild(elem);
       }
     }
 
     if (inside_slice) {
       // remove unwanted staff
-      if (paramsStaves) {
-        $(child).find('[staff]').remove(':not(' + staffNSelector + ')');
-        var staves = $(child).find('staff');
+      if (params.staves) {
+        $(elem).find('[staff]').remove(':not(' + staffNSelector + ')');
+        var staves = $(elem).find('staff');
         $(staves).each(function() {
           var staff = this;
-          if ($.inArray(Number($(staff).attr('n')), paramsStaves) === -1) {
+          if ($.inArray(Number($(staff).attr('n')), params.staves) === -1) {
             var parent = this.parentNode;
             parent.removeChild(this);
           }
@@ -658,9 +653,31 @@ MeiLib.SliceMEI = function(MEI, params) {
       }
 
       // finish inside_slice state if it's the end of slice.
-      if (child.localName === 'measure' && Number($(child).attr('n')) === params.end_n) {
+      if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.end_n) {
         inside_slice = false;
       }
+    }
+    return inside_slice;
+  }
+
+  /*
+   * Iterate through each child of the section and remove everything outside
+   * the slice. Remove
+   */
+  var section_children = section.childNodes;
+
+  $(section_children).each(function() {
+
+    if (this.localName === 'ending') {
+      var ending_children = this.childNodes;
+      $(ending_children).each(function() {
+        inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
+      });
+      if ($(this).find('measure').length === 0) {
+        this.parentNode.removeChild(this);
+      }
+    } else {
+      inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
     }
 
   });
@@ -1815,7 +1832,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         left_barline = element.getAttribute('left');
         right_barline = element.getAttribute('right');
 
-        var staffElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [];
+        var staffElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], rehElements = [];
 
         $(element).find('*').each(function() {
           switch (this.localName) {
@@ -1842,6 +1859,9 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
               break;
             case 'fermata':
               fermataElements.push(this);
+              break;
+            case 'reh':
+              rehElements.push(this);
               break;
             default:
               break;
@@ -1886,6 +1906,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             barline_r : right_barline
           },
           tempoElements : tempoElements,
+          rehElements : rehElements,
           tempoFont : me.cfg.tempoFont
         }));
       },
@@ -2435,12 +2456,11 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             id : xml_id
           };
         } catch (e) {
-          throw new m2v.RUNTIME_ERROR('BadArguments', 'A problem occurred processing the <chord>:' + e.toString());
-          // 'A problem occurred processing the <chord>: ' +
-          // JSON.stringify($.each($(element).children(), function(i,
-          // element) {
-          // element.attrs();
-          // }).get()) + '. \"' + x.toString() + '"');
+          var childStrings =
+            $(element).children().map(function() {
+            return '\n    <' + this.localName + m2v.Util.attsToString(this) + '/>';
+          }).get().join('');
+          throw new m2v.RUNTIME_ERROR('BadArguments', 'A problem occurred processing \n<chord' + m2v.Util.attsToString(element) + '>' + childStrings + '\n</chord>\nORIGINAL ERROR MESSAGE: ' + e.toString());
         }
       },
 
@@ -4112,6 +4132,11 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          */
         me.tempoFont = config.tempoFont;
         /**
+         * @cfg {XMLElement[]} rehElements the MEI rehearsal mark elements in the
+         * current measure
+         */
+        me.rehElements = config.rehElements;
+        /**
          * @property {Number} maxNoteStartX the maximum note_start_x value of all
          * Vex.Flow.Stave objects in the current measure
          */
@@ -4184,6 +4209,24 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         throw new m2v.RUNTIME_ERROR('ERROR', 'getFirstDefinedStaff(): no staff found in the current measure.');
       },
 
+      /**
+       * Adds rehearsal marks encoded in reh elements in the current measure to
+       * the corresponding Vex.Flow.Stave object
+       */
+      addRehearsalMarks : function() {
+        var me = this, staff_n, vexStaff, offsetX;
+        $.each(me.rehElements, function() {
+          staff_n = this.getAttribute('staff');
+          vexStaff = me.staffs[staff_n];
+          offsetX = (vexStaff.getModifierXShift() > 0) ? -40 : 0;
+          vexStaff.modifiers.push(new Vex.Flow.StaveSection($(this).text(), vexStaff.x + offsetX, 0));
+        });
+      },
+
+      // TODO handle timestamps! (is it necessary to handle tempo element
+      // as annotations?)
+      // TODO make magic numbers constants
+      // TODO move from here
       /**
        * Writes the data of the tempo elements in the current measure to the
        * corresponding Vex.Flow.Stave object
@@ -5217,6 +5260,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             measures[i].format(offsetX, labels);
             offsetX += measures[i].w;
           }
+          measures[i].addRehearsalMarks();
           measures[i].addTempoToStaves();
         }
         return me;
@@ -7236,7 +7280,6 @@ Vex.Flow.Stave = (function() {
       w = cfg.page_width * cfg.page_scale;
       j = layers.length;
 
-      // TODO das evtl noch anders lösen
       while (j--) {
         if (layers[j].type === 'vex') hasVexLayer = true;
       }
@@ -7571,28 +7614,26 @@ Vex.Flow.Stave = (function() {
 
     calculateStaffModifierAreas : function (staff, y, h) {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-      j = modifiers.length;
-
-      console.log(staff);
-
-      if (staff.modifiers.length > 2) {
-        x = staff.getGlyphStartX() - 4;
-        w = staff.start_x - x + 12;
-//        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
-      }
-
-      for ( i = 2; i < j; i += 1) {
-        if (modifiers[i] instanceof VF.Clef) {
-          console.log('clef:');
-        } else if (modifiers[i] instanceof VF.KeySignature) {
-          console.log('keysig:');
-        } else if (modifiers[i] instanceof VF.TimeSignature) {
-          console.log('timesig:');
-        }
-      console.log(modifiers[i]);
-
-      }
-
+//      j = modifiers.length;
+//
+//      console.log(staff);
+//      if (staff.modifiers.length > 2) {
+//        x = staff.getGlyphStartX() - 4;
+//        w = staff.start_x - x + 12;
+////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+//      }
+//
+//      for ( i = 2; i < j; i += 1) {
+//        if (modifiers[i] instanceof VF.Clef) {
+//          console.log('clef:');
+//        } else if (modifiers[i] instanceof VF.KeySignature) {
+//          console.log('keysig:');
+//        } else if (modifiers[i] instanceof VF.TimeSignature) {
+//          console.log('timesig:');
+//        }
+//      console.log(modifiers[i]);
+//      }
+//
       j = staff.glyphs.length;
       x = staff.getGlyphStartX();
       var glyph, glyphXW = [], glyphXWindex = 0;
@@ -7620,8 +7661,6 @@ Vex.Flow.Stave = (function() {
           me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
         }
       }
-
-
 
       //
       // // console.log(modifiers[i]);
@@ -8784,20 +8823,6 @@ Vex.Flow.Stave = (function() {
   };
 
 
-//  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-//    var me = this, annot, syl;
-//    syl = me.processSyllable(element);
-//    if (syl) {
-//      annot =
-//      me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(syl.element).setVerticalJustification(me.BOTTOM);
-//      note.addAnnotation(0, annot);
-//      if (syl.wordpos) {
-//        me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-//      }
-//    }
-//  };
-
-
 
   MEI2VF.Converter.prototype.processSyllables = function(note, element, staff_n) {
     var me = this, annot, syl, verse, text_line, verse_n, syls;
@@ -8822,31 +8847,6 @@ Vex.Flow.Stave = (function() {
       }
     });
   };
-
-//  MEI2VF.Converter.prototype.processSyllable = function (mei_note) {
-//    var syl = mei_note.getElementsByTagName('syl')[0];
-//    if (syl) {
-//      return {
-//        text : $(syl).text(),
-//        wordpos : syl.getAttribute('wordpos'),
-//        element : syl
-//      };
-//    }
-//  };
-//
-//  MEI2VF.Converter.prototype.processSyllable = function(mei_note) {
-//    var syl = $(mei_note).find('syl')[0];
-//    if (syl) {
-//      return {
-//        text : $(syl).text(),
-//        wordpos : $(syl).attr('wordpos'),
-//        verse_n : $(syl).parents('verse').attr('n'),
-//        element : syl
-//      };
-//    }
-//  };
-
-
 
 
   VF.Articulation.prototype.draw = function() {
