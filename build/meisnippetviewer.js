@@ -4370,7 +4370,6 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             staff.setWidth(width);
 
             staff.end_x -= me.maxEndModifierW;
-            staff.modifiers[0].x += x;
           }
         }
         me.voices.format(me.getFirstDefinedStaff());
