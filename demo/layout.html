@@ -9,7 +9,10 @@
 
     <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
 
-    <!-- VexFlow Sources -->
+
+    <!-- MEISnippetViewer development -->
+    <script src="../bower_components/requirejs/require.js"></script>
+
     <script src="../bower_components/vexflow/src/header.js"></script>
     <script src="../bower_components/vexflow/src/vex.js"></script>
     <script src="../bower_components/vexflow/src/flow.js"></script>
@@ -17,13 +20,6 @@
     <script src="../bower_components/vexflow/src/fonts/vexflow_font.js"></script>
     <script src="../bower_components/vexflow/src/glyph.js"></script>
     <script src="../bower_components/vexflow/src/tables.js"></script>
-
-    <!-- it is currently necessary to specify custom stave line thicknesses at this place;
-    changing it later leads to wrong bar line lengths in VexFlow. -->
-    <script>
-        Vex.Flow.STAVE_LINE_THICKNESS = 1;
-    </script>
-
     <script src="../bower_components/vexflow/src/stave.js"></script>
     <script src="../bower_components/vexflow/src/staveconnector.js"></script>
     <script src="../bower_components/vexflow/src/tabstave.js"></script>
@@ -82,9 +78,6 @@
     <script src="../bower_components/vexflow/src/gracenotegroup.js"></script>
     <script src="../bower_components/vexflow/src/curve.js"></script>
 
-
-    <!-- MEISnippetViewer development -->
-    <script src="../bower_components/requirejs/require.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>

@@ -8,7 +8,9 @@
 
     <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
 
-    <!-- VexFlow Sources -->
+    <!-- MEISnippetViewer development -->
+    <script src="../bower_components/requirejs/require.js"></script>
+
     <script src="../bower_components/vexflow/src/header.js"></script>
     <script src="../bower_components/vexflow/src/vex.js"></script>
     <script src="../bower_components/vexflow/src/flow.js"></script>
@@ -16,13 +18,6 @@
     <script src="../bower_components/vexflow/src/fonts/vexflow_font.js"></script>
     <script src="../bower_components/vexflow/src/glyph.js"></script>
     <script src="../bower_components/vexflow/src/tables.js"></script>
-
-    <!-- it is currently necessary to specify custom stave line thicknesses at this place;
-    changing it later leads to wrong bar line lengths in VexFlow. -->
-    <script>
-        Vex.Flow.STAVE_LINE_THICKNESS = 1;
-    </script>
-
     <script src="../bower_components/vexflow/src/stave.js"></script>
     <script src="../bower_components/vexflow/src/staveconnector.js"></script>
     <script src="../bower_components/vexflow/src/tabstave.js"></script>
@@ -81,8 +76,6 @@
     <script src="../bower_components/vexflow/src/gracenotegroup.js"></script>
     <script src="../bower_components/vexflow/src/curve.js"></script>
 
-    <!-- MEISnippetViewer development -->
-    <script src="../bower_components/requirejs/require.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>
@@ -102,31 +95,10 @@
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Util.js"></script>
     <script type="text/JavaScript" src="../bower_components/meitovexflow/src/vexflow-overrides.js"></script>
 
-    <!-- MEISnippetViewer development -->
-    <!--<script src="../bower_components/requirejs/require.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/meilib.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/MEI2VF.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/EventLink.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/EventReference.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Hyphenation.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaffInfo.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/System.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Verses.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/LinkCollections.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/PointerCollections.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Measure.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/SystemInfo.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaveConnector.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/StaveVoices.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/tables.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Converter.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Util.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/Verses.js"></script>-->
-    <!--<script type="text/JavaScript" src="../../MEI2VF/src/vexflow-overrides.js"></script>-->
-
 
     <!-- MEISnippetViewer production -->
     <!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
+
 
     <script type="text/JavaScript" src="../bower_components/meitovexflow/tests/loadxmldoc.js"></script>
 

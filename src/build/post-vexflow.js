@@ -1,0 +1,1 @@
+var VF = Vex.Flow;
