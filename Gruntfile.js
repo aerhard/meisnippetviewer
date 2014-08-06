@@ -145,6 +145,11 @@ module.exports = function (grunt) {
           'bower_components/vexflow/src/gracenote.js',
           'bower_components/vexflow/src/gracenotegroup.js',
           'bower_components/vexflow/src/curve.js',
+          'bower_components/vexflow/src/staveline.js',
+          'bower_components/vexflow/src/crescendo.js',
+          'bower_components/vexflow/src/ornament.js',
+          'bower_components/vexflow/src/pedalmarking.js',
+          'bower_components/vexflow/src/textbracket.js',
 
           'src/build/post-vexflow.js',
 
@@ -180,7 +185,8 @@ module.exports = function (grunt) {
         options : {
           "compilation_level" : "SIMPLE_OPTIMIZATIONS",
 //          "compilation_level" : "ADVANCED_OPTIMIZATIONS",
-          "max_processes" : 5
+          "max_processes" : 5,
+          "language_in" : "ECMASCRIPT5" // not compatible with IE8, used for trailing commas in VF
           //"banner" : "/* hello world! */"
         }
       }
