@@ -18,7 +18,7 @@ module.exports = function (grunt) {
         options : {
           name : 'main',
           baseUrl : "src",
-          out : 'build/<%= pkg.name %>.part',
+          out : 'tmp/<%= pkg.name %>.build.js',
 
           exclude : [
             'jquery',
@@ -73,6 +73,17 @@ module.exports = function (grunt) {
     },
 
     concat : {
+      license : {
+        options : {
+          separator : ';'
+        },
+        src : [
+          'src/licenses.js',
+          'tmp/<%= pkg.name %>.closure.js'
+        ],
+        dest : 'build/<%= pkg.name %>.min.js'
+      },
+
       bower_js : {
         options : {
           separator : ';',
@@ -80,7 +91,7 @@ module.exports = function (grunt) {
           footer : ";var VF=Vex.Flow;})(jQuery);"
         },
         src : [
-
+          'src/licenses.js',
           'bower_components/vexflow/src/header.js',
           'bower_components/vexflow/src/vex.js',
           'bower_components/vexflow/src/flow.js',
@@ -150,6 +161,7 @@ module.exports = function (grunt) {
           'bower_components/vexflow/src/ornament.js',
           'bower_components/vexflow/src/pedalmarking.js',
           'bower_components/vexflow/src/textbracket.js',
+          'bower_components/vexflow/src/textdynamics.js',
 
           'src/build/post-vexflow.js',
 
@@ -171,7 +183,7 @@ module.exports = function (grunt) {
           'bower_components/meitovexflow/src/SystemInfo.js',
           'bower_components/meitovexflow/src/vexflow-overrides.js',
           'bower_components/meitovexflow/src/Util.js',
-          'build/<%= pkg.name %>.part'
+          'tmp/<%= pkg.name %>.build.js'
         ],
         dest : 'build/<%= pkg.name %>.js'
       }
@@ -180,7 +192,7 @@ module.exports = function (grunt) {
     closurecompiler : {
       minify : {
         files : {
-          'build/<%= pkg.name %>.min.js' : ['build/<%= pkg.name %>.js']
+          'tmp/<%= pkg.name %>.closure.js' : ['build/<%= pkg.name %>.js']
         },
         options : {
           "compilation_level" : "SIMPLE_OPTIMIZATIONS",
@@ -215,8 +227,9 @@ module.exports = function (grunt) {
   // Tasks.
   grunt.registerTask('default', [
     'requirejs:compile',
-    'concat',
-    'closurecompiler:minify'
+    'concat:bower_js',
+    'closurecompiler:minify',
+    'concat:license'
   ]);
 
   grunt.registerTask('run', [
