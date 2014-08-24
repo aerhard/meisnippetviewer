@@ -195,7 +195,7 @@ define([
       for (var i = 0; i < j; i++) {
         glyph = staff.glyphs[i];
         w = glyph.getMetrics().width;
-        console.log(glyph.getMetrics());
+//        console.log(glyph.getMetrics());
         if (glyph.code) {
 //          glyphXW
           me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
