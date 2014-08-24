@@ -1,6 +1,6 @@
 ---
 layout: demopage
-title: "Full page demo"
+title: "Full Page Demo"
 category: demo
 date: 2014-08-18 06:24:46
 ---
