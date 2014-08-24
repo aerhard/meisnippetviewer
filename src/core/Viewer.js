@@ -76,7 +76,7 @@ define([
        * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used.
        * Set this only to false if there are no variants in the MEI document.
        */
-      useMeiLib : true,
+      useMeiLib : false,
       /**
        * @cfg {Boolean} checkXmlIds If set to false, the check run for missing
        * xml:ids will be skipped. Xml:ids are necessary for the
