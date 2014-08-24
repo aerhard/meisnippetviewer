@@ -45,7 +45,7 @@ define([
        */
       autoMeasureNumbers : false,
       /**
-       * @cfg {Object} measureNumberFont The staff font (used for barlines)
+       * @cfg {Object} measureNumberFont The measure number font
        * @cfg {String} measureNumberFont.family the font family
        * @cfg {Number} measureNumberFont.size the font size
        * @cfg {String} measureNumberFont.weight the font weight
@@ -73,8 +73,7 @@ define([
         fill_style : "#000000"
       },
       /**
-       * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used.
-       * Set this only to false if there are no variants in the MEI document.
+       * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used to pre-process the input XML document. Necessary when there are variants in the MEI document.
        */
       useMeiLib : false,
       /**
@@ -110,13 +109,11 @@ define([
         throw new RuntimeError('NoConfig', 'No config passed to Viewer.');
       }
 
-      if (!config.xmlDoc) {
+      if (!config.data) {
         throw new RuntimeError('MissingData', 'No XML document passed to Viewer.');
       }
 
-      xmlDoc = Document.initXmlDoc(config.xmlDoc);
-
-      window.xx = xmlDoc;
+      xmlDoc = Document.initXmlDoc(config.data);
 
       firstScoreDef = xmlDoc.getElementsByTagName('scoreDef')[0];
       if (!firstScoreDef) {

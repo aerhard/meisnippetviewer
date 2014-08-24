@@ -111,12 +111,13 @@ Inspector.prototype = {
     console.time('m');
     MSV.Logger.setEnabled(true);
     var mei2vf = new MSV.Viewer({
-      xmlDoc : loadXMLDoc(docName),
+      data : loadXMLDoc(docName),
       target : $('#tests').append('<h3>' + docName + '</h3>'),
       autoStaveConnectorLine : options.autoStaveConnectorLine || false,
       autoMeasureNumbers : true,
       page_height: options.page_height,
       labelMode : 'full',
+      useMeiLib : true,
       staff : {
         fill_style : '#000'
       },
