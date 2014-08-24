@@ -1,0 +1,14 @@
+---
+layout: default
+---
+
+<div class=page-header>
+    <h2>{{ page.title }}
+        {% if page.subtitle %}<small>{{ page.subtitle }}</small>{% endif %}
+    </h2>
+</div>
+
+<script type="text/JavaScript" src="{{ site.baseurl }}/js/jquery.min.js"></script>
+<script type="text/JavaScript" src="{{ site.baseurl }}/js/meisnippetviewer.min.js"></script>
+
+{{ content }}

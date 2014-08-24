@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="../odd/mei2vexflow.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+<?xml-model href="../odd/mei2vexflow.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei">
+    <meiHead>
+        <fileDesc>
+            <titleStmt>
+                <title/>
+            </titleStmt>
+            <pubStmt/>
+        </fileDesc>
+    </meiHead>
+    <music>
+        <body>
+            <mdiv>
+                <score>
+                    <scoreDef page.scale="70%" page.height="200">
+                        <staffGrp>
+                            <staffDef n="1" lines="5" clef.line="3" clef.shape="C" meter.count="4" meter.unit="4"
+                                      spacing="80"/>
+                        </staffGrp>
+                    </scoreDef>
+                    <section>
+                        <measure n="1">
+                            <staff n="1">
+                                <layer n="1">
+                                    <note xml:id="f01" pname="d" oct="4" dur="8" grace="unknown" stem.mod="1slash"/>
+                                    <note xml:id="f02" pname="c" oct="4" dur="4"/>
+                                    <beam>
+                                        <note xml:id="f03" pname="f" accid="s" oct="4" dur="16" grace="unknown"/>
+                                        <note xml:id="f04" pname="e" accid="f" oct="4" dur="16" grace="unknown"/>
+                                    </beam>
+                                    <note xml:id="f05" pname="d" oct="4" dur="2"/>
+                                    <beam>
+                                        <tuplet>
+                                            <chord grace="unknown">
+                                                <note xml:id="fg09" pname="a" oct="3" dur="16"/>
+                                                <note xml:id="fg08" pname="d" oct="4" dur="16"/>
+                                            </chord>
+                                            <chord grace="unknown">
+                                                <note xml:id="fg11" pname="a" accid="f" oct="3" dur="16"/>
+                                                <note xml:id="fg10" pname="d" accid="f" oct="4" dur="16"/>
+                                            </chord>
+                                            <chord grace="unknown">
+                                                <note xml:id="fga09" pname="g" oct="3" dur="16"/>
+                                                <note xml:id="fga08" pname="c" oct="4" dur="16"/>
+                                            </chord>
+                                        </tuplet>
+                                    </beam>
+                                    <chord xml:id="fc02">
+                                        <note xml:id="fn13" pname="f" accid="s" oct="3" dur="8"/>
+                                        <note xml:id="fn12" pname="b" oct="3" dur="4"/>
+                                    </chord>
+                                    <rest dur="8"/>
+                                </layer>
+                            </staff>
+                            <slur startid="f03" endid="f05"/>
+                            <slur startid="fg09" endid="fn13"/>
+                            <dynam tstamp="1" staff="1">ff</dynam>
+                            <dynam tstamp="4" staff="1">sfz</dynam>
+                        </measure>
+                        <measure n="2">
+                            <staff n="1">
+                                <layer>
+                                    <tuplet>
+                                        <beam>
+                                            <note pname="c" oct="4" dur="8"/>
+                                            <note pname="d" oct="4" accid="f" dur="8" grace="unknown" slur="i"/>
+                                            <note pname="c" oct="4" dur="8" slur="t">
+                                                <artic artic="acc"/>
+                                            </note>
+                                            <note pname="c" oct="4" dur="8"/>
+                                        </beam>
+                                    </tuplet>
+                                    <beam>
+                                        <note pname="f" oct="4" dur="16">
+                                            <artic artic="acc"/>
+                                        </note>
+                                        <note pname="g" oct="4" accid="f" dur="32" grace="unknown"/>
+                                        <note pname="f" oct="4" dur="16"/>
+                                    </beam>
+                                    <rest dur="8"/>
+                                    <rest dur="2"/>
+                                </layer>
+                            </staff>
+                        </measure>
+                    </section>
+                </score>
+            </mdiv>
+        </body>
+    </music>
+</mei>

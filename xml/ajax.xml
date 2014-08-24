@@ -1,0 +1,19 @@
+<mdiv xmlns="http://www.music-encoding.org/ns/mei">
+<score>
+    <scoreDef page.width="300" page.height="80" page.topmar="20">
+        <staffGrp>
+            <staffDef n="1" lines="5" clef.line="2" clef.shape="G"
+            meter.count="4" meter.unit="4" key.pname="E" key.mode="major"/>
+            </staffGrp>
+        </scoreDef>
+    <section>
+        <measure n="1">
+            <staff n="1">
+                <layer>
+                    <note pname="e" oct="4" dur="1"/>
+                    </layer>
+                </staff>
+            </measure>
+        </section>
+    </score>
+</mdiv>
