@@ -10,8 +10,8 @@ date: 2014-08-18 06:24:45
 for example &lt;div class="my-music" style="text-align:center;"&gt;&lt;/div&gt; or &lt;span class="my-music" style="float:right;"&gt;&lt;/span&gt;.
 </p>
 <p>
-Each of the music fragments on the page consists of three canvas layers: one containing the VexFlow output (the notated music)
-and two layers used for highlighting overlapping score features (layer 1: measures, layer 2: notes, bar lines, clefs etc. 
+Each of the music fragments on the page consists of three canvas layers: one contains the VexFlow output (the notated music), the others 
+are used to highlight overlapping score features (layer 1: measures, layer 2: notes, bar lines, clefs etc.) 
 </p>
 </div>
 

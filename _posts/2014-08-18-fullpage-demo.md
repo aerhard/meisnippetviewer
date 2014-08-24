@@ -16,7 +16,8 @@ widths are calculated automatically, based on measure content and the total page
 $.get('{{ site.baseurl }}/xml/TC.PageLayoutAutoWidths.xml', function (meiCode) {
     var viewer = new MSV.Viewer({
           data   : meiCode, 
-          target : $('#music')
+          target : $('#music'),
+          labelMode : 'full'
         });
 }, 'xml');
 </script>
