@@ -18,7 +18,7 @@ uses MEItoVexFlow as a converter as well.
 
 #### Features
 
-Features include
+See the demo section for live demonstrations of features. Features include:
 
 - Display of scores and single voices
 - Clef and time signature changes
@@ -33,7 +33,7 @@ The viewer requires a modern browser (IE9+) with JavaScript enabled.
 
 #### Usage
 
-See the section [Getting started]({% post_url 2014-08-18-setup %}).
+See the section [Getting started]({{ site.baseurl }}{% post_url 2014-08-18-setup %}).
 
 #### Developers
 
