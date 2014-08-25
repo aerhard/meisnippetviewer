@@ -82,9 +82,16 @@ define([
     },
 
     removeHighlight : function () {
-      var me = this;
-      me.ctx.clearRect(me.currentHighlight.ctx.x - 1, me.currentHighlight.ctx.y - 1, me.currentHighlight.ctx.w +
-                                                                                     2, me.currentHighlight.ctx.h + 2);
+      var me = this,
+          factor = 1 / me.scale;
+      // select a rectangle larger than the highlight in order to remove
+      // additional pixels created due to anti-aliasing, too; the smaller
+      // the scaling, the bigger these artifacts are proportionally
+      me.ctx.clearRect(
+          me.currentHighlight.ctx.x - factor,
+          me.currentHighlight.ctx.y - factor,
+          me.currentHighlight.ctx.w + 2 * factor,
+          me.currentHighlight.ctx.h + 2 * factor);
     },
 
     highlightAll : function () {
@@ -113,7 +120,6 @@ define([
             me.removeHighlight();
             me.setHighlight(area);
           }
-          ;
           if (me.mouseEnterHandler) {
             me.mouseEnterHandler(area, topCanvas, e);
           }
@@ -122,7 +128,7 @@ define([
         if (me.currentHighlight !== me.emptyArea) {
           if (me.highlightOnHover) {
             me.removeHighlight();
-            me.setHighlight(me.emptyArea);
+            me.currentHighlight = me.emptyArea;
           }
           if (me.mouseLeaveHandler) {
             me.mouseLeaveHandler(null, topCanvas, e);
@@ -136,11 +142,13 @@ define([
      * @param {Object} area The area to highlight.
      */
     setHighlight : function (area) {
-      var me = this;
-
-      //      me.ctx.fillRect(area.ctx.x, area.ctx.y, area.ctx.w, area.ctx.h);
-      me.roundRect(me.ctx, area.ctx.x, area.ctx.y, area.ctx.w, area.ctx.h, 5, true, false);
-
+      var me = this, M = Math;
+      me.roundRect(me.ctx,
+        area.ctx.x,
+        area.ctx.y,
+        area.ctx.w,
+        area.ctx.h,
+        5, true, false);
       me.currentHighlight = area;
     },
 
@@ -185,8 +193,7 @@ define([
     },
 
     /**
-     * Checks if a point is in one of the highlighter areas. If so, the inFn
-     * callback function will be called, otherwise the outFn.
+     * Checks if a point is in one of the highlighter areas.
      * @param {Object} point The point
      * @param {Number} point.x The x coordinate
      * @param {Number} point.y The y coordinate
