@@ -6,8 +6,8 @@ date: 2014-08-18 06:24:45
 ---
 
 <div class="well">
-<p>This page demonstrates embedding of short music fragments in a text. Layout is specified with simple inline CSS rules, 
-for example &lt;div class="my-music" style="text-align:center;"&gt;&lt;/div&gt; or &lt;span class="my-music" style="float:right;"&gt;&lt;/span&gt;.
+<p>This page demonstrates embedding of short music fragments in a text. Layout is specified with simple inline CSS rules, see the source code of 
+ this page.
 </p>
 <p>
 Each of the music fragments on the page consists of three canvas layers: one contains the VexFlow output (the notated music), the others 
@@ -20,15 +20,21 @@ are used to highlight overlapping score features (layer 1: measures, layer 2: no
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:center;"></div>
+<div style="text-align:center;">
+    <span class="music"></span>
+</div>
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:left;"></div>
+<div style="text-align:left;">
+    <span class="music"></span>
+</div>
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:right;"></div>
+<div style="text-align:right;">
+    <span class="music"></span>
+</div>
 <h3>Inline</h3>
 
 <div>
@@ -61,15 +67,16 @@ are used to highlight overlapping score features (layer 1: measures, layer 2: no
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
         <td style="text-align:center;">
-            <div class="music"></div>
-            center
+            <span class="music"></span>
+            <p>center</p>
         </td>
         <td>Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
     </tr>
     <tr>
-        <td style="text-align:left;">left
+        <td style="text-align:left;">
+            <p>left</p>
             <div class="music"></div>
         </td>
         <td>Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et
@@ -87,8 +94,8 @@ are used to highlight overlapping score features (layer 1: measures, layer 2: no
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
         <td style="text-align:right;">
-            <div class="music"></div>
-            right
+            <span class="music"></span>
+            <p>right</span>
         </td>
     </tr>
     </tbody>
