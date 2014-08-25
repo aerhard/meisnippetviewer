@@ -5,9 +5,10 @@ category: demo
 date: 2014-08-18 06:24:45
 ---
 
+Also see the [Layout documentation]({{ site.baseurl }}{% post_url 2014-08-17-layout %}).
+
 <div class="well">
-<p>This page demonstrates embedding of short music fragments in a text. Layout is specified with simple inline CSS rules, see the source code of 
- this page.
+<p>This page demonstrates embedding of short music fragments in a text. Layout is specified with simple inline CSS rules.
 </p>
 <p>
 Each of the music fragments on the page consists of three canvas layers: one contains the VexFlow output (the notated music), the others 
