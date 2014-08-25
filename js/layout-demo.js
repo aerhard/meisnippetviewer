@@ -18,7 +18,16 @@ $(document).ready(function () {
     new MSV.Viewer({
       data   : xmlDoc,
       target   : target,
-      useMeiLib: false
+      useMeiLib: false,
+      layers   : [
+        new MSV.DefaultAreaCollection({
+          content      : ['measures'],
+          highlightMode: 'hover'
+        }),
+        new MSV.DefaultAreaCollection({
+          content      : ['notes', 'barlines', 'measure_modifiers', 'anchoredTexts'],
+          highlightMode: 'hover'
+        })]
     });
   };
 
