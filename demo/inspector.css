@@ -1,6 +1,10 @@
 
 body {padding: 40px 0 150px}
 
+.outer-container {
+    display: inline-table;
+}
+
 .infobar {
     margin:0;
     position:fixed;

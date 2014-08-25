@@ -5,6 +5,9 @@
     <meta charset="utf-8">
 
     <style type="text/css">
+        .music {
+            display: inline-table;
+        }
     </style>
 
     <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
@@ -191,21 +194,27 @@
 <body>
 <h1>MEI Snippet Viewer - Layout Test Page</h1>
 
-<h2>Separate Lines</h2>
+<h3>Separate Lines</h3>
 
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:center;"></div>
+<div style="text-align:center;">
+    <span class="music"></span>
+</div>
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:left;"></div>
+<div style="text-align:left;">
+    <span class="music"></span>
+</div>
 <div>
     <p class="lorem"></p>
 </div>
-<div class="music" style="text-align:right;"></div>
-<h2>Inline</h2>
+<div style="text-align:right;">
+    <span class="music"></span>
+</div>
+<h3>Inline</h3>
 
 <div>
     <p>
@@ -229,7 +238,7 @@
         tempor invidunt ut labor.
     </p>
 </div>
-<h2>Table</h2>
+<h3>Table</h3>
 <table>
     <tbody>
     <tr>
@@ -237,15 +246,16 @@
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
         <td style="text-align:center;">
-            <div class="music"></div>
-            center
+            <span class="music"></span>
+            <p>center</p>
         </td>
         <td>Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
     </tr>
     <tr>
-        <td style="text-align:left;">left
+        <td style="text-align:left;">
+            <p>left</p>
             <div class="music"></div>
         </td>
         <td>Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et
@@ -263,13 +273,13 @@
             dolore magna aliquyam erat, sed diam voluptua.
         </td>
         <td style="text-align:right;">
-            <div class="music"></div>
-            right
+            <span class="music"></span>
+            <p>right</span>
         </td>
     </tr>
     </tbody>
 </table>
-<h2>Float</h2>
+<h3>Float</h3>
 
 <div>
     <p>
