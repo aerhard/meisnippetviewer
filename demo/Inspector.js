@@ -106,55 +106,62 @@ Inspector.prototype = {
   },
 
   render : function (docName, options) {
+
     var me = this, options = options || {};
 
-    console.time('m');
-    MSV.Logger.setEnabled(true);
-    var mei2vf = new MSV.Viewer({
-      data : loadXMLDoc(docName),
-      target : $('#tests').append('<h3>' + docName + '</h3>'),
-      autoStaveConnectorLine : options.autoStaveConnectorLine || false,
-      autoMeasureNumbers : true,
-      page_height: options.page_height,
-      labelMode : 'full',
-      useMeiLib : true,
-      staff : {
-        fill_style : '#000'
-      },
+    $.get(docName, function (xml) {
 
-      layers : [
-        new MSV.DefaultAreaCollection({
-          content : ['measures'],
-          //highlightMode : 'hover',
-          mouseEnterHandler : me.handlers.onEnterMeasure,
-          mouseLeaveHandler : me.handlers.onLeaveMeasure
-        }),
-        new MSV.DefaultAreaCollection({
-          content : [
-            'notes',
-            'barlines',
-            'measure_modifiers',
-            'anchoredTexts',
-            'pgHead'
-          ],
-          highlightMode : 'hover',
-          mouseEnterHandler : me.handlers.onEnterNote,
-          mouseLeaveHandler : me.handlers.onLeaveNote
-        }),
-        new MSV.DefaultAreaCollection({
-          content : ['variants'],
-          highlightMode : 'static',
-          fillStyle : 'rgba(255, 0, 0, 0.7)',
-          clickHandler : me.handlers.onVariantClick,
-          mouseEnterHandler : me.handlers.onEnterVariant,
-          mouseLeaveHandler : me.handlers.onLeaveVariant
-        }),
-        {
-          type : 'vex'
-        }
-      ]
-    });
-    console.timeEnd('m');
+      options = $.extend(true, {}, {
+        data : loadXMLDoc(docName),
+        target : $('#tests').append('<h3>' + docName + '</h3>'),
+        autoStaveConnectorLine : options.autoStaveConnectorLine || false,
+        autoMeasureNumbers : true,
+        page_height : options.page_height,
+        labelMode : 'full',
+        useMeiLib : true,
+        staff : {
+          fill_style : '#000'
+        },
+
+        layers : [
+          new MSV.DefaultAreaCollection({
+            content : ['measures'],
+            //highlightMode : 'hover',
+            mouseEnterHandler : me.handlers.onEnterMeasure,
+            mouseLeaveHandler : me.handlers.onLeaveMeasure
+          }),
+          new MSV.DefaultAreaCollection({
+            content : [
+              'notes',
+              'barlines',
+              'measure_modifiers',
+              'anchoredTexts',
+              'pgHead'
+            ],
+            highlightMode : 'hover',
+            mouseEnterHandler : me.handlers.onEnterNote,
+            mouseLeaveHandler : me.handlers.onLeaveNote
+          }),
+          new MSV.DefaultAreaCollection({
+            content : ['variants'],
+            highlightMode : 'static',
+            fillStyle : 'rgba(255, 0, 0, 0.7)',
+            clickHandler : me.handlers.onVariantClick,
+            mouseEnterHandler : me.handlers.onEnterVariant,
+            mouseLeaveHandler : me.handlers.onLeaveVariant
+          }),
+          {
+            type : 'vex'
+          }
+        ]
+      }, options);
+
+      console.time('m');
+      MSV.Logger.setEnabled(true);
+      var mei2vf = new MSV.Viewer(options);
+      console.timeEnd('m');
+
+    }, 'xml');
   },
 
   processAreaInfo : function (area) {

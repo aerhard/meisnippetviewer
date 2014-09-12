@@ -116,10 +116,14 @@
 
             var run = function () {
                 var inspector = new Inspector();
-                inspector.render('../bower_components/meitovexflow/tests/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine : true});
+                inspector.render('Ahle2013p.xml', {autoStaveConnectorLine : true, staveSpacing: 160, page_scale: 0.8, page_width: 1500, page_height: 1500, page_margin_top: 200});
+                inspector.render('Bach2013p.xml', {autoStaveConnectorLine : true, page_height: 1400, page_width: 1200,page_scale:0.8});
+                inspector.render('Guami2013p.xml', {autoStaveConnectorLine : true, page_height: 11000, page_width:1600});
+                
+//                inspector.render('../bower_components/meitovexflow/tests/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine : true});
 //                inspector.render('../bower_components/meitovexflow/tests/TC.GraceNotes.xml', {page_height : 400});
 
-                inspector.render('../bower_components/meitovexflow/tests/TC.StaffChange.01.xml');
+//                inspector.render('../bower_components/meitovexflow/tests/TC.StaffChange.01.xml');
 //                inspector.render('../bower_components/meitovexflow/tests/TC.VexClef.08.xml');
 //
 //                inspector.render('../bower_components/meitovexflow/tests/TC.Hyphens.xml');
