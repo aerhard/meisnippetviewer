@@ -1,8 +1,27 @@
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 define([
   'vexflow',
   'meitovexflow',
   'areas/AbstractAreaCollection'
 ], function (VF, m2v, AbstractAreaCollection, undefined) {
+  /**
+   * @exports areas/DefaultAreaCollection
+   */
 
   /**
    * @class MSV.DefaultAreaCollection
@@ -82,16 +101,13 @@ define([
     },
 
     removeHighlight : function () {
-      var me = this,
-          factor = 1 / me.scale;
+      var me = this, factor = 1 / me.scale;
       // select a rectangle larger than the highlight in order to remove
       // additional pixels created due to anti-aliasing, too; the smaller
       // the scaling, the bigger these artifacts are proportionally
-      me.ctx.clearRect(
-          me.currentHighlight.ctx.x - factor,
-          me.currentHighlight.ctx.y - factor,
-          me.currentHighlight.ctx.w + 2 * factor,
-          me.currentHighlight.ctx.h + 2 * factor);
+      me.ctx.clearRect(me.currentHighlight.ctx.x - factor, me.currentHighlight.ctx.y -
+                                                           factor, me.currentHighlight.ctx.w +
+                                                                   2 * factor, me.currentHighlight.ctx.h + 2 * factor);
     },
 
     highlightAll : function () {
@@ -143,12 +159,7 @@ define([
      */
     setHighlight : function (area) {
       var me = this, M = Math;
-      me.roundRect(me.ctx,
-        area.ctx.x,
-        area.ctx.y,
-        area.ctx.w,
-        area.ctx.h,
-        5, true, false);
+      me.roundRect(me.ctx, area.ctx.x, area.ctx.y, area.ctx.w, area.ctx.h, 5, true, false);
       me.currentHighlight = area;
     },
 

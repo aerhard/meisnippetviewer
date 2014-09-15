@@ -1,8 +1,27 @@
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 define([
   'jquery',
   'vexflow',
   'meitovexflow'
 ], function ($, VF, m2v, undefined) {
+  /**
+   * @exports mei2text/Text
+   */
 
   var Text = function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
     this.init(meiElement, opts, overrideOpts, customText, meiNodeMatch);
@@ -30,9 +49,9 @@ define([
       this.y = y;
     },
 
-    setTextAlign :function (textAlign) {
-    this.textAlign = textAlign;
-  },
+    setTextAlign : function (textAlign) {
+      this.textAlign = textAlign;
+    },
 
     getArea : function () {
       var me = this;
@@ -59,8 +78,7 @@ define([
 
     preProcess : function () {
       var me = this, ctx = me.ctx, atts = me.atts;
-      this.font =
-        atts.fontstyle + ' ' + atts.fontweight + ' ' + atts.fontsize + 'px ' + atts.fontfamily;
+      this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + atts.fontsize + 'px ' + atts.fontfamily;
       ctx.font = this.font;
       me.h = atts.fontsize;
       me.w = ctx.measureText(me.text).width;

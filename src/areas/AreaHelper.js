@@ -1,11 +1,27 @@
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
 define([
   'vexflow',
-  'core/RuntimeError'
-], function (VF, RuntimeError, undefined) {
-
+  'core/Logger'
+], function (VF, Logger, undefined) {
   /**
-   * @class MSV.AreaHelper
+   * @exports areas/AreaHelper
    */
+
   var AreaHelper = function (viewer) {
     this.viewer = viewer;
   };
@@ -47,8 +63,7 @@ define([
             if (hType) {
               hType.push(areaCollection);
             } else {
-              throw new RuntimeError('Configuration Error', 'Area type "' + areaCollection.content[j] +
-                                                            '" is not supported');
+              Logger.log('warn', 'Configuration error', 'Unknown area type "' + areaCollection.content[j] + '".');
             }
           }
         }
@@ -169,38 +184,38 @@ define([
 
     calculateStaffModifierAreas : function (staff, y, h) {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-//      j = modifiers.length;
-//
-//      console.log(staff);
-//      if (staff.modifiers.length > 2) {
-//        x = staff.getGlyphStartX() - 4;
-//        w = staff.start_x - x + 12;
-////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
-//      }
-//
-//      for ( i = 2; i < j; i += 1) {
-//        if (modifiers[i] instanceof VF.Clef) {
-//          console.log('clef:');
-//        } else if (modifiers[i] instanceof VF.KeySignature) {
-//          console.log('keysig:');
-//        } else if (modifiers[i] instanceof VF.TimeSignature) {
-//          console.log('timesig:');
-//        }
-//      console.log(modifiers[i]);
-//      }
-//
+      //      j = modifiers.length;
+      //
+      //      console.log(staff);
+      //      if (staff.modifiers.length > 2) {
+      //        x = staff.getGlyphStartX() - 4;
+      //        w = staff.start_x - x + 12;
+      ////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
+      //      }
+      //
+      //      for ( i = 2; i < j; i += 1) {
+      //        if (modifiers[i] instanceof VF.Clef) {
+      //          console.log('clef:');
+      //        } else if (modifiers[i] instanceof VF.KeySignature) {
+      //          console.log('keysig:');
+      //        } else if (modifiers[i] instanceof VF.TimeSignature) {
+      //          console.log('timesig:');
+      //        }
+      //      console.log(modifiers[i]);
+      //      }
+      //
       j = staff.glyphs.length;
       x = staff.getGlyphStartX();
       var glyph, glyphXW = [], glyphXWindex = 0;
       for (var i = 0; i < j; i++) {
         glyph = staff.glyphs[i];
         w = glyph.getMetrics().width;
-//        console.log(glyph.getMetrics());
+        //        console.log(glyph.getMetrics());
         if (glyph.code) {
-//          glyphXW
+          //          glyphXW
           me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
         } else {
-//          glyphXWindex++;
+          //          glyphXWindex++;
         }
         x += w;
       }

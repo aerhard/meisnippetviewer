@@ -15932,21 +15932,21 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
     defaults : {
       /**
-       * @cfg {Number} page_width The width of the page
+       * @cfg {Number} pageWidth The width of the page
        */
-      page_width : 800,
+      pageWidth : 800,
       /**
-       * @cfg {Number} page_margin_top The top page margin
+       * @cfg {Number} pageTopMar The top page margin
        */
-      page_margin_top : 60,
+      pageTopMar : 60,
       /**
-       * @cfg {Number} page_margin_left The left page margin
+       * @cfg {Number} pageLeftMar The left page margin
        */
-      page_margin_left : 20,
+      pageLeftMar : 20,
       /**
-       * @cfg {Number} page_margin_right The right page margin
+       * @cfg {Number} pageRightMar The right page margin
        */
-      page_margin_right : 20,
+      pageRightMar : 20,
       /**
        * @cfg {Number} systemSpacing The spacing between two staff
        * systems
@@ -16067,13 +16067,13 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
        * @property {Number} printSpace.width
        */
       me.printSpace = {
-        // substract four line distances (40px) from page_margin_top in order
+        // substract four line distances (40px) from pageTopMar in order
         // to compensate VexFlow's default top spacing / allow specifying
         // absolute values
-        top : me.cfg.page_margin_top - 40,
-        left : me.cfg.page_margin_left,
-        right : me.cfg.page_width - me.cfg.page_margin_right,
-        width : Math.floor(me.cfg.page_width - me.cfg.page_margin_right - me.cfg.page_margin_left) - 1
+        top : me.cfg.pageTopMar - 40,
+        left : me.cfg.pageLeftMar,
+        right : me.cfg.pageWidth - me.cfg.pageRightMar,
+        width : Math.floor(me.cfg.pageWidth - me.cfg.pageRightMar - me.cfg.pageLeftMar) - 1
       };
       return me;
 
@@ -19390,8 +19390,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       var me = this;
       if (me.staffDef.hasAttribute('key.pname')) {
         me.keySpec = me.convertKeySpec(me.staffDef);
-      }
-      if (me.scoreDef.hasAttribute('key.pname')) {
+      } else if (me.scoreDef.hasAttribute('key.pname')) {
         me.keySpec = me.convertKeySpec(me.scoreDef);
       }
     },
@@ -22013,12 +22012,12 @@ Vex.Flow.Stave = (function() {
         return (isNaN(input) || input.length === 0) ? undefined : +input;
       };
       return {
-        page_scale : parseInt(obj['page.scale'], 10) / 100 || undefined,
-        page_height : convert(obj['page.height']),
-        page_width : convert(obj['page.width']),
-        page_margin_top : convert(obj['page.topmar']),
-        page_margin_left : convert(obj['page.leftmar']),
-        page_margin_right : convert(obj['page.rightmar'])
+        pageScale : parseInt(obj['page.scale'], 10) / 100 || undefined,
+        pageHeight : convert(obj['page.height']),
+        pageWidth : convert(obj['page.width']),
+        pageTopMar : convert(obj['page.topmar']),
+        pageLeftMar : convert(obj['page.leftmar']),
+        pageRightMar : convert(obj['page.rightmar'])
       };
     }
   };
@@ -22065,14 +22064,14 @@ Vex.Flow.Stave = (function() {
     createLayers : function (cfg) {
       var me = this, h, w, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
 
-      me.scale = cfg.page_scale;
+      me.scale = cfg.pageScale;
 
       // unwrap target if it's a jQuery object
       var target = cfg.target[0] || cfg.target;
 
       layers = cfg.layers;
-      h = cfg.page_height * cfg.page_scale;
-      w = cfg.page_width * cfg.page_scale;
+      h = cfg.pageHeight * cfg.pageScale;
+      w = cfg.pageWidth * cfg.pageScale;
       j = layers.length;
 
       while (j--) {
@@ -22103,7 +22102,7 @@ Vex.Flow.Stave = (function() {
           ctx = element.getContext('2d');
           layers[i].setElement(element);
           layers[i].setContext(ctx);
-          layers[i].setScale(cfg.page_scale);
+          layers[i].setScale(cfg.pageScale);
         } else {
           throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
         }
@@ -22173,8 +22172,8 @@ Vex.Flow.Stave = (function() {
       var me = this, paper, w, h;
       if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
         paper = ctx.paper;
-        h = cfg.page_height;
-        w = cfg.page_width;
+        h = cfg.pageHeight;
+        w = cfg.pageWidth;
         paper.setSize(w * scale, h * scale);
         paper.setViewBox(0, 0, w, h);
       } else {
@@ -23097,33 +23096,36 @@ Vex.Flow.Stave = (function() {
        * @param element
        */
       processDefs : function (element) {
-        var me = this, i;
+        var me = this, i, keys;
         keys = {
           s : ['c','g','d','a','e','b',['f','s'],['c','s']],
           f : ['c','f',['b','f'],['e','f'],['a','f'],['d','f'],['g','f'],['c','f']]
         };
 
         var process = function(items, keys) {
-          var i, keySig, n, acc, keys, found;
+          var i, keySig, n, acc, found;
           for (i = items.length; i--;) {
             if (items[i].hasAttribute('key.sig')) {
               keySig = items[i].getAttribute('key.sig');
               n = +keySig.substring(0, 1);
               acc = keySig.substring(1);
               key = keys[acc];
+
+              items[i].setAttribute('key.mode', 'major');
               found = (key) ? key[n] : null;
               if (found) {
-                items[i].setAttribute('key.mode', 'major');
                 if (typeof found === 'string') {
                   items[i].setAttribute('key.pname', found);
                 } else {
                   items[i].setAttribute('key.pname', found[0]);
                   items[i].setAttribute('key.accid', found[1]);
                 }
+              } else {
+                items[i].setAttribute('key.pname', 'c');
               }
             }
           }
-        }
+        };
         process(element.getElementsByTagName('staffDef'), keys);
         process(element.getElementsByTagName('scoreDef'), keys);
       }
@@ -23147,18 +23149,18 @@ Vex.Flow.Stave = (function() {
 
     defaults : {
       /**
-       * @cfg {Number} page_scale The page scale (set 1 for 100%, 0.5 for 50%
+       * @cfg {Number} pageScale The page scale (set 1 for 100%, 0.5 for 50%
        * etc.)
        */
-      page_scale : 1,
+      pageScale : 1,
       /**
-       * @cfg {Number} page_height The height of the page.
+       * @cfg {Number} pageHeight The height of the page.
        */
-      page_height : 350,
+      pageHeight : 350,
       /**
-       * @cfg {Number} page_width The width of the page.
+       * @cfg {Number} pageWidth The width of the page.
        */
-      page_width : 800,
+      pageWidth : 800,
       /**
        * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
        * automatically be added to each system start
@@ -23299,10 +23301,10 @@ Vex.Flow.Stave = (function() {
           w : me.converter.printSpace.width
         });
         me.pgHead.setContext(vexCtx).draw();
-        if (!me.cfg.page_margin_top && me.pgHead.lowestY) {
-          me.cfg.page_margin_top = me.pgHead.lowestY;
+        if (!me.cfg.pageTopMar && me.pgHead.lowestY) {
+          me.cfg.pageTopMar = me.pgHead.lowestY;
           console.warn('setting '+me.pgHead.lowestY);
-          me.converter.page_margin_top = me.pgHead.lowestY;
+          me.converter.pageTopMar = me.pgHead.lowestY;
           me.converter.printSpace.top = me.pgHead.lowestY;
         }
       }
@@ -23852,7 +23854,7 @@ Vex.Flow.Stave = (function() {
     // START ADDITION
     var Annotation = Vex.Flow.Annotation;
     var Modifier = Vex.Flow.Modifier;
-    var L = Vex.L;
+    var L = function(){};
     // END ADDITION
 
 
