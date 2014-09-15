@@ -130,7 +130,7 @@
 
             var render = function (xmlDoc, target) {
                 console.time('m');
-                MSV.Logger.setEnabled(true);
+                MSV.Logger.setLevel('info');
                 new MSV.Viewer({
                     data   : xmlDoc,
                     target   : target,

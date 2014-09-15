@@ -1,33 +1,59 @@
-define(function (undefined) {
+define([
+  'meitovexflow'
+], function (m2v, undefined) {
 
   var Logger = {
 
     /**
-     * @property {Boolean} enabled specifies if logging is enabled or disabled.
-     * Defaults to false.
+     * @property {Object} logLevels specifies the active log levels. Use {@link setLevel} to change
+     * the values.
      * @private
      */
-    enabled : false,
-
-    /**
-     * @method setEnabled enables or disables MEI2VF logging
-     * @param {Boolean} value
-     */
-    setEnabled : function (value) {
-      this.enabled = value;
+    logLevels : {
+      error : true,
+      warn : true,
+      info : true
     },
 
     /**
-     * @method log Passes the function arguments to VexFlow's log method Vex.L
-     * if {@link #enabled} is `true`
+     * @method setLogging sets the logging level. Values:
+     *
+     * - 'off': no logging
+     * - 'debug' status messages
+     * - 'info' unsupported elements
+     * - 'warn' wrong encodings
+     * - 'error' errors
+     * @param {String} value
+     */
+    setLevel : function (value) {
+      var me = this, i, j, levels;
+      levels = [
+        'error',
+        'warn',
+        'info',
+        'debug'
+      ];
+      me.logLevels = {};
+      if (value === 'off') return;
+      for (i = 0, j = levels.length; i < j; i += 1) {
+        me.logLevels[levels[i]] = true;
+        if (levels[i] === value) return;
+      }
+      // set same logging level for mei2vf
+      m2v.setLogging(value);
+    },
+
+    /**
+     * @method log the logging function. Logs the arguments to the window
+     * console if the log level is listed in {@link logLevels}
      * @private
      */
-    log : function () {
-      if (this.enabled) {
-        Vex.L("MEISnippetViewer", arguments);
+    log : function (level, category) {
+      if (m2v.logLevels[level] === true) {
+        var line = Array.prototype.slice.call(arguments, 2).join(" ");
+        window.console[level]('MEISnippetViewer (' + category + "): " + line);
       }
     }
-
   };
 
   return Logger;

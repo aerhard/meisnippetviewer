@@ -19,6 +19,14 @@ define([
     return this.meiElement;
   };
 
+  Vex.Flow.Syllable.prototype.setMeiElement = function (element) {
+    this.meiElement = element;
+    return this;
+  };
+  Vex.Flow.Syllable.prototype.getMeiElement = function () {
+    return this.meiElement;
+  };
+
 
   //  MEI2VF.Converter.prototype.dirToObj = function (elements) {
   //    var me = this, directions = [];
@@ -41,8 +49,9 @@ define([
       model = me.allModels[i];
       note = notes_by_id[model.startid];
       if (note) {
+
         annot =
-        (new VF.Annotation($(model.element).text().trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+        (new VF.Annotation($(model.element).text().replace(/\s+/g, ' ').trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
 
         // TEMPORARY: set width of modifier to zero so voices with modifiers
         // don't get too much width; remove when the width calculation in
@@ -106,7 +115,7 @@ define([
 
 
   MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
-    var me = this, annot, syl, verse, text_line, verse_n, syls;
+    var me = this, vexSyllable, syl, verse, text_line, verse_n, syls;
     // syl = me.processSyllable(element);
     syls = $(element).find('syl');
     $.each(syls, function (i) {
@@ -116,13 +125,12 @@ define([
         verse_n : $(this).parents('verse').attr('n')
       };
       if (syl) {
-        annot =
-        me.createAnnot(syl.text, me.cfg.lyricsFont).setMeiElement(this).setVerticalJustification(me.BOTTOM).setLineSpacing(me.cfg.lyricsFont.spacing);
-        note.addAnnotation(0, annot);
-        me.verses.addSyllable(annot, syl.wordpos, syl.verse_n, staff_n)
-        if (syl.wordpos) {
-          me.hyphenation.addSyllable(annot, syl.wordpos, staff_n);
-        }
+        vexSyllable =
+        me.createSyllable(syl.text, me.cfg.lyricsFont).setVerticalJustification(me.BOTTOM).setLineSpacing(me.cfg.lyricsFont.spacing);
+        vexSyllable.setMeiElement(this);
+        note.addAnnotation(0, vexSyllable);
+
+        me.systems[me.currentSystem_n].verses.addSyllable(vexSyllable, syl.wordpos, syl.verse_n, staff_n);
       }
     });
   };
@@ -133,8 +141,9 @@ define([
     var L = function () {
     };
     if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Articulation without a context.");
-    if (!(this.note && (this.index !==
-                        null))) throw new Vex.RERR("NoAttachedNote", "Can't draw Articulation without a note and index.");
+    if (!(this.note && (this.index !== null))) {
+      throw new Vex.RERR("NoAttachedNote", "Can't draw Articulation without a note and index.");
+    }
 
     var stem_direction = this.note.getStemDirection();
     var stave = this.note.getStave();
@@ -206,16 +215,20 @@ define([
       shiftY = this.articulation.shift_up;
       glyph_y_between_lines = (top - 7) - (spacing * (this.text_line + line_spacing));
 
-      if (this.articulation.between_lines)
-        glyph_y = glyph_y_between_lines; else
+      if (this.articulation.between_lines) {
+        glyph_y = glyph_y_between_lines;
+      } else {
         glyph_y = Math.min(stave.getYForTopText(this.text_line) - 3, glyph_y_between_lines);
+      }
     } else {
       shiftY = this.articulation.shift_down - 10;
 
       glyph_y_between_lines = bottom + 10 + spacing * (this.text_line + line_spacing);
-      if (this.articulation.between_lines)
-        glyph_y = glyph_y_between_lines; else
+      if (this.articulation.between_lines) {
+        glyph_y = glyph_y_between_lines;
+      } else {
         glyph_y = Math.max(stave.getYForBottomText(this.text_line), glyph_y_between_lines);
+      }
     }
 
     var glyph_x = start.x + this.articulation.shift_right;
@@ -230,5 +243,97 @@ define([
     // ### END ADDITION
 
   };
+
+
+
+  Vex.Flow.Annotation.prototype.draw = function () {
+    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw text annotation without a context.");
+    if (!this.note) throw new Vex.RERR("NoNoteForAnnotation", "Can't draw text annotation without an attached note.");
+
+    // START ADDITION
+    var Annotation = Vex.Flow.Annotation;
+    var Modifier = Vex.Flow.Modifier;
+    var L = function(){};
+    // END ADDITION
+
+
+    var start = this.note.getModifierStartXY(Modifier.Position.ABOVE, this.index);
+
+    // We're changing context parameters. Save current state.
+    this.context.save();
+    this.context.setFont(this.font.family, this.font.size, this.font.weight);
+    var text_width = this.context.measureText(this.text).width;
+
+    // Estimate text height to be the same as the width of an 'm'.
+    //
+    // This is a hack to work around the inability to measure text height
+    // in HTML5 Canvas (and SVG).
+    var text_height = this.context.measureText("m").width;
+    var x, y;
+
+    if (this.justification == Annotation.Justify.LEFT) {
+      x = start.x;
+    } else if (this.justification == Annotation.Justify.RIGHT) {
+      x = start.x - text_width;
+    } else if (this.justification == Annotation.Justify.CENTER) {
+      x = start.x - text_width / 2;
+    } else /* CENTER_STEM */ {
+      x = this.note.getStemX() - text_width / 2;
+    }
+
+    var stem_ext, spacing;
+    var has_stem = this.note.hasStem();
+    var stave = this.note.getStave();
+
+    // The position of the text varies based on whether or not the note
+    // has a stem.
+    if (has_stem) {
+      stem_ext = this.note.getStem().getExtents();
+      spacing = stave.getSpacingBetweenLines();
+    }
+
+    // START ADDITION
+    var PADDING = 5;
+    // END ADDITION
+
+    if (this.vert_justification == Annotation.VerticalJustify.BOTTOM) {
+
+      y = stave.getYForBottomText(this.text_line);
+      if (has_stem) {
+
+        // START MODIFICATION
+        var stem_base = (this.note.getStemDirection() === 1 ? stem_ext.baseY + 2 * PADDING : stem_ext.topY + PADDING);
+        // END MODIFICATION
+
+        y = Math.max(y, stem_base + (spacing * (this.text_line + 2)));
+      }
+    } else if (this.vert_justification == Annotation.VerticalJustify.CENTER) {
+      var yt = this.note.getYForTopText(this.text_line) - 1;
+      var yb = stave.getYForBottomText(this.text_line);
+      y = yt + ( yb - yt ) / 2 + text_height / 2;
+    } else if (this.vert_justification == Annotation.VerticalJustify.TOP) {
+      y = Math.min(stave.getYForTopText(this.text_line), this.note.getYs()[0] - 10);
+      if (has_stem) {
+        y = Math.min(y, (stem_ext.topY - 5) - (spacing * this.text_line));
+      }
+    } else /* CENTER_STEM */{
+      var extents = this.note.getStemExtents();
+      y = extents.topY + (extents.baseY - extents.topY) / 2 + text_height / 2;
+    }
+
+
+    // START ADDITION
+    this.x = x;
+    this.y = y;
+    this.text_height = text_height;
+    this.text_width = text_width;
+    // END ADDITION
+
+
+    L("Rendering annotation: ", this.text, x, y);
+    this.context.fillText(this.text, x, y);
+    this.context.restore();
+  };
+
 
 });

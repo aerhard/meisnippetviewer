@@ -24,14 +24,14 @@ define([
     createLayers : function (cfg) {
       var me = this, h, w, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
 
-      me.scale = cfg.page_scale;
+      me.scale = cfg.pageScale;
 
       // unwrap target if it's a jQuery object
       var target = cfg.target[0] || cfg.target;
 
       layers = cfg.layers;
-      h = cfg.page_height * cfg.page_scale;
-      w = cfg.page_width * cfg.page_scale;
+      h = cfg.pageHeight * cfg.pageScale;
+      w = cfg.pageWidth * cfg.pageScale;
       j = layers.length;
 
       while (j--) {
@@ -62,7 +62,7 @@ define([
           ctx = element.getContext('2d');
           layers[i].setElement(element);
           layers[i].setContext(ctx);
-          layers[i].setScale(cfg.page_scale);
+          layers[i].setScale(cfg.pageScale);
         } else {
           throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
         }
@@ -132,8 +132,8 @@ define([
       var me = this, paper, w, h;
       if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
         paper = ctx.paper;
-        h = cfg.page_height;
-        w = cfg.page_width;
+        h = cfg.pageHeight;
+        w = cfg.pageWidth;
         paper.setSize(w * scale, h * scale);
         paper.setViewBox(0, 0, w, h);
       } else {

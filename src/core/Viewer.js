@@ -8,8 +8,9 @@ define([
   'areas/AreaHelper',
   'mei2text/AnchoredTexts',
   'mei2text/MeasureNumbers',
-  'mei2text/PgHead'
-], function ($, VF, m2v, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, undefined) {
+  'mei2text/PgHead',
+  'pre/PreProcessor'
+], function ($, VF, m2v, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor, undefined) {
 
   /**
    * @class MSV.Viewer
@@ -27,18 +28,18 @@ define([
 
     defaults : {
       /**
-       * @cfg {Number} page_scale The page scale (set 1 for 100%, 0.5 for 50%
+       * @cfg {Number} pageScale The page scale (set 1 for 100%, 0.5 for 50%
        * etc.)
        */
-      page_scale : 1,
+      pageScale : 1,
       /**
-       * @cfg {Number} page_height The height of the page.
+       * @cfg {Number} pageHeight The height of the page.
        */
-      page_height : 350,
+      pageHeight : 350,
       /**
-       * @cfg {Number} page_width The width of the page.
+       * @cfg {Number} pageWidth The width of the page.
        */
-      page_width : 800,
+      pageWidth : 800,
       /**
        * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
        * automatically be added to each system start
@@ -77,18 +78,13 @@ define([
        */
       useMeiLib : false,
       /**
-       * @cfg {Boolean} checkXmlIds If set to false, the check run for missing
-       * xml:ids will be skipped. Xml:ids are necessary for the
-       * viewer to work: Set this option only to `false` if you are sure that
-       * no xml:ids are missing in the input file.
+       * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
-      checkXmlIds : true,
-      /**
-       * @cfg {String} xmlIdPrefix The prefix of the xml:ids added by the
-       * viewer. Needs only to be changed if {@link #checkXmlIds} is `true` and
-       * the processed MEI document contains xml:ids starting with `M2V`.
-       */
-      xmlIdPrefix : 'M2V',
+      preProcess : [
+        ['addXmlIdPrefix', 'M2V'],
+        'removePbs',
+        'processDefs'
+      ],
       /**
        * @cfg {Object[]} layers The canvas layers. (optional)
        *
@@ -122,20 +118,21 @@ define([
 
       me.cfg = $.extend(true, {}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
 
-      if (me.cfg.checkXmlIds) {
-        Document.ascertainDescendantIds(xmlDoc, me.cfg.xmlIdPrefix);
-      }
-
-      if (me.cfg.useMeiLib) {
-        meiDoc = new MeiLib.MeiDoc(xmlDoc);
-        meiDoc.initSectionView();
-        me.convertMEI(meiDoc.sectionview_score);
-      } else {
-        me.convertMEI(xmlDoc);
+      if (me.cfg.preProcess) {
+        PreProcessor.process(xmlDoc, me.cfg.preProcess);
       }
 
       me.UI = new UI();
       layers = me.UI.createLayers(me.cfg);
+
+      if (me.cfg.useMeiLib) {
+        meiDoc = new MeiLib.MeiDoc(xmlDoc);
+        meiDoc.initSectionView();
+        me.convertMEI(meiDoc.sectionview_score, layers[me.UI.vexLayerIndex].ctx);
+      } else {
+        me.convertMEI(xmlDoc, layers[me.UI.vexLayerIndex].ctx);
+      }
+
 
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
@@ -182,6 +179,13 @@ define([
           y : 200,
           w : me.converter.printSpace.width
         });
+        me.pgHead.setContext(vexCtx).draw();
+        if (!me.cfg.pageTopMar && me.pgHead.lowestY) {
+          me.cfg.pageTopMar = me.pgHead.lowestY;
+          console.warn('setting '+me.pgHead.lowestY);
+          me.converter.pageTopMar = me.pgHead.lowestY;
+          me.converter.printSpace.top = me.pgHead.lowestY;
+        }
       }
 
       me.converter.process(xmlDoc);
@@ -194,7 +198,7 @@ define([
       me.allVexMeasureStaffs = me.converter.getAllVexMeasureStaffs();
 
       var anchoredTextEls = xmlDoc.getElementsByTagName('anchoredText');
-      for (var i=0, j = anchoredTextEls.length; i<j;i++){
+      for (var i = 0, j = anchoredTextEls.length; i < j; i++) {
         me.anchoredTexts.addText(anchoredTextEls[i]);
       }
 
@@ -203,7 +207,6 @@ define([
     drawMEI : function (ctx) {
       var me = this;
       me.converter.draw(ctx);
-      if (me.pgHead) me.pgHead.setContext(ctx).draw();
       me.anchoredTexts.setContext(ctx).draw(me.allVexMeasureStaffs);
     }
 

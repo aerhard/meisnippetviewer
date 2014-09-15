@@ -61,6 +61,10 @@ define([
 
     },
 
+    getLowestY: function() {
+      return this.lowestY;
+    },
+
     getTextsByLine : function () {
       return this.textsByLine;
     },
@@ -151,6 +155,7 @@ define([
       };
 
       $.each(me.textsByLine, processTextLine);
+      me.lowestY = currentCoords.y;
     },
 
     drawCenterTexts : function (centerTexts, currentCoords) {
