@@ -23,8 +23,8 @@ Inspector.prototype = {
           '<div class="tt-code">' + me.processAreaInfo(noteArea) + '</div>' + me.getXPathString(noteArea.meiElement);
         } else {
           info = '(no MEI element provided)';
-//          console.log('no mei element provided. parameters:');
-//          console.log(arguments);
+          MSV.Logger.log('log', 'no mei element provided. parameters:');
+          MSV.Logger.log('log', arguments);
         }
 
         var elementOffset = $(element).offset();
@@ -48,8 +48,8 @@ Inspector.prototype = {
         var info, elementOffset;
         element.style.cursor = 'pointer';
         info = (area.alt.elem) ? me.getElementInfo(area.alt.elem) : '(no MEI element provided)';
-//        console.log('no mei element provided. parameters:');
-//        console.log(arguments);
+        MSV.Logger.log('log', 'no mei element provided. parameters:');
+        MSV.Logger.log('log', arguments);
         elementOffset = $(element).offset();
         me.tooltip.enterVariant(info, elementOffset.left + (area.ctx.x * this.scale), elementOffset.top +
                                                                                       (area.ctx.y1 * this.scale) + 20);
@@ -97,7 +97,7 @@ Inspector.prototype = {
       show : function (html, x, y) {
         this.element.html(html);
         this.element.css({
-          'left' : Math.min(x, $(window).width() - 400) + 'px',
+          'left' : x + 'px',
           'top' : y + 'px'
         });
       }
@@ -105,61 +105,69 @@ Inspector.prototype = {
     me.tooltip.hide();
   },
 
-  process : function(path, options) {
-    var me = this;
-    $.get(path, function (data) {
-      me.render(data, options);
-    }, 'xml');
+  render : function (docName, options) {
 
-  },
-
-  render : function (data, options) {
     var me = this, options = options || {};
 
-    var mei2vf = new MSV.Viewer({
-      data : data,
-      target : $('#tests').append('<hr/>'),
-      autoStaveConnectorLine : options.autoStaveConnectorLine || false,
-      autoMeasureNumbers : true,
-      page_height: options.page_height,
-      labelMode : 'full',
-      useMeiLib : true,
-      staff : {
-        fill_style : '#000'
-      },
+    $.get(docName, function (xml) {
 
-      layers : [
-        new MSV.DefaultAreaCollection({
-          content : ['measures'],
-          //highlightMode : 'hover',
-          mouseEnterHandler : me.handlers.onEnterMeasure,
-          mouseLeaveHandler : me.handlers.onLeaveMeasure
-        }),
-        new MSV.DefaultAreaCollection({
-          content : [
-            'notes',
-            'barlines',
-            'measure_modifiers',
-            'anchoredTexts',
-            'pgHead'
-          ],
-          highlightMode : 'hover',
-          mouseEnterHandler : me.handlers.onEnterNote,
-          mouseLeaveHandler : me.handlers.onLeaveNote
-        }),
-        new MSV.DefaultAreaCollection({
-          content : ['variants'],
-          highlightMode : 'static',
-          fillStyle : 'rgba(255, 0, 0, 0.7)',
-          clickHandler : me.handlers.onVariantClick,
-          mouseEnterHandler : me.handlers.onEnterVariant,
-          mouseLeaveHandler : me.handlers.onLeaveVariant
-        }),
-        {
-          type : 'vex'
-        }
-      ]
-    });
+      try {
+
+        options = $.extend(true, {}, {
+          data : xml,
+          target : $('#tests').append('<h3>' + docName + '</h3>'),
+          autoMeasureNumbers : true,
+          labelMode : 'full',
+          useMeiLib : true,
+          staff : {
+            fill_style : '#000'
+          },
+
+          layers : [
+            new MSV.DefaultAreaCollection({
+              content : ['measures'],
+              //highlightMode : 'hover',
+              mouseEnterHandler : me.handlers.onEnterMeasure,
+              mouseLeaveHandler : me.handlers.onLeaveMeasure
+            }),
+            new MSV.DefaultAreaCollection({
+              content : [
+                'notes',
+                'barlines',
+                'measure_modifiers',
+                'anchoredTexts',
+                'pgHead'
+              ],
+              highlightMode : 'hover',
+              mouseEnterHandler : me.handlers.onEnterNote,
+              mouseLeaveHandler : me.handlers.onLeaveNote
+            }),
+            new MSV.DefaultAreaCollection({
+              content : ['variants'],
+              highlightMode : 'static',
+              fillStyle : 'rgba(255, 0, 0, 0.7)',
+              clickHandler : me.handlers.onVariantClick,
+              mouseEnterHandler : me.handlers.onEnterVariant,
+              mouseLeaveHandler : me.handlers.onLeaveVariant
+            }),
+            {
+              type : 'vex'
+            }
+          ]
+        }, options);
+
+        console.time('m');
+        MSV.Logger.setLevel('info');
+        var mei2vf = new MSV.Viewer(options);
+        console.timeEnd('m');
+
+      } catch (e) {
+        console.error(e.message);
+        console.error(e.stack);
+        throw e;
+      }
+
+    }, 'xml');
   },
 
   processAreaInfo : function (area) {

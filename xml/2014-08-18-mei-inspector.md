@@ -23,7 +23,7 @@ In this demo, mouse move listeners trigger tooltips to display the underlying ME
 $(document).ready(function () {
     var inspector = new Inspector();
     inspector.render('{{ site.baseurl }}/xml/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine : true});
-    //inspector.render('{{ site.baseurl }}/xml/TC.GraceNotes.xml');
+    inspector.render('{{ site.baseurl }}/xml/TC.GraceNotes.xml');
 });
 </script>
 <div class="infobar">

@@ -234,7 +234,7 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 			<mdiv>
 				<score>
 					<scoreDef key.pname="c" key.mode="major" music.size="16.2" page.height="3000"
-					page.width="1600" page.topmar="450" page.leftmar="100" page.rightmar="100" page.scale="50%">
+					page.width="1600" page.topmar="450" page.leftmar="100" page.rightmar="100" page.scale="60%">
 						<pgHead>
 							<title type="main">
 								<rend halign="center" valign="top">LA DESCENTE DE MARS</rend>
@@ -404,7 +404,7 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 									<rest xml:id="d1e910" dur="4"/>
 								</layer>
 							</staff>
-							<!-- <dir tstamp="1" place="above" staff="1" ho="0.7" xml:id="d01" startid="d1e229" type="tempo">
+							<!-- <dir tstamp="1" place="above" staff="1" ho="0.7" xml:id="d01" startid="#d1e229" type="tempo">
 								<rend>Allegro vivace</rend>
 							</dir> -->
 							<tempo tstamp="1" place="above" staff="1">Allegro vivace</tempo>
@@ -1530,19 +1530,19 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 									<rest xml:id="d1e7317" dur="4"/>
 								</layer>
 							</staff>
-							<dir tstamp="3" xml:id="d02" place="below" staff="1" startid="d1e7130">
+							<dir tstamp="3" xml:id="d02" place="below" staff="1" startid="#d1e7130">
 								<rend fontsize="9.4" fontweight="bold">Fine</rend>
 							</dir>
-							<dir tstamp="3"  xml:id="d03" place="below" staff="2" startid="d1e7160">
+							<dir tstamp="3"  xml:id="d03" place="below" staff="2" startid="#d1e7160">
 								<rend fontsize="9.4" fontweight="bold">Fine</rend>
 							</dir>
-							<dir tstamp="3"  xml:id="d04" place="below" staff="3" startid="d1e7190">
+							<dir tstamp="3"  xml:id="d04" place="below" staff="3" startid="#d1e7190">
 								<rend fontsize="9.4" fontweight="bold">Fine</rend>
 							</dir>
-							<dir tstamp="3"  xml:id="d05" place="below" staff="4" startid="d1e7220">
+							<dir tstamp="3"  xml:id="d05" place="below" staff="4" startid="#d1e7220">
 								<rend fontsize="9.4" fontweight="bold">Fine</rend>
 							</dir>
-							<dir tstamp="3"  xml:id="d06" place="below" staff="5" startid="d1e7288">
+							<dir tstamp="3"  xml:id="d06" place="below" staff="5" startid="#d1e7288">
 								<rend fontsize="9.4" fontweight="bold">Fine</rend>
 							</dir>
 						</measure>
@@ -1694,7 +1694,7 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 									<note xml:id="d1e8078" pname="c" oct="3" dur="2" dots="1" stem.dir="up"/>
 								</layer>
 							</staff>
-<!--							<trill tstamp="2" place="above" staff="1" startid="#d1e7907"/>-->
+<!--							<trill tstamp="2" place="above" staff="1" startid="##d1e7907"/>-->
 						</measure>
 						<measure n="24" xml:id="d1e8096">
 							<staff n="1">
