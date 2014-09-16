@@ -17,17 +17,20 @@ This is a demo of a very large file rendered to a single canvas. In Practice, yo
 </p>
 </div>
 
+<div id="music"></div>
 
-<script type="text/JavaScript">
-
-$(document).ready(function () {
-    var inspector = new Inspector();
-    inspector.render('{{ site.baseurl }}/xml/sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
-});
+<script>
+$.get('{{ site.baseurl }}/xml/sinfonie.xml', function (meiCode) {
+    var viewer = new MSV.Viewer({
+          data   : meiCode, 
+          target : $('#music'),
+          labelMode : 'full',
+          autoStaveConnectorLine: true,
+          pageHeight: 1700, 
+          pageWidth:30000, 
+          pageScale:0.5, 
+          staveSpacing: 80
+        });
+}, 'xml');
 </script>
-<div class="infobar">
-    INFO <span id="measureinfo"></span>
-</div>
-<div id="tests" class="test-page"></div>
-<div id="tooltip"></div>
 
