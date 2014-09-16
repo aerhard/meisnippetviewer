@@ -97,6 +97,10 @@ define([
        */
       useMeiLib : false,
       /**
+       * @cfg (Boolean) processPgHead Specifies if pgHead elemements should be rendered
+       */
+      processPgHead : true,
+      /**
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
@@ -192,7 +196,7 @@ define([
 
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
-      if (headEl) {
+      if (me.cfg.processPgHead && headEl) {
         me.pgHead = new PgHead(headEl, {
           x : me.converter.printSpace.left,
           y : 200,
