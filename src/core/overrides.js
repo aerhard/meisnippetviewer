@@ -37,7 +37,6 @@ define([
   Vex.Flow.Articulation.prototype.getMeiElement = function () {
     return this.meiElement;
   };
-
   Vex.Flow.Syllable.prototype.setMeiElement = function (element) {
     this.meiElement = element;
     return this;

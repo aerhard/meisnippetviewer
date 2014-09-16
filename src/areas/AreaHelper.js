@@ -264,7 +264,6 @@ define([
       }
     },
 
-
     calculateNoteModifierAreas : function (note) {
       var me = this, modifiers = note.modifiers, i, category, x, y, w, h, areas = [];
       i = modifiers.length;
@@ -349,9 +348,6 @@ define([
       }
     },
 
-
-    // TODO make reading selectable
-
     getVariantCoordinates : function (meiDoc) {
       var me = this, i, j, appObject, idsInAlternative, area, areas, surroundingArea;
 
@@ -376,7 +372,6 @@ define([
     },
 
 
-    // TODO refactor
     getIdsInAlternative : function (meiDoc, appObject, selectedSource) {
       var i, j, selectedAlternElement, id, descendantIds = {}, defaultAltern;
 

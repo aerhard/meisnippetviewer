@@ -50,17 +50,12 @@ define([
     init : function (config) {
       var me = this;
       me.ctx = config.ctx;
-
       me.content = config.content;
-
       me.highlightMode = config.highlightMode;
-
       me.fillStyle = config.fillStyle || 'rgba(100, 100, 0, 0.5)';
-
       me.clickHandler = config.clickHandler;
       me.mouseEnterHandler = config.mouseEnterHandler;
       me.mouseLeaveHandler = config.mouseLeaveHandler;
-
       me.currentHighlight = me.emptyArea;
       return me;
     },
@@ -103,7 +98,7 @@ define([
     removeHighlight : function () {
       var me = this, factor = 1 / me.scale;
       // select a rectangle larger than the highlight in order to remove
-      // additional pixels created due to anti-aliasing, too; the smaller
+      // additional pixels created by anti-aliasing in the HTML5 canvas; the smaller
       // the scaling, the bigger these artifacts are proportionally
       me.ctx.clearRect(me.currentHighlight.ctx.x - factor, me.currentHighlight.ctx.y -
                                                            factor, me.currentHighlight.ctx.w +

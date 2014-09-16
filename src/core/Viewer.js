@@ -190,9 +190,6 @@ define([
       me.converter = new m2v.Converter(me.cfg);
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
 
-      // TODO add behaviour: when no top coords are specified, make beginning
-      // of music relative to pgHead
-
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
       if (headEl) {
