@@ -21,7 +21,6 @@ define([
    * @exports core/Document
    */
 
-
   /**
    * @class MSV.Document
    * @singleton

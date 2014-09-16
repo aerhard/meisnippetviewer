@@ -29,6 +29,7 @@ define([
   AreaHelper.prototype = {
 
     setAreas : function (meiDoc, layers) {
+
       var me = this, i, j, k, areas, areaCollection;
 
       me.measureAreas = [];
@@ -51,7 +52,7 @@ define([
         pgHead : []
       };
 
-      var hType
+      var hType;
 
       i = layers.length;
       while (i--) {
@@ -84,14 +85,6 @@ define([
           hTypes['measure_modifiers'][k].addAreas(me.measureModifierAreas);
         }
       }
-
-      //      i = hTypes['layers'].length;
-      //      if (i > 0) {
-      //        me.calculateLayerAreas(XXX);
-      //        while (i--) {
-      //          hTypes['layers'][i].addAreas(me.layerAreas);
-      //        }
-      //      }
 
       i = hTypes['notes'].length;
       if (i > 0) {
@@ -184,38 +177,26 @@ define([
 
     calculateStaffModifierAreas : function (staff, y, h) {
       var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-      //      j = modifiers.length;
-      //
-      //      console.log(staff);
-      //      if (staff.modifiers.length > 2) {
-      //        x = staff.getGlyphStartX() - 4;
-      //        w = staff.start_x - x + 12;
-      ////        me.measureModifierAreas.push(me.createNoteAreaObj(x, y, w, h, null, i));
-      //      }
-      //
-      //      for ( i = 2; i < j; i += 1) {
-      //        if (modifiers[i] instanceof VF.Clef) {
-      //          console.log('clef:');
-      //        } else if (modifiers[i] instanceof VF.KeySignature) {
-      //          console.log('keysig:');
-      //        } else if (modifiers[i] instanceof VF.TimeSignature) {
-      //          console.log('timesig:');
-      //        }
-      //      console.log(modifiers[i]);
-      //      }
-      //
       j = staff.glyphs.length;
       x = staff.getGlyphStartX();
       var glyph, glyphXW = [], glyphXWindex = 0;
+
+      var codes = {
+        v18 : 'meiKeySpecElement',
+        v44 : 'meiKeySpecElement',
+        v83 : 'meiClefElement',
+        v79 : 'meiClefElement',
+        vad : 'meiClefElement',
+        v59 : 'meiClefElement',
+        v8 : 'meiClefElement'
+      };
+
       for (var i = 0; i < j; i++) {
         glyph = staff.glyphs[i];
         w = glyph.getMetrics().width;
-        //        console.log(glyph.getMetrics());
         if (glyph.code) {
-          //          glyphXW
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
-        } else {
-          //          glyphXWindex++;
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff[codes[glyph.code] ||
+                                                                                        'meiTimeSpecElement'], i));
         }
         x += w;
       }
@@ -228,15 +209,9 @@ define([
         if (glyph.code) {
           w = glyph.getMetrics().width;
           x -= w;
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, null, i));
+          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff.meiEndClefElement, i));
         }
       }
-
-      //
-      // // console.log(modifiers[i]);
-      // // console.log(me.createNoteAreaObj(x, y, w, h,
-      // // modifiers[i].getMeiElement(), i));
-      // }
     },
 
     calculateNoteAreas : function (notes) {
@@ -374,59 +349,54 @@ define([
       }
     },
 
+
+    // TODO make reading selectable
+
     getVariantCoordinates : function (meiDoc) {
-      var me = this, i, j, grp, area, areas, variantIdGrps;
+      var me = this, i, j, appObject, idsInAlternative, area, areas, surroundingArea;
 
-      variantIdGrps = [];
-
+      // loop through all meilib app objects
       for (i in meiDoc.ALTs) {
-        variantIdGrps.push({
-          alt : meiDoc.ALTs[i],
-          grp : me.getVariantIds(meiDoc.ALTs[i])
-        });
-      }
-
-      i = variantIdGrps.length;
-      while (i--) {
-        grp = variantIdGrps[i].grp;
+        appObject = meiDoc.ALTs[i];
+        idsInAlternative = me.getIdsInAlternative(meiDoc, appObject);
         areas = [];
-
-        for (j in grp) {
-          area = me.getIdCoordinates(j, grp[j]);
+        for (j in idsInAlternative) {
+          area = me.getIdCoordinates(j, idsInAlternative[j]);
           if (area) {
-            areas.push(area);
+            area.alt = appObject;
+            //            areas.push(area);
+
+            me.variantAreas.push(area);
           }
         }
-        var surroundingArea = me.getSurroundingArea(areas);
-        surroundingArea.alt = variantIdGrps[i].alt;
-        me.variantAreas.push(surroundingArea);
+        //        surroundingArea = me.getSurroundingArea(areas);
+        //        surroundingArea.alt = appObject;
+        //        me.variantAreas.push(surroundingArea);
       }
     },
 
 
-    // TODO check: is it necessary to attach ids to syllables etc or not!?
-    getVariantIds : function (ALT) {
-      var i, j, alt, id, idgroups = [], ids, defaultItem;
-      defaultItem = ALT.getDefaultItem();
-      ids = {};
+    // TODO refactor
+    getIdsInAlternative : function (meiDoc, appObject, selectedSource) {
+      var i, j, selectedAlternElement, id, descendantIds = {}, defaultAltern;
 
-      if (defaultItem) {
-        alt = defaultItem.elem;
-      } else {
-        for (var alt in meiDoc.ALTs[i].altitems) {
-          alt = meiDoc.ALTs[i].altitems[alt].elem;
-          break;
-        }
+      defaultAltern = appObject.getDefaultItem();
+
+      if (defaultAltern) {
+        // if specified, select the default alternative ...
+        selectedAlternElement = defaultAltern.elem;
       }
-      var elements = alt.getElementsByTagName('*');
-      for (i = 0, j = elements.length; i < j; i += 1) {
-        id = elements[i].getAttribute('xml:id');
+
+      var descendantElements = selectedAlternElement.getElementsByTagName('*');
+      for (i = 0, j = descendantElements.length; i < j; i += 1) {
+        id = descendantElements[i].getAttribute('xml:id');
         if (id) {
-          ids[id] = elements[i].localName;
+          descendantIds[id] = descendantElements[i].localName;
         }
       }
-      return ids;
+      return descendantIds;
     },
+
 
     getIdCoordinates : function (xmlid, localName) {
       var me = this, area;

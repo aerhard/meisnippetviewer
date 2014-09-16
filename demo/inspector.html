@@ -1,173 +1,273 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>MEI Inspector</title>
-    <meta charset="utf-8">
+<title>MEI Inspector</title>
+<meta charset="utf-8">
 
-    <link rel="stylesheet" href="inspector.css"/>
+<link rel="stylesheet" href="inspector.css"/>
 
-    <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
+<script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
 
-    <!-- MEISnippetViewer development -->
-    <script src="../bower_components/requirejs/require.js"></script>
+<!-- MEISnippetViewer development -->
+<script src="../bower_components/requirejs/require.js"></script>
 
-    <script src="../bower_components/vexflow/src/header.js"></script>
-    <script src="../bower_components/vexflow/src/vex.js"></script>
-    <script src="../bower_components/vexflow/src/flow.js"></script>
-    <script src="../bower_components/vexflow/src/fraction.js"></script>
-    <script src="../bower_components/vexflow/src/fonts/vexflow_font.js"></script>
-    <script src="../bower_components/vexflow/src/glyph.js"></script>
-    <script src="../bower_components/vexflow/src/tables.js"></script>
-    <script src="../bower_components/vexflow/src/stave.js"></script>
-    <script src="../bower_components/vexflow/src/staveconnector.js"></script>
-    <script src="../bower_components/vexflow/src/tabstave.js"></script>
-    <script src="../bower_components/vexflow/src/voice.js"></script>
-    <script src="../bower_components/vexflow/src/voicegroup.js"></script>
-    <script src="../bower_components/vexflow/src/modifier.js"></script>
-    <script src="../bower_components/vexflow/src/modifiercontext.js"></script>
-    <script src="../bower_components/vexflow/src/accidental.js"></script>
-    <script src="../bower_components/vexflow/src/dot.js"></script>
-    <script src="../bower_components/vexflow/src/tickcontext.js"></script>
-    <script src="../bower_components/vexflow/src/tickable.js"></script>
-    <script src="../bower_components/vexflow/src/note.js"></script>
-    <script src="../bower_components/vexflow/src/bend.js"></script>
-    <script src="../bower_components/vexflow/src/stem.js"></script>
-    <script src="../bower_components/vexflow/src/notehead.js"></script>
-    <script src="../bower_components/vexflow/src/stemmablenote.js"></script>
-    <script src="../bower_components/vexflow/src/stavenote.js"></script>
-    <script src="../bower_components/vexflow/src/tabnote.js"></script>
-    <script src="../bower_components/vexflow/src/barnote.js"></script>
-    <script src="../bower_components/vexflow/src/clefnote.js"></script>
-    <script src="../bower_components/vexflow/src/timesignote.js"></script>
-    <script src="../bower_components/vexflow/src/ghostnote.js"></script>
-    <script src="../bower_components/vexflow/src/formatter.js"></script>
-    <script src="../bower_components/vexflow/src/stavetie.js"></script>
-    <script src="../bower_components/vexflow/src/stavehairpin.js"></script>
-    <script src="../bower_components/vexflow/src/tabtie.js"></script>
-    <script src="../bower_components/vexflow/src/tabslide.js"></script>
-    <script src="../bower_components/vexflow/src/beam.js"></script>
-    <script src="../bower_components/vexflow/src/vibrato.js"></script>
-    <script src="../bower_components/vexflow/src/annotation.js"></script>
-    <script src="../bower_components/vexflow/src/tuning.js"></script>
-    <script src="../bower_components/vexflow/src/stavemodifier.js"></script>
-    <script src="../bower_components/vexflow/src/keysignature.js"></script>
-    <script src="../bower_components/vexflow/src/timesignature.js"></script>
-    <script src="../bower_components/vexflow/src/clef.js"></script>
-    <script src="../bower_components/vexflow/src/music.js"></script>
-    <script src="../bower_components/vexflow/src/keymanager.js"></script>
-    <script src="../bower_components/vexflow/src/renderer.js"></script>
-    <script src="../bower_components/vexflow/src/stavebarline.js"></script>
-    <script src="../bower_components/vexflow/src/stavevolta.js"></script>
-    <script src="../bower_components/vexflow/src/staverepetition.js"></script>
-    <script src="../bower_components/vexflow/src/stavesection.js"></script>
-    <script src="../bower_components/vexflow/src/stavetempo.js"></script>
-    <script src="../bower_components/vexflow/src/stavetext.js"></script>
-    <script src="../bower_components/vexflow/src/articulation.js"></script>
-    <script src="../bower_components/vexflow/src/tremolo.js"></script>
-    <script src="../bower_components/vexflow/src/raphaelcontext.js"></script>
-    <script src="../bower_components/vexflow/src/canvascontext.js"></script>
-    <script src="../bower_components/vexflow/src/tuplet.js"></script>
-    <script src="../bower_components/vexflow/src/boundingbox.js"></script>
-    <script src="../bower_components/vexflow/src/textnote.js"></script>
-    <script src="../bower_components/vexflow/src/strokes.js"></script>
-    <script src="../bower_components/vexflow/src/stringnumber.js"></script>
-    <script src="../bower_components/vexflow/src/frethandfinger.js"></script>
-    <script src="../bower_components/vexflow/src/gracenote.js"></script>
-    <script src="../bower_components/vexflow/src/gracenotegroup.js"></script>
-    <script src="../bower_components/vexflow/src/curve.js"></script>
-    <script src="../bower_components/vexflow/src/staveline.js"></script>
-    <script src="../bower_components/vexflow/src/crescendo.js"></script>
-    <script src="../bower_components/vexflow/src/ornament.js"></script>
-    <script src="../bower_components/vexflow/src/pedalmarking.js"></script>
-    <script src="../bower_components/vexflow/src/textbracket.js"></script>
-    <script src="../bower_components/vexflow/src/textdynamics.js"></script>
+<script src="../bower_components/vexflow/src/header.js"></script>
+<script src="../bower_components/vexflow/src/vex.js"></script>
+<script src="../bower_components/vexflow/src/flow.js"></script>
+<script src="../bower_components/vexflow/src/fraction.js"></script>
+<script src="../bower_components/vexflow/src/fonts/vexflow_font.js"></script>
+<script src="../bower_components/vexflow/src/glyph.js"></script>
+<script src="../bower_components/vexflow/src/tables.js"></script>
+<script src="../bower_components/vexflow/src/stave.js"></script>
+<script src="../bower_components/vexflow/src/staveconnector.js"></script>
+<script src="../bower_components/vexflow/src/tabstave.js"></script>
+<script src="../bower_components/vexflow/src/voice.js"></script>
+<script src="../bower_components/vexflow/src/voicegroup.js"></script>
+<script src="../bower_components/vexflow/src/modifier.js"></script>
+<script src="../bower_components/vexflow/src/modifiercontext.js"></script>
+<script src="../bower_components/vexflow/src/accidental.js"></script>
+<script src="../bower_components/vexflow/src/dot.js"></script>
+<script src="../bower_components/vexflow/src/tickcontext.js"></script>
+<script src="../bower_components/vexflow/src/tickable.js"></script>
+<script src="../bower_components/vexflow/src/note.js"></script>
+<script src="../bower_components/vexflow/src/bend.js"></script>
+<script src="../bower_components/vexflow/src/stem.js"></script>
+<script src="../bower_components/vexflow/src/notehead.js"></script>
+<script src="../bower_components/vexflow/src/stemmablenote.js"></script>
+<script src="../bower_components/vexflow/src/stavenote.js"></script>
+<script src="../bower_components/vexflow/src/tabnote.js"></script>
+<script src="../bower_components/vexflow/src/barnote.js"></script>
+<script src="../bower_components/vexflow/src/clefnote.js"></script>
+<script src="../bower_components/vexflow/src/timesignote.js"></script>
+<script src="../bower_components/vexflow/src/ghostnote.js"></script>
+<script src="../bower_components/vexflow/src/formatter.js"></script>
+<script src="../bower_components/vexflow/src/stavetie.js"></script>
+<script src="../bower_components/vexflow/src/stavehairpin.js"></script>
+<script src="../bower_components/vexflow/src/tabtie.js"></script>
+<script src="../bower_components/vexflow/src/tabslide.js"></script>
+<script src="../bower_components/vexflow/src/beam.js"></script>
+<script src="../bower_components/vexflow/src/vibrato.js"></script>
+<script src="../bower_components/vexflow/src/annotation.js"></script>
+<script src="../bower_components/vexflow/src/tuning.js"></script>
+<script src="../bower_components/vexflow/src/stavemodifier.js"></script>
+<script src="../bower_components/vexflow/src/keysignature.js"></script>
+<script src="../bower_components/vexflow/src/timesignature.js"></script>
+<script src="../bower_components/vexflow/src/clef.js"></script>
+<script src="../bower_components/vexflow/src/music.js"></script>
+<script src="../bower_components/vexflow/src/keymanager.js"></script>
+<script src="../bower_components/vexflow/src/renderer.js"></script>
+<script src="../bower_components/vexflow/src/stavebarline.js"></script>
+<script src="../bower_components/vexflow/src/stavevolta.js"></script>
+<script src="../bower_components/vexflow/src/staverepetition.js"></script>
+<script src="../bower_components/vexflow/src/stavesection.js"></script>
+<script src="../bower_components/vexflow/src/stavetempo.js"></script>
+<script src="../bower_components/vexflow/src/stavetext.js"></script>
+<script src="../bower_components/vexflow/src/articulation.js"></script>
+<script src="../bower_components/vexflow/src/tremolo.js"></script>
+<script src="../bower_components/vexflow/src/raphaelcontext.js"></script>
+<script src="../bower_components/vexflow/src/canvascontext.js"></script>
+<script src="../bower_components/vexflow/src/tuplet.js"></script>
+<script src="../bower_components/vexflow/src/boundingbox.js"></script>
+<script src="../bower_components/vexflow/src/textnote.js"></script>
+<script src="../bower_components/vexflow/src/strokes.js"></script>
+<script src="../bower_components/vexflow/src/stringnumber.js"></script>
+<script src="../bower_components/vexflow/src/frethandfinger.js"></script>
+<script src="../bower_components/vexflow/src/gracenote.js"></script>
+<script src="../bower_components/vexflow/src/gracenotegroup.js"></script>
+<script src="../bower_components/vexflow/src/curve.js"></script>
+<script src="../bower_components/vexflow/src/staveline.js"></script>
+<script src="../bower_components/vexflow/src/crescendo.js"></script>
+<script src="../bower_components/vexflow/src/ornament.js"></script>
+<script src="../bower_components/vexflow/src/pedalmarking.js"></script>
+<script src="../bower_components/vexflow/src/textbracket.js"></script>
+<script src="../bower_components/vexflow/src/textdynamics.js"></script>
 
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventReference.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Hyphenation.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaffInfo.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/System.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Verses.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/LinkCollections.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/PointerCollections.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Measure.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/SystemInfo.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveConnector.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveVoices.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/tables.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Converter.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/Util.js"></script>
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/src/vexflow-overrides.js"></script>
-
-
-    <!-- MEISnippetViewer production -->
-    <!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
-
-
-    <script type="text/JavaScript" src="../bower_components/meitovexflow/tests/loadxmldoc.js"></script>
-
-    <script type="text/JavaScript" src="Inspector.js"></script>
-
-    <script type="text/JavaScript">
-
-        $(document).ready(function () {
-
-            var run = function () {
-                var inspector = new Inspector();
-
-                inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500, pageTopMar: 200});
-                inspector.render('Bach2013.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
-                inspector.render('Guami2013.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600, pageScale:0.5});
-
-//                inspector.render('sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
-
-//                inspector.render('Czerny2013.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:1600, pageScale:0.5, staveSpacing: 80});
-
-//                inspector.render('grace_Notes.xml', {autoStaveConnectorLine : true, pageHeight: 2700, pageWidth:1600, pageScale:0.5, staveSpacing: 80});
-
-                //inspector.render('Handel_Messias2013.xml', {autoStaveConnectorLine : true, pageHeight: 3700, pageWidth:40000, pageScale:0.5, staveSpacing: 80});
-
-                //inspector.render('Krebs_c2013.xml', {autoStaveConnectorLine : true, pageHeight: 6700, pageWidth:2000, pageScale:0.5, staveSpacing: 80});
-
-                //inspector.render('Mahler_Song2013.xml', {autoStaveConnectorLine : true, pageHeight: 5700, pageWidth:1800, pageScale:0.5, staveSpacing: 80});
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/vexflow-overrides.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/meilib.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/MEI2VF.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventLink.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/EventReference.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Hyphenation.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaffInfo.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/System.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Verses.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/LinkCollections.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/PointerCollections.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Measure.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/SystemInfo.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Stave.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Note.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Chord.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Rest.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveConnector.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/StaveVoices.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/tables.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Converter.js"></script>
+<script type="text/JavaScript" src="../bower_components/meitovexflow/src/Util.js"></script>
 
 
+<!-- MEISnippetViewer production -->
+<!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
+
+
+<script type="text/JavaScript" src="../bower_components/meitovexflow/tests/loadxmldoc.js"></script>
+
+<script type="text/JavaScript" src="Inspector.js"></script>
+
+<script type="text/JavaScript">
+
+    $(document).ready(function () {
+
+        var run = function () {
+            var inspector = new Inspector();
+
+            var path = 'MEI2013/Music/';
+
+//            inspector.render(path + 'Complete examples/Bach_Ein_festeBurg.mei', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
+
+            // fast perfekt, Problem nur doppelte fermaten
+//            inspector.render(path + 'Complete examples/Bach_Hilf_Herr_Jesu.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 2500});
+
+            // ganz OK, kleinere probleme; insbesondere slurs machen unsinn
+//            inspector.render(path + 'Complete examples/Beethoven_op.18.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 60000, pageHeight: 800});
+
+            // rendert, aber mit bezier-ERROR, bezier generell noch richten!! + überlange sekundärbalken bei pausen + rhy verschiebung wg clef
+//            inspector.render(path + 'Complete examples/Beethoven_Song_Op98.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 5800});
+
+            //inspector.render(path + 'Complete examples/Borodin_StringTrio_g.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 5800});
+
+            // functioniert nicht:
+            //inspector.render(path + 'Complete examples/Chopin_Mazurka.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1500, pageHeight: 5800});
+
+            // gut, braucht aber änderungen
+            // inspector.render(path + 'Complete examples/Czerny_op603_6.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Debussy_Mandoline.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            //inspector.render(path + 'Complete examples/Echigo-Jishi.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1200, pageHeight: 5800});
+            //inspector.render(path + 'Complete examples/Handel_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth: 2000});
+            //                inspector.render(path + 'Complete examples/Handel_Messias.mei', {autoStaveConnectorLine : true, pageHeight: 3700, pageWidth:40000, pageScale:0.5, staveSpacing: 80});
+            //                inspector.render(path + 'Complete examples/Hummel_op.67_no.11.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth:3000,pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Ives_TheCage.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            // gut
+            //                inspector.render(path + 'Complete examples/JSB_BWV1047_1.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500});
+            // gut
+            //                inspector.render(path + 'Complete examples/JSB_BWV1047_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 20000, pageHeight: 1500});
+            // gut
+            //               inspector.render(path + 'Complete examples/JSB_BWV1047_3.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500});
+            // gut
+//                            inspector.render(path + 'Complete examples/Krebs_Trio_Eb_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth:2000, pageHeight: 7800});
+
+                            inspector.render(path + 'Complete examples/Krebs_Trio_in_c.mei', {autoStaveConnectorLine : true, pageHeight: 8700, pageWidth:2000, pageScale:0.5});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Mahler_Song.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Mozart_DasVeilchen.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            //                inspector.render(path + 'Complete examples/Mozart_Fuge_G_minor.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 2200, pageHeight: 7800});
+            //                inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Ravel_Le_tombeau.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Schubert_Erlkönig.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            //                inspector.render(path + 'Complete examples/Schumann_Landmann.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 4800, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Schumann_Op.41.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // ERROR:
+            //                inspector.render(path + 'Complete examples/Schutz_DomineDeus.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // ERROR (empty articulation):
+            //                inspector.render(path + 'Complete examples/Schutz_Jubilate_Deo.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // ERROR
+            //                inspector.render(path + 'Complete examples/Telemann_Concert.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // sehr gut
+            //                inspector.render(path + 'Complete examples/Telemann_Suite.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // OK
+            //inspector.render(path + 'Complete examples/Vivaldi_Op8_No.2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 38000, pageHeight: 5800});
+
+            // ERROR
+            //                inspector.render(path + 'Complete examples/Weber_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+
+            // OK (mit Detail-Fehlern)
+            //                inspector.render(path + 'Editorial markup/Weber_op73/Editorial_markup.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 3800, pageHeight: 5800});
+
+// ERROR
+//            inspector.render(path +
+//                             'Lyrics/attribute_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+            // ERROR
+//            inspector.render(path +
+//                             'Lyrics/element_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+            // ERROR: no ScoreDef (ist das von der codierung dennoch OK?? wenn ja, mei2vf ändern)
+//            inspector.render(path +
+//                             'Lyrics/lyrics.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+            // gut - wichtige kleine verbesserungen nötig
+//            inspector.render(path +
+//                             'Lyrics/multiple_verses.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800, staveSpacing:130});
 
 
 
 
 
-                //                inspector.render('Ahle2013p.xml', {autoStaveConnectorLine : true, staveSpacing: 160, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500, pageTopMar: 200});
-//                inspector.render('Bach2013p.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
-//                inspector.render('Guami2013p.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600});
-                
-//                inspector.render('../bower_components/meitovexflow/tests/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine : true});
-//                inspector.render('../bower_components/meitovexflow/tests/TC.GraceNotes.xml', {pageHeight : 400});
 
-//                inspector.render('../bower_components/meitovexflow/tests/TC.StaffChange.01.xml');
-//                inspector.render('../bower_components/meitovexflow/tests/TC.VexClef.08.xml');
-//
-//                inspector.render('../bower_components/meitovexflow/tests/TC.Hyphens.xml');
-//                inspector.render('../bower_components/meitovexflow/tests/TC.PageLayoutAutoWidths.xml');
 
-            };
 
-            // Performs the tests either with requirejs or with the minified script,
-            // depending on whether the requirejs library is loaded or not.
-            // Toggle between requirejs and the minified code
-            // by (un)commenting the corresponding script tags above.
-            if (typeof require === 'undefined') {
-                run();
-            } else {
-                require.config({
-                    baseUrl : "../src"
-                });
-                require(['main'], run);
-            }
-        });
-    </script>
+
+            //                inspector.render(path + 'Complete examples/.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+
+            //                inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
+            //                inspector.render('Bach2013.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
+            //                inspector.render('Guami2013.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600, pageScale:0.5});
+
+            //                inspector.render('sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
+
+
+            //                inspector.render('Ahle2013p.xml', {autoStaveConnectorLine : true, staveSpacing: 160, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
+            //                inspector.render('Guami2013p.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600});
+
+            //                inspector.render('../bower_components/meitovexflow/tests/Demo.BachGMinorPrelude-WKII.xml', {autoStaveConnectorLine : true});
+            //                inspector.render('../bower_components/meitovexflow/tests/TC.GraceNotes.xml', {pageHeight : 400});
+
+            //                inspector.render('../bower_components/meitovexflow/tests/TC.StaffChange.01.xml');
+            //                inspector.render('../bower_components/meitovexflow/tests/TC.VexClef.08.xml');
+            //
+            //                inspector.render('../bower_components/meitovexflow/tests/TC.Hyphens.xml');
+            //                inspector.render('../bower_components/meitovexflow/tests/TC.PageLayoutAutoWidths.xml');
+
+        };
+
+        // Performs the tests either with requirejs or with the minified script,
+        // depending on whether the requirejs library is loaded or not.
+        // Toggle between requirejs and the minified code
+        // by (un)commenting the corresponding script tags above.
+        if (typeof require === 'undefined') {
+            run();
+        } else {
+            require.config({
+                baseUrl : "../src"
+            });
+            require(['main'], run);
+        }
+    });
+</script>
 </head>
 <body>
 <div class="infobar">

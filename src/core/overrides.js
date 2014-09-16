@@ -83,7 +83,7 @@ define([
           note.vexNote.addAnnotation(0, annot);
         }
       } else {
-        throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.createVexFromInfos', "The reference in the directive could not be resolved.");
+        m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
       }
     }
   };
@@ -103,7 +103,7 @@ define([
           note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
         }
       } else {
-        throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.createVexFromInfos', "The reference in the directive could not be resolved.");
+        m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
       }
     }
   };

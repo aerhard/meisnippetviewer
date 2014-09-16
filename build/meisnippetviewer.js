@@ -19487,8 +19487,8 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      */
     clefChangeInMeasure : function (clefElement) {
       var me = this;
-      if (!me.initialClefCopy) {
-        me.initialClefCopy = {
+      if (!me.startClefCopy) {
+        me.startClefCopy = {
           type : me.clef.type,
           size : me.clef.size,
           shift : me.clef.shift
@@ -19503,8 +19503,8 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      */
     checkInitialClef : function () {
       var me = this;
-      if (me.initialClefCopy) {
-        me.clef = me.initialClefCopy;
+      if (me.startClefCopy) {
+        me.clef = me.startClefCopy;
       }
     },
 
@@ -19512,7 +19512,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      * @public
      */
     removeInitialClefCopy : function () {
-      this.initialClefCopy = null;
+      this.startClefCopy = null;
     },
 
     /**
@@ -22606,13 +22606,13 @@ Vex.Flow.Stave = (function() {
       for (i in meiDoc.ALTs) {
         variantIdGrps.push({
           alt : meiDoc.ALTs[i],
-          grp : me.getVariantIds(meiDoc.ALTs[i])
+          descendantIds : me.getVariantIds(meiDoc.ALTs[i])
         });
       }
 
       i = variantIdGrps.length;
       while (i--) {
-        grp = variantIdGrps[i].grp;
+        grp = variantIdGrps[i].descendantIds;
         areas = [];
 
         for (j in grp) {

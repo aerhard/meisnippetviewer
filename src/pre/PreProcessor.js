@@ -49,12 +49,12 @@ define([
       }
     },
 
-    removePbs : function (element) {
-      var i, items = element.getElementsByTagName("pb");
-      for (i = items.length; i--;) {
-        items[i].parentNode.removeChild(items[i]);
-      }
-    },
+//    removePbs : function (element) {
+//      var i, items = element.getElementsByTagName("pb");
+//      for (i = items.length; i--;) {
+//        items[i].parentNode.removeChild(items[i]);
+//      }
+//    },
 
     /**
      * supported: up to 7 flats and 7 sharps

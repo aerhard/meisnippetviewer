@@ -104,7 +104,6 @@ define([
           'addXmlIdPrefix',
           'M2V'
         ],
-        'removePbs',
         'processDefs'
       ],
       /**
@@ -149,7 +148,7 @@ define([
 
       if (me.cfg.useMeiLib) {
         meiDoc = new MeiLib.MeiDoc(xmlDoc);
-        meiDoc.initSectionView();
+//        meiDoc.initSectionView();
         me.convertMEI(meiDoc.sectionview_score, layers[me.UI.vexLayerIndex].ctx);
       } else {
         me.convertMEI(xmlDoc, layers[me.UI.vexLayerIndex].ctx);
@@ -159,6 +158,7 @@ define([
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
+
       me.areaHelper.setAreas(meiDoc, layers);
 
       me.registerMouseHandlers(me.UI, layers);
