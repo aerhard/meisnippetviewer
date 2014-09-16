@@ -18533,7 +18533,6 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
         restOpts.duration = dur + 'r';
 
-        console.log(m2v.Rest);
         rest = new m2v.Rest(restOpts);
 
         xml_id = MeiLib.XMLID(element);
@@ -20869,7 +20868,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 }(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
 
 ;/*
- * Reworking: Alexander Erhard
+ * Contributors and reworking: Alexander Erhard, @davethehat
  */
 
 /*
@@ -21342,7 +21341,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
   Vex.Inherit(m2v.Stave, VF.Stave, {
 
-    // TODO noch prüfen ob die Abweichung mit dem shift bei clef und end clef OK ist!
+    // FIXME check if deviation of clef.shift between clef and end clef is OK
     addClefFromInfo : function (clef) {
       var me = this;
       me.addClef(clef.type, clef.size, clef.shift === -1 ? '8vb' : undefined);
@@ -21562,91 +21561,98 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
 var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
-    /**
-     * @class MEI2VF.StaffVoice
-     * @private
-     *
-     * @constructor
-     * @param {Object} voice
-     * @param {Object} staff_n
-     */
-    m2v.StaffVoice = function(voice, staff_n) {
-      this.voice = voice;
-      this.staff_n = staff_n;
-    };
+  /**
+   * @class MEI2VF.StaffVoice
+   * @private
+   *
+   * @constructor
+   * @param {Object} voice
+   * @param {Object} staff_n
+   */
+  m2v.StaffVoice = function(voice, staff_n) {
+    this.voice = voice;
+    this.staff_n = staff_n;
+  };
 
-    /**
-     * @class MEI2VF.StaveVoices
-     * Stores all voices in a given measure along with the respective staff id.
-     * Passes all voices to Vex.Flow.Formatter and calls joinVoices, then draws
-     * all voices.
-     * @private
-     *
-     * @constructor
-     */
-    m2v.StaveVoices = function() {
+  /**
+   * @class MEI2VF.StaveVoices
+   * Stores all voices in a given measure along with the respective staff id.
+   * Passes all voices to Vex.Flow.Formatter and calls joinVoices, then draws
+   * all voices.
+   * @private
+   *
+   * @constructor
+   */
+  m2v.StaveVoices = function() {
+    this.all_voices = [];
+    this.formatter = new VF.Formatter();
+  };
+
+  m2v.StaveVoices.prototype = {
+    addStaffVoice : function(staffVoice) {
+      this.all_voices.push(staffVoice);
+    },
+
+    addVoice : function(voice, staff_n) {
+      this.addStaffVoice(new m2v.StaffVoice(voice, staff_n));
+    },
+
+    reset : function() {
       this.all_voices = [];
-      this.formatter = new VF.Formatter();
-    };
+    },
 
-    m2v.StaveVoices.prototype = {
-      addStaffVoice : function(staffVoice) {
-        this.all_voices.push(staffVoice);
-      },
-
-      addVoice : function(voice, staff_n) {
-        this.addStaffVoice(new m2v.StaffVoice(voice, staff_n));
-      },
-
-      reset : function() {
-        this.all_voices = [];
-      },
-
-      preFormat : function() {
-        var me = this, all, staff_n, i;
-        all = me.all_voices;
-        me.vexVoices = [];
-        me.vexVoicesStaffWise = {};
-        i = all.length;
-        while (i--) {
-          me.vexVoices.push(all[i].voice);
-          staff_n = all[i].staff_n;
-          if (me.vexVoicesStaffWise[staff_n]) {
-            me.vexVoicesStaffWise[staff_n].push(all[i].voice);
-          } else {
-            me.vexVoicesStaffWise[staff_n] = [all[i].voice];
-          }
-        }
-        me.formatter.preCalculateMinTotalWidth(me.vexVoices);
-        return me.formatter.getMinTotalWidth();
-      },
-
-      /**
-       *
-       * @param {Object} staff a staff in the current measure used to set
-       * the x dimensions of the voice
-       */
-      format : function(staff) {
-        var me = this, i, f;
-        f = me.formatter;
-        for (i in me.vexVoicesStaffWise) {
-          f.joinVoices(me.vexVoicesStaffWise[i], {align_rests: true});
-        }
-        f.formatToStave(me.vexVoices, staff);
-      },
-
-      draw : function(context, staves) {
-        var i, staffVoice, all_voices = this.all_voices;
-        for ( i = 0; i < all_voices.length; ++i) {
-          staffVoice = all_voices[i];
-          staffVoice.voice.draw(context, staves[staffVoice.staff_n]);
+    preFormat : function() {
+      var me = this, all, staff_n, i;
+      all = me.all_voices;
+      me.vexVoices = [];
+      me.vexVoicesStaffWise = {};
+      i = all.length;
+      while (i--) {
+        me.vexVoices.push(all[i].voice);
+        staff_n = all[i].staff_n;
+        if (me.vexVoicesStaffWise[staff_n]) {
+          me.vexVoicesStaffWise[staff_n].push(all[i].voice);
+        } else {
+          me.vexVoicesStaffWise[staff_n] = [all[i].voice];
         }
       }
-    };
+      me.formatter.preCalculateMinTotalWidth(me.vexVoices);
+      return me.formatter.getMinTotalWidth();
+    },
 
-    return m2v;
+    /**
+     *
+     * @param {Object} staff a staff in the current measure used to set
+     * the x dimensions of the voice
+     */
+    format : function(staff) {
 
-  }(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
+      var me = this, i, f, alignRests;
+      f = me.formatter;
+      for (i in me.vexVoicesStaffWise) {
+        alignRests = (me.vexVoicesStaffWise[i].length > 1);
+
+        f.joinVoices(me.vexVoicesStaffWise[i], {align_rests: alignRests});
+      }
+
+      // TODO make formatter handle simultaneous staves where rests are aligned and staves where
+      // they aren't
+      //f.formatToStave(me.vexVoices, staff, {align_rests: true});
+      f.formatToStave(me.vexVoices, staff, {align_rests: false});
+    },
+
+    draw : function(context, staves) {
+      var i, staffVoice, all_voices = this.all_voices;
+      for ( i = 0; i < all_voices.length; ++i) {
+        staffVoice = all_voices[i];
+        staffVoice.voice.draw(context, staves[staffVoice.staff_n]);
+      }
+    }
+  };
+
+  return m2v;
+
+}(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
 ;/*
  * MEItoVexFlow, System class
  *
@@ -21879,6 +21885,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
  *
  * Author: Alexander Erhard
  * (process... methods based on meitovexflow.js)
+ * Contributor: @davethehat
  *
  * Copyright © 2014 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
  * University of Maryland
@@ -23729,6 +23736,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        */
       useMeiLib : false,
       /**
+       * @cfg (Boolean) processPgHead Specifies if pgHead elemements should be rendered
+       */
+      processPgHead : true,
+      /**
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
@@ -23824,7 +23835,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
-      if (headEl) {
+      if (me.cfg.processPgHead && headEl) {
         me.pgHead = new PgHead(headEl, {
           x : me.converter.printSpace.left,
           y : 200,
