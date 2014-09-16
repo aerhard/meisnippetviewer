@@ -18009,7 +18009,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
           if (currentStaffInfo.showClefCheck()) {
             precedingMeasureStaffs[staff_n].addEndClefFromInfo(newClef);
           }
-          staff.clef = newClef;
+          staff.clef = newClef.type;
           clefOffsets[staff_n] = 0;
           maxClefOffset = 0;
         } else {
