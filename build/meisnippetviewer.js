@@ -17556,7 +17556,12 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
        * @property {MEI2VF.Fermatas} fermatas
        */
       me.fermatas = new m2v.Fermatas(me.systemInfo);
-
+      /**
+       * an instance of MEI2VF.Ornaments dealing with and storing all
+       * trill elements found in the MEI document
+       * @property {MEI2VF.Ornaments} trills
+       */
+      me.trills = new m2v.Ornaments(me.systemInfo);
       /**
        * an instance of MEI2VF.Ties dealing with and storing all ties found in
        * the MEI document
@@ -17564,11 +17569,11 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
        */
       me.ties = new m2v.Ties(me.systemInfo, me.unresolvedTStamp2);
       /**
-       * an instance of MEI2VF.Ties dealing with and storing all slurs found in
+       * an instance of MEI2VF.Slurs dealing with and storing all slurs found in
        * the MEI document
-       * @property {MEI2VF.Ties} slurs
+       * @property {MEI2VF.Slurs} slurs
        */
-      me.slurs = new m2v.Ties(me.systemInfo, me.unresolvedTStamp2);
+      me.slurs = new m2v.Slurs(me.systemInfo, me.unresolvedTStamp2);
       /**
        * an instance of MEI2VF.Hairpins dealing with and storing all hairpins
        * found in the MEI document
@@ -17645,6 +17650,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       me.directives.createVexFromInfos(me.notes_by_id);
       me.dynamics.createVexFromInfos(me.notes_by_id);
       me.fermatas.createVexFromInfos(me.notes_by_id);
+      me.trills.createVexFromInfos(me.notes_by_id);
       me.ties.createVexFromInfos(me.notes_by_id);
       me.slurs.createVexFromInfos(me.notes_by_id);
       me.hairpins.createVexFromInfos(me.notes_by_id);
@@ -17889,7 +17895,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       left_barline = element.getAttribute('left');
       right_barline = element.getAttribute('right');
 
-      var staffElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], rehElements = [];
+      var staffElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], trillElements = [], rehElements = [];
 
       $(element).find('*').each(function () {
         switch (this.localName) {
@@ -17917,6 +17923,9 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
           case 'fermata':
             fermataElements.push(this);
             break;
+          case 'trill':
+            trillElements.push(this);
+            break;
           case 'reh':
             rehElements.push(this);
             break;
@@ -17940,6 +17949,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       me.directives.createInfos(dirElements, element);
       me.dynamics.createInfos(dynamElements, element);
       me.fermatas.createInfos(fermataElements, element);
+      me.trills.createInfos(trillElements, element);
       me.ties.createInfos(tieElements, element, me.systemInfo);
       me.slurs.createInfos(slurElements, element, me.systemInfo);
       me.hairpins.createInfos(hairpinElements, element, me.systemInfo);
@@ -18778,14 +18788,14 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       var me = this, i, j;
       for (i = 0, j = mei_tie.length; i < j; ++i) {
         if (mei_tie[i] === 't' || mei_tie[i] === 'm') {
-          me.ties.terminate_tie(xml_id, {
+          me.ties.terminateTie(xml_id, {
             pname : pname,
             oct : oct,
             staff_n : staff_n
           });
         }
         if (mei_tie[i] === 'i' || mei_tie[i] === 'm') {
-          me.ties.start_tieslur(xml_id, {
+          me.ties.startTie(xml_id, {
             pname : pname,
             oct : oct,
             staff_n : staff_n
@@ -18804,12 +18814,12 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
         tokens = me.parse_slur_attribute(mei_slur);
         $.each(tokens, function () {
           if (this.letter === 't') {
-            me.slurs.terminate_slur(xml_id, {
+            me.slurs.terminateSlur(xml_id, {
               nesting_level : this.nesting_level
             });
           }
           if (this.letter === 'i') {
-            me.slurs.start_tieslur(xml_id, {
+            me.slurs.startSlur(xml_id, {
               nesting_level : this.nesting_level
             });
           }
@@ -19049,17 +19059,13 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
 
   m2v.Chord = function (options) {
+    VF.StaveNote.call(this, options);
     this.init(options);
   };
 
-  Vex.Inherit(m2v.Chord, VF.StaveNote, {
+  m2v.Chord.prototype = Object.create(VF.StaveNote.prototype);
 
-    init: function (options) {
-      m2v.Chord.superclass.init.call(this, options);
-      this.beamable = true;
-    }
-
-  });
+  m2v.Chord.prototype.beamable = true;
 
   return m2v;
 
@@ -19260,7 +19266,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
   }(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
 ;/*
- * MEItoVexFlow, Util class
+ * MEItoVexFlow, Hyphenation class
  *
  * Author: Alexander Erhard
  *
@@ -19485,7 +19491,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
   }(MEI2VF || {}, MeiLib, Vex.Flow, jQuery));
 ;/*
- * MEItoVexFlow, Util class
+ * MEItoVexFlow, LinkCollection class
  *
  * Author: Alexander Erhard
  * (based on meitovexflow.js)
@@ -19777,7 +19783,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
     },
 
     // NB called from tie/slur attributes elements
-    start_tieslur : function(startid, linkCond) {
+    startTie : function(startid, linkCond) {
       var eventLink = new m2v.EventLink(startid, null);
       eventLink.setParams({
         linkCond : linkCond
@@ -19785,7 +19791,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       this.allModels.push(eventLink);
     },
 
-    terminate_tie : function(endid, linkCond) {
+    terminateTie : function(endid, linkCond) {
       var cmpLinkCond, found, i, tie, allTies;
 
       allTies = this.getModels();
@@ -19830,7 +19836,104 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         this.addModel(new m2v.EventLink(null, endid));
     },
 
-    terminate_slur : function(endid, linkCond) {
+    createVexFromInfos : function(notes_by_id) {
+      var me = this, f_note, l_note;
+      $.each(me.allModels, function() {
+        var keysInChord;
+        f_note = notes_by_id[this.getFirstId()] || {};
+        l_note = notes_by_id[this.getLastId()] || {};
+
+
+        if (!f_note.vexNote && !l_note.vexNote) {
+          m2v.log('warn', 'Tie could not be rendered', 'Neither xml:id could be found: "' + this.getFirstId() + '" / "' + this.getLastId() + '"');
+          return true;
+        }
+
+        if (!this.params.curvedir) {
+          var layerDir = f_note.layerDir || l_note.layerDir;
+          if (layerDir) {
+            // calculate default curve direction based on the relative layer
+            this.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
+          } else {
+            // if the tie links to a note in a chord, let the outer ties of the
+            // chord point outwards
+            if (f_note.vexNote) {
+              keysInChord = f_note.vexNote.keys.length;
+              if (keysInChord > 1) {
+                this.params.curvedir = (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
+              }
+            } else if (l_note.vexNote) {
+              keysInChord = l_note.vexNote.keys.length;
+              if (keysInChord > 1) {
+                this.params.curvedir = +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
+              }
+            }
+          }
+        }
+
+        if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
+          me.createSingleTie(f_note, {}, this.params);
+          if (!this.params.curvedir) {
+            this.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
+          }
+          me.createSingleTie({}, l_note, this.params);
+        } else {
+          me.createSingleTie(f_note, l_note, this.params);
+        }
+      });
+      return this;
+    },
+
+    createSingleTie : function(f_note, l_note, params) {
+      var me = this, vexTie;
+      vexTie = new VF.StaveTie({
+        first_note : f_note.vexNote,
+        last_note : l_note.vexNote,
+        first_indices : f_note.index,
+        last_indices : l_note.index
+      });
+      vexTie.setDir(params.curvedir);
+      if (f_note.vexNote instanceof VF.GraceNote) {
+        vexTie.render_options.first_x_shift = -5;
+      }
+      me.allVexObjects.push(vexTie);
+    }
+
+  });
+
+
+  /**
+   * @class MEI2VF.Slurs
+   * @extend MEI2VF.LinkCollection
+   * @private
+   *
+   * @constructor
+   */
+
+  m2v.Slurs = function(systemInfo, unresolvedTStamp2) {
+    this.init(systemInfo, unresolvedTStamp2);
+  };
+
+  Vex.Inherit(m2v.Slurs, m2v.LinkCollection, {
+
+    init : function(systemInfo, unresolvedTStamp2) {
+      m2v.Ties.superclass.init.call(this, systemInfo, unresolvedTStamp2);
+    },
+
+    validateAtts : function() {
+      return;
+    },
+
+    // NB called from slur attributes elements
+    startSlur : function(startid, linkCond) {
+      var eventLink = new m2v.EventLink(startid, null);
+      eventLink.setParams({
+        linkCond : linkCond
+      });
+      this.allModels.push(eventLink);
+    },
+
+    terminateSlur : function(endid, linkCond) {
       var me = this, cmpLinkCond, found, i, slur;
 
       var allModels = this.getModels();
@@ -19861,7 +19964,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
 
         if (!f_note.vexNote && !l_note.vexNote) {
-          m2v.log('warn', 'Tie/slur could not be rendered', 'Neither xml:id could be found: "' + this.getFirstId() + '" / "' + this.getLastId() + '"');
+          m2v.log('warn', 'Slur could not be rendered', 'Neither xml:id could be found: "' + this.getFirstId() + '" / "' + this.getLastId() + '"');
           return true;
         }
 
@@ -19871,7 +19974,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             // calculate default curve direction based on the relative layer
             this.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
-            // if the tie / slur links to a note in a chord, let the outer ties / slurs of the
+            // if the slur links to a note in a chord, let the outer slurs of the
             // chord point outwards
             if (f_note.vexNote) {
               keysInChord = f_note.vexNote.keys.length;
@@ -19888,41 +19991,60 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         }
 
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
-          me.createSingleStaveTie(f_note, {}, this.params);
+          me.createSingleSlur(f_note, {}, this.params);
           if (!this.params.curvedir) {
             this.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
           }
-          me.createSingleStaveTie({}, l_note, this.params);
+          me.createSingleSlur({}, l_note, this.params);
         } else {
-          me.createSingleStaveTie(f_note, l_note, this.params);
+          me.createSingleSlur(f_note, l_note, this.params);
         }
       });
       return this;
     },
 
-    createSingleStaveTie : function(f_note, l_note, params) {
-      var me = this, vexTie, bezier, cps;
-      bezier = params.bezier;
-      if (bezier) {
-        cps = me.bezierStringToCps(bezier);
-        vexTie = new VF.Curve(f_note.vexNote, l_note.vexNote, {
-          cps : cps,
-          y_shift_start : +params.startvo,
-          y_shift_end : +params.endvo
-        });
-      } else {
-        vexTie = new VF.StaveTie({
-          first_note : f_note.vexNote,
-          last_note : l_note.vexNote,
-          first_indices : f_note.index,
-          last_indices : l_note.index
-        });
-        vexTie.setDir(params.curvedir);
-        if (f_note.vexNote instanceof VF.GraceNote) {
-          vexTie.render_options.first_x_shift = -5;
+    createSingleSlur : function(f_note, l_note, params) {
+      var me = this, vexSlur, bezier, cps;
+
+      var slurOptions = {
+        y_shift_start : +params.startvo || undefined,
+        y_shift_end : +params.endvo || undefined
+
+      };
+
+      if (f_note.layerDir || l_note.layerDir) {
+        slurOptions.invert = true;
+
+        if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
+          slurOptions.position = VF.Curve.Position.NEAR_TOP; // = 2 position at stem end
         }
       }
-      me.allVexObjects.push(vexTie);
+
+      bezier = params.bezier;
+      if (bezier) {
+        slurOptions.cps = me.bezierStringToCps(bezier);
+
+      } else {
+
+
+        //        vexSlur = new VF.Curve(f_note.vexNote, l_note.vexNote, {
+        //          position : 2
+        //        });
+        //        vexSlur = new VF.StaveTie({
+        //          first_note : f_note.vexNote,
+        //          last_note : l_note.vexNote,
+        //          first_indices : f_note.index,
+        //          last_indices : l_note.index
+        //        });
+        //        vexSlur.setDir(params.curvedir);
+        //        if (f_note.vexNote instanceof VF.GraceNote) {
+        //          vexSlur.render_options.first_x_shift = -5;
+        //        }
+      }
+
+      vexSlur = new VF.Curve(f_note.vexNote, l_note.vexNote, slurOptions);
+
+      me.allVexObjects.push(vexSlur);
     },
 
     bezierStringToCps : function(str) {
@@ -19937,6 +20059,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       return cps;
     }
   });
+
+
 
   return m2v;
 
@@ -19962,7 +20086,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
+var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
   /**
    * @class MEI2VF.PointerCollection
@@ -19970,7 +20094,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
    *
    * @constructor
    */
-  m2v.PointerCollection = function(systemInfo, font) {
+  m2v.PointerCollection = function (systemInfo, font) {
     this.init(systemInfo, font);
   };
 
@@ -19981,7 +20105,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
     /**
      * initializes the PointerCollection
      */
-    init : function(systemInfo, font) {
+    init : function (systemInfo, font) {
       /**
        * @property
        */
@@ -20000,14 +20124,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       this.font = font;
     },
 
-    createVexFromInfos : function() {
+    createVexFromInfos : function () {
       throw new m2v.RUNTIME_ERROR('MEI2VF.DEVELOPMENT_ERROR.createVexFromInfos', 'You have to provide a createVexFromInfos method when inheriting MEI2VF.PointerCollection.');
     },
 
-    createInfos : function(elements, measureElement) {
+    createInfos : function (elements, measureElement) {
       var me = this;
 
-      var link_staffInfo = function(lnkelem) {
+      var link_staffInfo = function (lnkelem) {
         return {
           staff_n : $(lnkelem).attr('staff') || '1',
           layer_n : $(lnkelem).attr('layer') || '1'
@@ -20015,27 +20139,31 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       };
 
       // convert tstamp into startid in current measure
-      var local_tstamp2id = function(tstamp, lnkelem, measureElement) {
+      var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
         var stffinf = link_staffInfo(lnkelem);
         var staff = $(measureElement).find('staff[n="' + stffinf.staff_n + '"]');
         var layer = $(staff).find('layer[n="' + stffinf.layer_n + '"]').get(0);
         if (!layer) {
           var layer_candid = $(staff).find('layer');
-          if (layer_candid && !layer_candid.attr('n'))
+          if (layer_candid && !layer_candid.attr('n')) {
             layer = layer_candid;
-          if (!layer)
+          }
+          if (!layer) {
             throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.createInfos:E01', 'Cannot find layer');
+          }
         }
         var staffdef = me.systemInfo.getStaffInfo(stffinf.staff_n);
-        if (!staffdef)
+        if (!staffdef) {
           throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.createInfos:E02', 'Cannot determine staff definition.');
+        }
         var meter = staffdef.getTimeSpec();
-        if (!meter.count || !meter.unit)
+        if (!meter.count || !meter.unit) {
           throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.createInfos:E03', "Cannot determine meter; missing or incorrect @meter.count or @meter.unit.");
+        }
         return MeiLib.tstamp2id(tstamp, layer, meter);
       };
 
-      $.each(elements, function() {
+      $.each(elements, function () {
         var atts, startid, tstamp;
 
         atts = m2v.Util.attsToObj(this);
@@ -20048,7 +20176,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           if (tstamp) {
             startid = local_tstamp2id(tstamp, this, measureElement);
           } else {
-            m2v.log('warn', '@startid or @tstamp expected', m2v.Util.serializeElement(this) + ' could not be processed because neither @startid nor @tstamp are specified.');
+            m2v.log('warn', '@startid or @tstamp expected', m2v.Util.serializeElement(this) +
+                                                            ' could not be processed because neither @startid nor @tstamp are specified.');
             return;
           }
         }
@@ -20064,7 +20193,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
      * adds a new model to {@link #allModels}
      * @param {Object} obj the object to add
      */
-    addModel : function(obj) {
+    addModel : function (obj) {
       this.allModels.push(obj);
     },
 
@@ -20072,7 +20201,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
      * gets all models
      * @return {Object[]} all models in {@link #allModels}
      */
-    getModels : function() {
+    getModels : function () {
       return this.allModels;
     }
   };
@@ -20084,24 +20213,25 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
    *
    * @constructor
    */
-  m2v.Directives = function(systemInfo, font) {
+  m2v.Directives = function (systemInfo, font) {
     this.init(systemInfo, font);
   };
 
   Vex.Inherit(m2v.Directives, m2v.PointerCollection, {
 
-    init : function(systemInfo, font) {
+    init : function (systemInfo, font) {
       m2v.Directives.superclass.init.call(this, systemInfo, font);
     },
 
-    createVexFromInfos : function(notes_by_id) {
+    createVexFromInfos : function (notes_by_id) {
       var me = this, i, model, note, annot;
       i = me.allModels.length;
       while (i--) {
         model = me.allModels[i];
         note = notes_by_id[model.startid];
         if (note) {
-          annot = (new VF.Annotation($(model.element).text().replace(/\s+/g,' ').trim())).setFont(me.font.family, me.font.size, me.font.weight);
+          annot =
+          (new VF.Annotation($(model.element).text().replace(/\s+/g, ' ').trim())).setFont(me.font.family, me.font.size, me.font.weight);
 
           // TEMPORARY: set width of modifier to zero so voices with modifiers
           // don't get too much width; remove when the width calculation in
@@ -20114,7 +20244,9 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             note.vexNote.addAnnotation(0, annot);
           }
         } else {
-          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
+          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) +
+                                         ' could not be rendered because the reference "' + model.startid +
+                                         '" could not be resolved.');
         }
       }
     }
@@ -20127,32 +20259,35 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
    *
    * @constructor
    */
-  m2v.Dynamics = function(systemInfo, font) {
+  m2v.Dynamics = function (systemInfo, font) {
     this.init(systemInfo, font);
   };
 
   Vex.Inherit(m2v.Dynamics, m2v.PointerCollection, {
 
-    init : function(systemInfo, font) {
+    init : function (systemInfo, font) {
       m2v.Dynamics.superclass.init.call(this, systemInfo, font);
     },
 
     // TODO use Vex.Flow.Textnote instead of VF.Annotation!?
-    createVexFromInfos : function(notes_by_id) {
+    createVexFromInfos : function (notes_by_id) {
       var me = this, i, model, note, annot;
       i = me.allModels.length;
       while (i--) {
         model = me.allModels[i];
         note = notes_by_id[model.startid];
         if (note) {
-          annot = (new VF.Annotation($(model.element).text().trim())).setFont(me.font.family, me.font.size, me.font.weight);
+          annot =
+          (new VF.Annotation($(model.element).text().trim())).setFont(me.font.family, me.font.size, me.font.weight);
           if (model.atts.place === 'above') {
             note.vexNote.addAnnotation(0, annot);
           } else {
             note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
           }
         } else {
-          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
+          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) +
+                                         ' could not be rendered because the reference "' + model.startid +
+                                         '" could not be resolved.');
         }
       }
 
@@ -20166,17 +20301,17 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
    *
    * @constructor
    */
-  m2v.Fermatas = function(systemInfo, font) {
+  m2v.Fermatas = function (systemInfo, font) {
     this.init(systemInfo, font);
   };
 
   Vex.Inherit(m2v.Fermatas, m2v.PointerCollection, {
 
-    init : function(systemInfo, font) {
+    init : function (systemInfo, font) {
       m2v.Fermatas.superclass.init.call(this, systemInfo, font);
     },
 
-    createVexFromInfos : function(notes_by_id) {
+    createVexFromInfos : function (notes_by_id) {
       var me = this, i, model, note, annot;
       i = me.allModels.length;
       while (i--) {
@@ -20186,7 +20321,9 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
           me.addFermataToNote(note.vexNote, model.atts.place);
         } else {
           console.log(model);
-          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
+          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) +
+                                         ' could not be rendered because the reference "' + model.startid +
+                                         '" could not be resolved.');
         }
       }
 
@@ -20199,12 +20336,76 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
      * @param {'above'/'below'} place The place of the fermata
      * @param {Number} index The index of the note in a chord (optional)
      */
-    addFermataToNote : function(note, place, index) {
+    addFermataToNote : function (note, place, index) {
       var vexArtic = new VF.Articulation(m2v.tables.fermata[place]);
       vexArtic.setPosition(m2v.tables.positions[place]);
       note.addArticulation(index || 0, vexArtic);
     }
   });
+
+
+  /**
+   * @class MEI2VF.Ornaments
+   * @extend MEI2VF.PointerCollection
+   * @private
+   *
+   * @constructor
+   */
+  m2v.Ornaments = function (systemInfo, font) {
+    this.init(systemInfo, font);
+  };
+
+  Vex.Inherit(m2v.Ornaments, m2v.PointerCollection, {
+
+    init : function (systemInfo, font) {
+      m2v.Ornaments.superclass.init.call(this, systemInfo, font);
+    },
+
+    createVexFromInfos : function (notes_by_id) {
+      var me = this, i, model, note, annot;
+      i = me.allModels.length;
+      while (i--) {
+        model = me.allModels[i];
+        note = notes_by_id[model.startid];
+        if (note) {
+          me.addOrnamentToNote(note.vexNote, model);
+        } else {
+          console.log(model);
+          m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) +
+                                         ' could not be rendered because the reference "' + model.startid +
+                                         '" could not be resolved.');
+        }
+      }
+    },
+
+    /**
+     * adds an ornament to a note-like object
+     * @method addOrnamentToNote
+     * @param {Vex.Flow.StaveNote} note the note-like VexFlow object
+     * @param {Object} model the data model
+     * @param {Number} index The index of the note in a chord (optional)
+     */
+    addOrnamentToNote : function (note, model, index) {
+      var atts = model.atts, accidLower, accidUpper;
+      // TODO support @tstamp2 etc -> make Link instead of Pointer
+
+      var vexOrnament = new VF.Ornament("tr");
+
+      if (atts.accidupper) {
+        vexOrnament.setUpperAccidental(m2v.tables.accidentals[atts.accidupper]);
+      }
+      if (atts.accidlower) {
+        vexOrnament.setLowerAccidental(m2v.tables.accidentals[atts.accidlower]);
+      }
+
+      // TODO support position below
+      //      vexOrnament.setPosition(m2v.tables.positions[model.atts.place]);
+      vexOrnament.setPosition(VF.Modifier.Position.ABOVE);
+
+      note.addModifier(index || 0, vexOrnament);
+    }
+  });
+
 
   return m2v;
 
@@ -20677,20 +20878,14 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
  */
 var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
-
   m2v.Note = function (options) {
+    VF.StaveNote.call(this, options);
     this.init(options);
   };
 
-  Vex.Inherit(m2v.Note, VF.StaveNote, {
+  m2v.Note.prototype = Object.create(VF.StaveNote.prototype);
 
-    init: function (options) {
-      m2v.Note.superclass.init.call(this, options);
-      this.beamable = true;
-    }
-
-  });
-
+  m2v.Note.prototype.beamable = true;
 
   return m2v;
 
@@ -20737,7 +20932,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         'n' : 'n',
         'f' : 'b',
         's' : '#',
-        'bb' : 'ff',
+        'ff' : 'bb',
         'ss' : '##'
       },
 
@@ -20850,17 +21045,13 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
 
   m2v.Rest = function (options) {
+    VF.StaveNote.call(this, options);
     this.init(options);
   };
 
-  Vex.Inherit(m2v.Rest, VF.StaveNote, {
+  m2v.Rest.prototype = Object.create(VF.StaveNote.prototype);
 
-    init: function (options) {
-      m2v.Rest.superclass.init.call(this, options);
-      this.beamable = true;
-    }
-
-  });
+  m2v.Rest.prototype.beamable = true;
 
 
   return m2v;
