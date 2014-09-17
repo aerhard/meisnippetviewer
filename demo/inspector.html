@@ -123,32 +123,39 @@
 
             var path = 'MEI2013/Music/';
 
-            /**
-             * Current limitations
-             * dynam etc without staff_n get rendered to the first staff
-             */
+            // multiple ties / fermatas in rendering: due to encoding:: QUESTION: best practice??
+
 
             // ################## GOOD ##############
 
-//                                        inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
-//                                        inspector.render('Bach2013.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
-//                                        inspector.render('Guami2013.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600, pageScale:0.5});
+//            inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
+//            inspector.render('Bach2013.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
+//            inspector.render('Guami2013.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600, pageScale:0.5});
 
-//                                        inspector.render('sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
+//            inspector.render('sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
 
 
 
-            // QUESTION multiple <artic> elements in chord get rendered as multiple artics - change rendering or encoding?
-//            inspector.render(path + 'Lyrics/multiple_verses.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800, staveSpacing:130});
+            // renders very well, two possible encoding errors: QUESTION slur t2,i1; QUESTION multiple <artic> elements in chord get rendered as multiple artics - change rendering or encoding?
+            inspector.render(path + 'Lyrics/multiple_verses.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800, staveSpacing:130});
 
-            // QUESTION multiple fermatas (wirklich zweimal dieselbe richtung codiert: warum dann nur einmal rendern?)
+            // renders very well, QUESTION multiple fermatas (wirklich zweimal dieselbe richtung codiert: warum dann nur einmal rendern?)
 //            inspector.render(path + 'Complete examples/Bach_Hilf_Herr_Jesu.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 2500});
+
+            // renders well, QUESTION multiple fermatas (slurs and artic not encoded); M.11-12: tie across systems encoded -- why?
+//            inspector.render(path + 'Complete examples/Mozart_Fuge_G_minor.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 2200, pageHeight: 7800});
+
 
             // ################ SMALLER ISSUES ##############
 
 
-            // ISSUE slurs with different stem dirs (good to fix!) !!!!!!!!!!!!!!!!!
-                        inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+            // ISSUE : slur im letzten takt; für scoredef im ersten system gibt es keine tooltips!!
+            // (problem caused by: measure must have n, but n is missing in <measure xml:id="d1e2734"> -- why does this break??)
+            // measure without n overwrites measure n="0" -> create unique ids!?!?!?
+
+
+            // ISSUE :Takt 6: slur-ende wird nicht erkannt
+//                        inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800,staveSpacing:90});
 
                 // ISSUE vertical rest positioning ISSUE slur with different stem dirs
 //            inspector.render(path + 'Complete examples/Czerny_op603_6.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
@@ -157,8 +164,6 @@
 //            inspector.render(path + 'Complete examples/Handel_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth: 2000});
 
 
-            //  ISSUE double ties QUESTION multiple fermatas
-//            inspector.render(path + 'Complete examples/Mozart_Fuge_G_minor.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 2200, pageHeight: 7800});
 
             // ISSUE ties across staffs
             //inspector.render(path + 'Complete examples/Krebs_Trio_in_c.mei', {autoStaveConnectorLine : true, pageHeight: 8700, pageWidth:2000, pageScale:0.5});

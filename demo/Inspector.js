@@ -134,7 +134,8 @@ Inspector.prototype = {
               content : [
                 'notes',
                 'barlines',
-                'measure_modifiers',
+                'measure_modifiers'
+                ,
                 'anchoredTexts',
                 'pgHead'
               ],
@@ -174,6 +175,17 @@ Inspector.prototype = {
     var me = this, element, nodeMatch;
     element = area.meiElement;
     nodeMatch = area.meiNodeMatch;
+
+    if (area.type === 'barline') {
+      // TODO elaborate, include left barlines
+      if (element.getAttribute('right') === null) {
+        return '<span class="ace_comment">[default bar line]</span>';
+      }
+
+      return '<span class="xml-element-tag">&lt;<span class="xml-element-name">' + element.localName + '</span> ' +
+             me.attsToString(element) + '</span><span class="xml-element-tag">&gt;<span class="xml-element-name"><br/>'
+    }
+
     if (nodeMatch) {
       switch (nodeMatch.type) {
         case 'child':

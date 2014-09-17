@@ -74,7 +74,7 @@ define([
       j = hTypes['barlines'].length;
       k = hTypes['measure_modifiers'].length;
       if (i > 0 || j > 0 || k > 0) {
-        me.calculateMeasureAreas(me.viewer.allVexMeasureStaffs);
+        me.calculateMeasureAreas(me.viewer.converter.getSystems());
         while (i--) {
           hTypes['measures'][i].addAreas(me.measureAreas);
         }
@@ -127,51 +127,55 @@ define([
 
     },
 
-    calculateMeasureAreas : function (staffs) {
-      var me = this, i, j, k, l, staff, x, y, w, y1;
+    calculateMeasureAreas : function (systems) {
+      var me = this, i, j, k, l, m, n, staff, x, y, w, y1, measures, staffs;
       var STAFF_BOTTOM_OFFSET = 20;
 
-      for (i = 0, j = staffs.length; i < j; i += 1) {
-        if (staffs[i]) {
-          for (k = 0, l = staffs[i].length; k < l; k += 1) {
-            staff = staffs[i][k];
-            if (staff) {
-              x = staff.x;
-              y = staff.y;
-              w = staff.width;
-              y1 = staff.getBottomY() - STAFF_BOTTOM_OFFSET;
-              me.measureAreas.push({
-                ctx : {
-                  x : x,
-                  y : y,
-                  w : w,
-                  h : y1 - y,
-                  x1 : x + w,
-                  y1 : y1
-                },
-                measureN : i,
-                staffN : k
-              });
 
-              var staffY = staff.getYForLine(0) - 5;
-              var staffH = staff.getYForLine(4) - staffY + 10;
-              me.calculateBarlineAreas(staff, staffY, staffH);
-              me.calculateStaffModifierAreas(staff, staffY, staffH);
+      for (i = 0, j = systems.length; i < j; i += 1) {
+        if (systems[i]) {
+          measures = systems[i].getMeasures();
+          for (k = 0, l = measures.length; k < l; k += 1) {
+            staffs = measures[k].getStaffs();
+            for (m = 0, n = staffs.length; m < n; m++) {
+              staff = staffs[m];
+              if (staff) {
+                x = staff.x;
+                y = staff.y;
+                w = staff.width;
+                y1 = staff.getBottomY() - STAFF_BOTTOM_OFFSET;
+                me.measureAreas.push({
+                  ctx : {
+                    x : x,
+                    y : y,
+                    w : w,
+                    h : y1 - y,
+                    x1 : x + w,
+                    y1 : y1
+                  },
+                  measureN : measures[k].n,
+                  staffN : m
+                });
+
+                var staffY = staff.getYForLine(0) - 5;
+                var staffH = staff.getYForLine(4) - staffY + 10;
+                me.calculateBarlineAreas(staff, staffY, staffH, measures[k].getMeiElement());
+                me.calculateStaffModifierAreas(staff, staffY, staffH);
+              }
             }
           }
         }
       }
-
     },
 
-    calculateBarlineAreas : function (staff, staffY, staffH) {
+    calculateBarlineAreas : function (staff, staffY, staffH, meiElement) {
       var me = this;
 
       if (staff.modifiers[0].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[0].x - 8, staffY, 16, staffH, null, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[0].x - 8, staffY, 16, staffH, meiElement, 1));
       }
       if (staff.modifiers[1].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[1].x - 8, staffY, 16, staffH, null, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[1].x - 8, staffY, 16, staffH, meiElement, 1));
       }
     },
 
@@ -195,7 +199,7 @@ define([
         glyph = staff.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff[codes[glyph.code] ||
+          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff[codes[glyph.code] ||
                                                                                         'meiTimeSpecElement'], i));
         }
         x += w;
@@ -209,7 +213,7 @@ define([
         if (glyph.code) {
           w = glyph.getMetrics().width;
           x -= w;
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff.meiEndClefElement, i));
+          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff.meiEndClefElement, i));
         }
       }
     },
@@ -224,13 +228,14 @@ define([
         y = box.y - 10;
         w = 30;
         h = box.h + 20;
-        me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, meiElement, i));
+        me.noteAreas.push(me.createNoteAreaObj('note', x, y, w, h, meiElement, i));
         me.calculateNoteModifierAreas(note);
       }
     },
 
-    createNoteAreaObj : function (x, y, w, h, meiElement, xmlid) {
+    createNoteAreaObj : function (type, x, y, w, h, meiElement, xmlid) {
       return {
+        type : type,
         ctx : {
           x : x,
           y : y,
@@ -275,14 +280,14 @@ define([
             y = modifiers[i].y - 20;
             w = modifiers[i].text_width + 12;
             h = 30;
-            me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, modifiers[i].getMeiElement(), i));
+            me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
             break;
           case 'articulations':
             w = modifiers[i].width + 8;
             h = w;
             x = modifiers[i].x - w / 2 - modifiers[i].articulation.shift_right;
             y = modifiers[i].y - h / 2 - modifiers[i].articulation.shift_down;
-            me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, modifiers[i].getMeiElement(), i));
+            me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
             break;
           case 'dots':
           case 'accidentals':

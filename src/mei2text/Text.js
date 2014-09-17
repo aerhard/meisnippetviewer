@@ -49,6 +49,14 @@ define([
       this.y = y;
     },
 
+    setContainer : function (container) {
+      this.container = container;
+    },
+
+    getContainer : function () {
+      return this.container;
+    },
+
     setTextAlign : function (textAlign) {
       this.textAlign = textAlign;
     },

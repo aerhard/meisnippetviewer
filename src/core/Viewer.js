@@ -192,7 +192,13 @@ define([
        * @property {MEI2VF.Converter} converter the MEI2VF converter
        */
       me.converter = new m2v.Converter(me.cfg);
+
+      console.log(me.converter);
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
+      me.converter.processAnchoredText = function (element, staff, staff_n, layerDir, staffInfo) {
+        me.anchoredTexts.addText(element, staff, staff_n, layerDir, staffInfo);
+      };
+
 
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
@@ -216,20 +222,12 @@ define([
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
         me.measureNumbers.addToSystemStarts(me.converter.getSystems());
       }
-
-      me.allVexMeasureStaffs = me.converter.getAllVexMeasureStaffs();
-
-      var anchoredTextEls = xmlDoc.getElementsByTagName('anchoredText');
-      for (var i = 0, j = anchoredTextEls.length; i < j; i++) {
-        me.anchoredTexts.addText(anchoredTextEls[i]);
-      }
-
     },
 
     drawMEI : function (ctx) {
       var me = this;
       me.converter.draw(ctx);
-      me.anchoredTexts.setContext(ctx).draw(me.allVexMeasureStaffs);
+      me.anchoredTexts.setContext(ctx).draw();
     }
 
   };
