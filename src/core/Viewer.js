@@ -193,7 +193,6 @@ define([
        */
       me.converter = new m2v.Converter(me.cfg);
 
-      console.log(me.converter);
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
       me.converter.processAnchoredText = function (element, staff, staff_n, layerDir, staffInfo) {
         me.anchoredTexts.addText(element, staff, staff_n, layerDir, staffInfo);

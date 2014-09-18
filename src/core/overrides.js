@@ -122,14 +122,22 @@ define([
   //  };
 
 
-  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
-    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
-    var place = ar.getAttribute('place');
-    if (place) {
-      vexArtic.setPosition(m2v.tables.positions[place]);
+
+  MEI2VF.Converter.prototype.addArticulation = function (note, element) {
+    var articCode = m2v.tables.articulations[element.getAttribute('artic')];
+    if (articCode) {
+      var vexArtic = new VF.Articulation(articCode).setMeiElement(element);
+      var place = element.getAttribute('place');
+      if (place) {
+        vexArtic.setPosition(m2v.tables.positions[place]);
+      }
+      note.addArticulation(0, vexArtic);
+    } else {
+      m2v.log('warn', 'unknown @artic', 'The @artic attribute in ' + m2v.Util.serializeElement(element) +
+                                        ' is unknown or undefined. Skipping element.');
     }
-    note.addArticulation(0, vexArtic);
   };
+
 
 
   MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {

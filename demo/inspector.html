@@ -123,11 +123,15 @@
 
             var path = 'MEI2013/Music/';
 
+            // noch option ignore width parameters einrichten
+            // noch option ignore original line breaks einrichten
+
             // multiple ties / fermatas in rendering: due to encoding:: QUESTION: best practice??
 
 
             // ################## GOOD ##############
 
+            // hier aber noch den clef berücksichtigen!!
 //            inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
 //            inspector.render('Bach2013.xml', {autoStaveConnectorLine : true, pageHeight: 1400, pageWidth: 1200,pageScale:0.8});
 //            inspector.render('Guami2013.xml', {autoStaveConnectorLine : true, pageHeight: 11000, pageWidth:1600, pageScale:0.5});
@@ -135,9 +139,8 @@
 //            inspector.render('sinfonie.xml', {autoStaveConnectorLine : true, pageHeight: 1700, pageWidth:30000, pageScale:0.5, staveSpacing: 80});
 
 
-
             // renders very well, two possible encoding errors: QUESTION slur t2,i1; QUESTION multiple <artic> elements in chord get rendered as multiple artics - change rendering or encoding?
-            inspector.render(path + 'Lyrics/multiple_verses.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800, staveSpacing:130});
+//            inspector.render(path + 'Lyrics/multiple_verses.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800, staveSpacing:130});
 
             // renders very well, QUESTION multiple fermatas (wirklich zweimal dieselbe richtung codiert: warum dann nur einmal rendern?)
 //            inspector.render(path + 'Complete examples/Bach_Hilf_Herr_Jesu.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 2500});
@@ -145,19 +148,29 @@
             // renders well, QUESTION multiple fermatas (slurs and artic not encoded); M.11-12: tie across systems encoded -- why?
 //            inspector.render(path + 'Complete examples/Mozart_Fuge_G_minor.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 2200, pageHeight: 7800});
 
+            // ENCODING - wrong octave? (fix encoding??)
+//                        inspector.render(path + 'Complete examples/JSB_BWV1047_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 20000, pageHeight: 1500, staveSpacing:120});
+
+            // double ties / ties across systems
+//            inspector.render(path + 'Complete examples/JSB_BWV1047_3.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500});
+//            inspector.render(path + 'Complete examples/Krebs_Trio_Eb_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth:2000, pageHeight: 7800});
+//            inspector.render(path + 'Complete examples/Krebs_Trio_in_c.mei', {autoStaveConnectorLine : true, pageHeight: 8700, pageWidth:2000, pageScale:0.5});
+
+            // OK, slurs don't look too good ENCODING: slurs in last measure point to themselves
+            // TODO MSV displays measure=0 -- has to be "undefined"
+//                        inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800,staveSpacing:90});
+
+            // ISSUE ties across staffs ENCODING: some slurs don't have @stave set // ISSUE SLUR FORMS // DISPLAY: pick-up beat too wide
+            //            inspector.render(path + 'Complete examples/JSB_BWV1047_1.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500, staveSpacing: 90});
+
+
 
             // ################ SMALLER ISSUES ##############
 
 
-            // ISSUE : slur im letzten takt; für scoredef im ersten system gibt es keine tooltips!!
-            // (problem caused by: measure must have n, but n is missing in <measure xml:id="d1e2734"> -- why does this break??)
-            // measure without n overwrites measure n="0" -> create unique ids!?!?!?
 
 
-            // ISSUE :Takt 6: slur-ende wird nicht erkannt
-//                        inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800,staveSpacing:90});
-
-                // ISSUE vertical rest positioning ISSUE slur with different stem dirs
+            // ISSUE vertical rest positioning ISSUE slur with different stem dirs
 //            inspector.render(path + 'Complete examples/Czerny_op603_6.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
 
             // ISSUE pgHead leads to area artifacts (good to fix!) !!!!!!!!!!!!!!!!!!!
@@ -165,33 +178,20 @@
 
 
 
-            // ISSUE ties across staffs
-            //inspector.render(path + 'Complete examples/Krebs_Trio_in_c.mei', {autoStaveConnectorLine : true, pageHeight: 8700, pageWidth:2000, pageScale:0.5});
-
-            // ISSUE ties across staffs / double ties
-            //inspector.render(path + 'Complete examples/Krebs_Trio_Eb_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth:2000, pageHeight: 7800});
-
-            // ISSUE ties across staffs ISSUE double slur M. 34
-//            inspector.render(path + 'Complete examples/JSB_BWV1047_3.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500});
-
-
-            // ISSUE ties across staffs ENCODING: some slurs don't have @stave set // ISSUE SLUR FORMS // DISPLAY: pick-up beat too wide
-            //inspector.render(path + 'Complete examples/JSB_BWV1047_1.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500, staveSpacing: 90});
-
             // ISSUE lyrics collide with music QUESTION multiple fermatas
 //                        inspector.render(path + 'Complete examples/Bach_Ein_festeBurg.mei', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
 
             // ISSUE vertical rest alignment ISSUE doesn't take rest dot into account (M. 24/2) ISSUE scaling doesn't look good
-//            inspector.render(path + 'Complete examples/Telemann_Suite.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+//            inspector.render(path + 'Complete examples/Telemann_Suite.mei', {autoStaveConnectorLine : true, pageScale: 0.6, pageWidth: 1800, pageHeight: 5800});
 
-            // gut
-//            inspector.render(path + 'Complete examples/JSB_BWV1047_2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 20000, pageHeight: 1500, staveSpacing:120});
-
-            // ISSUE text layout
-//            inspector.render(path + 'Complete examples/Echigo-Jishi.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1200, pageHeight: 5800});
+            // ISSUE pgHead artifacts
+            inspector.render(path + 'Complete examples/Echigo-Jishi.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1060, pageHeight: 5800});
 
 
             // ################### CATEGORY 3 ##############
+
+            // GOOD FOR FIXING SLURS
+            //                            inspector.render(path + 'Complete examples/Mahler_Song.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth:2000});
 
             // ISSUE vertical rest alignment DISPLAY ugly slurs
             //                            inspector.render(path + 'Complete examples/Schumann_Landmann.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 4800, pageHeight: 5800});
@@ -202,9 +202,22 @@
             // ISSUE notes across systems
             //                            inspector.render(path + 'Editorial markup/Weber_op73/Editorial_markup.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 3800, pageHeight: 5800});
 
+//            inspector.render(path + 'Complete examples/Mozart_DasVeilchen.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth:2000});
+
+            // seltsame slurs:
+//            inspector.render(path + 'Complete examples/Schutz_Jubilate_Deo.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 30000, pageHeight: 2800});
+
+//            inspector.render(path + 'Lyrics/attribute_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+//            inspector.render(path + 'Complete examples/Weber_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 48000, pageHeight: 2800});
+
+            // rendert, aber mit bezier-ERROR, bezier generell noch richten!! + überlange sekundärbalken bei pausen + rhy verschiebung wg clef
+            //            inspector.render(path + 'Complete examples/Beethoven_Song_Op98.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1200, pageHeight: 5800});
 
 
             // ################### CATEGORY 4 (more severe display issues)
+
+//            inspector.render(path + 'Complete examples/Telemann_Concert.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 2800, pageHeight: 7800});
 
             //            inspector.render(path + 'Complete examples/Borodin_StringTrio_g.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 5800});
 //            inspector.render(path + 'Complete examples/Hummel_op.67_no.11.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth:3000,pageHeight: 5800});
@@ -216,63 +229,39 @@
 
             // ####################### CATEGORY 5 (postponed)
 
-            //                            inspector.render(path + 'Complete examples/Debussy_Mandoline.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-
-            // ##################################################
-            // ##################################################
-
-
-
-
-
-            // rendert, aber mit bezier-ERROR, bezier generell noch richten!! + überlange sekundärbalken bei pausen + rhy verschiebung wg clef
-//            inspector.render(path + 'Complete examples/Beethoven_Song_Op98.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1500, pageHeight: 5800});
-
-
-            // ERROR
-            //inspector.render(path + 'Complete examples/Chopin_Mazurka.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1500, pageHeight: 5800});
-
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Ives_TheCage.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Mahler_Song.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Mozart_DasVeilchen.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Ravel_Le_tombeau.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Schubert_Erlkönig.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-//
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Schumann_Op.41.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
-
-            // ERROR:
-            //                inspector.render(path + 'Complete examples/Schutz_DomineDeus.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
-
-            // ERROR (empty articulation):
-            //                inspector.render(path + 'Complete examples/Schutz_Jubilate_Deo.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
-
-            // ERROR
-            //                inspector.render(path + 'Complete examples/Telemann_Concert.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
-
-            // ERROR
-//                            inspector.render(path + 'Complete examples/Weber_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
-
-            // ERROR
-//            inspector.render(path + 'Lyrics/attribute_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
-
-            // ERROR
-//            inspector.render(path + 'Lyrics/element_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+            //                            inspector.render(path + 'Complete examples/Ives_TheCage.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
 
             // ERROR: no ScoreDef (ist das von der codierung dennoch OK?? wenn ja, mei2vf ändern)
-//            inspector.render(path + 'Lyrics/lyrics.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+            //            inspector.render(path + 'Lyrics/lyrics.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+            // ERROR (cannot determine staff definition)
+            //            inspector.render(path + 'Lyrics/element_syl.mei', {autoStaveConnectorLine : true, pageScale : 0.5, pageWidth : 1800, pageHeight : 5800});
+
+            // inspector.render(path + 'Complete examples/Schubert_Erlkönig.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            //                                        inspector.render(path + 'Complete examples/Schumann_Op.41.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+            // ##################################################
+            // ##################################################
+
+
+
+            // ERROR (meilib?)
+//            inspector.render(path + 'Complete examples/Chopin_Mazurka.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1500, pageHeight: 5800});
+
+
+            // ERROR (too few notes for a beam):
+//                                        inspector.render(path + 'Complete examples/Debussy_Mandoline.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+            // ERROR (too few notes for a beam):
+//                            inspector.render(path + 'Complete examples/Ravel_Le_tombeau.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
+
+
+            // ERROR (currentStaffInfo is undefined):
+//                            inspector.render(path + 'Complete examples/Schutz_DomineDeus.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800});
+
+
+
 
 
 

@@ -14799,7 +14799,7 @@ Vex.Flow.KeySignature = (function() {
           offset = 0.5;
           break;
         case "tenor":
-            offset = -0.5;
+          offset = -0.5;
           break;
 
         case 'french':
@@ -14873,17 +14873,17 @@ Vex.Flow.KeySignature = (function() {
  * @constructor
  */
 Vex.Flow.Hyphen = ( function() {
-    function Hyphen(config) {
-      if (arguments.length > 0)
-        this.init(config);
-    };
+  function Hyphen(config) {
+    if (arguments.length > 0)
+      this.init(config);
+  };
 
-    Hyphen.prototype = {
-      init : function(config) {
-        /**
-         * config is a struct that has:
-         *
-         *  {
+  Hyphen.prototype = {
+    init : function(config) {
+      /**
+       * config is a struct that has:
+       *
+       *  {
          *    first_annot: Annotation or any other object with an x (and optional
          * y) property,
          *    last_annot: Annotation or any other object with an x (and optional
@@ -14893,69 +14893,69 @@ Vex.Flow.Hyphen = ( function() {
          * hyphens
          *    (optional) hyphen_width: the width of the hyphen character to draw
          *  }
-         *
-         **/
+       *
+       **/
 
-        this.max_hyphen_distance = config.max_hyphen_distance || 75;
-        this.font = {
-          family : "Arial",
-          size : 10,
-          style : ""
-        };
+      this.max_hyphen_distance = config.max_hyphen_distance || 75;
+      this.font = {
+        family : "Arial",
+        size : 10,
+        style : ""
+      };
 
-        this.config = config;
-        this.context = null;
+      this.config = config;
+      this.context = null;
 
-      },
+    },
 
-      setContext : function(context) {
-        this.context = context;
-        return this;
-      },
+    setContext : function(context) {
+      this.context = context;
+      return this;
+    },
 
-      setFont : function(font) {
-        this.font = font;
-        return this;
-      },
+    setFont : function(font) {
+      this.font = font;
+      return this;
+    },
 
-      renderHyphen : function() {
-        var cfg = this.config;
-        var ctx = this.context;
-        var hyphen_width = cfg.hyphen_width || ctx.measureText('-').width;
+    renderHyphen : function() {
+      var cfg = this.config;
+      var ctx = this.context;
+      var hyphen_width = cfg.hyphen_width || ctx.measureText('-').width;
 
-        var first = cfg.first_annot;
-        var last = cfg.last_annot;
+      var first = cfg.first_annot;
+      var last = cfg.last_annot;
 
-        var start_x = (first.text) ? first.x + first.text_width : first.x;
-        var end_x = last.x;
+      var start_x = (first.text) ? first.x + first.text_width : first.x;
+      var end_x = last.x;
 
-        var distance = end_x - start_x;
+      var distance = end_x - start_x;
 
-        if (distance > hyphen_width) {
-          var y = (first.y && last.y) ? (first.y + last.y) / 2 : first.y || last.y;
-          var hyphen_count = Math.ceil(distance / this.max_hyphen_distance);
-          var single_width = distance / (hyphen_count + 1);
-          while (hyphen_count--) {
-            start_x += single_width;
-            ctx.fillText('-', start_x - hyphen_width / 2, y);
-          }
-        };
-      },
+      if (distance > hyphen_width) {
+        var y = (first.y && last.y) ? (first.y + last.y) / 2 : first.y || last.y;
+        var hyphen_count = Math.ceil(distance / this.max_hyphen_distance);
+        var single_width = distance / (hyphen_count + 1);
+        while (hyphen_count--) {
+          start_x += single_width;
+          ctx.fillText('-', start_x - hyphen_width / 2, y);
+        }
+      };
+    },
 
-      draw : function() {
-        if (!this.context)
-          throw new Vex.RERR("NoContext", "No context to render hyphens.");
-        var ctx = this.context;
-        ctx.save();
-        ctx.setFont(this.font.family, this.font.size, this.font.style);
-        this.renderHyphen();
-        ctx.restore();
-        return true;
-      }
-    };
+    draw : function() {
+      if (!this.context)
+        throw new Vex.RERR("NoContext", "No context to render hyphens.");
+      var ctx = this.context;
+      ctx.save();
+      ctx.setFont(this.font.family, this.font.size, this.font.style);
+      this.renderHyphen();
+      ctx.restore();
+      return true;
+    }
+  };
 
-    return Hyphen;
-  }());
+  return Hyphen;
+}());
 
 
 // use square breve glyph instead of VexFlow's ||O||
@@ -14971,18 +14971,18 @@ if (!Vex.Flow.durationToGlyph.duration_codes['1/4']) {
   Vex.Flow.durationToGlyph.duration_codes['1/4'] = {
     common: {
       head_width: 22,
-        stem: false,
-        stem_offset: 0,
-        flag: false,
-        stem_up_extension: -Vex.Flow.STEM_HEIGHT,
-        stem_down_extension: -Vex.Flow.STEM_HEIGHT,
-        gracenote_stem_up_extension: -Vex.Flow.STEM_HEIGHT,
-        gracenote_stem_down_extension: -Vex.Flow.STEM_HEIGHT,
-        tabnote_stem_up_extension: -Vex.Flow.STEM_HEIGHT,
-        tabnote_stem_down_extension: -Vex.Flow.STEM_HEIGHT,
-        dot_shiftY: 0,
-        line_above: 0,
-        line_below: 0
+      stem: false,
+      stem_offset: 0,
+      flag: false,
+      stem_up_extension: -Vex.Flow.STEM_HEIGHT,
+      stem_down_extension: -Vex.Flow.STEM_HEIGHT,
+      gracenote_stem_up_extension: -Vex.Flow.STEM_HEIGHT,
+      gracenote_stem_down_extension: -Vex.Flow.STEM_HEIGHT,
+      tabnote_stem_up_extension: -Vex.Flow.STEM_HEIGHT,
+      tabnote_stem_down_extension: -Vex.Flow.STEM_HEIGHT,
+      dot_shiftY: 0,
+      line_above: 0,
+      line_below: 0
     },
     type: {
       "n": { // Longa note
@@ -14994,19 +14994,19 @@ if (!Vex.Flow.durationToGlyph.duration_codes['1/4']) {
       },
       "m": { // Breve note muted -
         code_head: "vf",
-          stem_offset: 0
+        stem_offset: 0
       },
       "r": { // Breve rest
         code_head: "v31",
-          head_width: 24,
-          rest: true,
-          position: "B/5",
-          dot_shiftY: 0.5
+        head_width: 24,
+        rest: true,
+        position: "B/5",
+        dot_shiftY: 0.5
       },
       "s": { // Breve note slash -
         // Drawn with canvas primitives
         head_width: 15,
-          position: "B/4"
+        position: "B/4"
       }
     }
   };
@@ -15056,16 +15056,81 @@ Vex.Flow.Curve.prototype.renderCurve = function(params) {
       first_y + (cps[0].y * params.direction),
       last_x - cp_spacing + cps[1].x,
       last_y + (cps[1].y * params.direction),
-      last_x, last_y);
+    last_x, last_y);
   ctx.bezierCurveTo(last_x - cp_spacing + cps[1].x,
       last_y + ((cps[1].y + thickness) * params.direction),
       first_x + cp_spacing + cps[0].x,
       first_y + ((cps[0].y + thickness) * params.direction),
-      first_x, first_y);
+    first_x, first_y);
   ctx.stroke();
   ctx.closePath();
   ctx.fill();
 };
+
+
+Vex.Flow.Curve.prototype.draw = function() {
+  //#######start addition
+  var Curve = Vex.Flow.Curve;
+  //###########end addition
+
+
+  if (!this.context)
+    throw new Vex.RERR("NoContext", "No context to render tie.");
+  var first_note = this.from;
+  var last_note = this.to;
+  var first_x, last_x, first_y, last_y, stem_direction;
+
+  var metric = "baseY";
+  var end_metric = "baseY";
+  var position = this.render_options.position;
+  var position_end = this.render_options.position_end;
+
+  if (position === Curve.Position.NEAR_TOP) {
+    metric = "topY";
+    end_metric = "topY";
+  }
+
+  if (position_end == Curve.Position.NEAR_HEAD) {
+    end_metric = "baseY";
+  } else if (position_end == Curve.Position.NEAR_TOP) {
+    end_metric = "topY";
+  }
+
+  if (first_note) {
+    first_x = first_note.getTieRightX();
+    stem_direction = first_note.getStemDirection();
+    first_y = first_note.getStemExtents()[metric];
+  } else {
+    // ##### START MODIFICATION
+    first_x = last_note.getStave().getSlurStartX();
+    // ##### END MODIFICATION
+    first_y = last_note.getStemExtents()[metric];
+  }
+
+  if (last_note) {
+    last_x = last_note.getTieLeftX();
+    stem_direction = last_note.getStemDirection();
+    last_y = last_note.getStemExtents()[end_metric];
+  } else {
+    // ##### START MODIFICATION
+    last_x = first_note.getStave().getSlurEndX();
+    // ##### END MODIFICATION
+    last_y = first_note.getStemExtents()[end_metric];
+  }
+
+  this.renderCurve({
+    first_x: first_x,
+    last_x: last_x,
+    first_y: first_y,
+    last_y: last_y,
+    direction: stem_direction *
+               (this.render_options.invert === true ? -1 : 1)
+  });
+  return true;
+};
+
+
+
 
 /**
  * Syllable class, based on Vex.Flow.Annotation
@@ -15079,9 +15144,9 @@ Vex.Flow.Syllable = (function() {
   // To enable logging for this class. Set `Vex.Flow.Syllable.DEBUG` to `true`.
   function L() { if (Syllable.DEBUG) Vex.L("Vex.Flow.Syllable", arguments); }
 
-    // START ADDITION
-    Syllable.DEFAULT_FONT_SIZE = 10;
-    // END ADDITION
+  // START ADDITION
+  Syllable.DEFAULT_FONT_SIZE = 10;
+  // END ADDITION
 
   // Text annotations can be positioned and justified relative to the note.
   Syllable.Justify = {
@@ -15136,27 +15201,27 @@ Vex.Flow.Syllable = (function() {
       this.vert_justification = Syllable.VerticalJustify.TOP;
       this.font = {
         family: "Arial",
-          // START MODIFICATION
-          size : Syllable.DEFAULT_FONT_SIZE,
-          // END MODIFICATION
-          weight : ""
-        };
-
-        // START ADDITION
-        // Line spacing, relative to font size
-        this.line_spacing = 1.1;
-        // END ADDITiON
-
-        // The default width is calculated from the text.
-        this.setWidth(Vex.Flow.textWidth(text));
-      },
+        // START MODIFICATION
+        size : Syllable.DEFAULT_FONT_SIZE,
+        // END MODIFICATION
+        weight : ""
+      };
 
       // START ADDITION
-      setLineSpacing : function(spacing) {
-        this.line_spacing = spacing;
-        return this;
-      },
+      // Line spacing, relative to font size
+      this.line_spacing = 1.1;
       // END ADDITiON
+
+      // The default width is calculated from the text.
+      this.setWidth(Vex.Flow.textWidth(text));
+    },
+
+    // START ADDITION
+    setLineSpacing : function(spacing) {
+      this.line_spacing = spacing;
+      return this;
+    },
+    // END ADDITiON
 
     // Set the vertical position of the text relative to the stave.
     setTextLine: function(line) { this.text_line = line; return this; },
@@ -15264,23 +15329,23 @@ Vex.Flow.Syllable = (function() {
         x = this.note.getStemX() - text_width / 2;
       }
 
-        // START ADDITION
-        this.x = x;
+      // START ADDITION
+      this.x = x;
 
-        y = this.y;
+      y = this.y;
 
-        this.text_height = text_height;
-        this.text_width = text_width;
-        // END ADDITION
+      this.text_height = text_height;
+      this.text_width = text_width;
+      // END ADDITION
 
-        L("Rendering annotation: ", this.text, x, y);
-        this.context.fillText(this.text, x, y);
-        this.context.restore();
-      }
-    });
+      L("Rendering annotation: ", this.text, x, y);
+      this.context.fillText(this.text, x, y);
+      this.context.restore();
+    }
+  });
 
-    return Syllable;
-  }());
+  return Syllable;
+}());
 
 
 
@@ -15304,199 +15369,199 @@ Vex.Flow.Syllable = (function() {
  * @param {!Object} Options
  */
 Vex.Flow.StaveTie = ( function() {
-    function StaveTie(notes, text) {
-      if (arguments.length > 0)
-        this.init(notes, text);
-    }
+  function StaveTie(notes, text) {
+    if (arguments.length > 0)
+      this.init(notes, text);
+  }
 
 
-    StaveTie.prototype = {
-      init : function(notes, text) {
-        /**
-         * Notes is a struct that has:
-         *
-         *  {
+  StaveTie.prototype = {
+    init : function(notes, text) {
+      /**
+       * Notes is a struct that has:
+       *
+       *  {
          *    first_note: Note,
          *    last_note: Note,
          *    first_indices: [n1, n2, n3],
          *    last_indices: [n1, n2, n3]
          *  }
-         *
-         **/
-        this.notes = notes;
-        this.context = null;
-        this.text = text;
-
-        this.render_options = {
-          cp1 : 8, // Curve control point 1
-          cp2 : 12, // Curve control point 2
-          text_shift_x : 0,
-          first_x_shift : 0,
-          last_x_shift : 0,
-          y_shift : 7,
-          tie_spacing : 0,
-          font : {
-            family : "Arial",
-            size : 10,
-            style : ""
-          }
-        };
-
-        this.font = this.render_options.font;
-        this.setNotes(notes);
-      },
-
-      setContext : function(context) {
-        this.context = context;
-        return this;
-      },
-      setFont : function(font) {
-        this.font = font;
-        return this;
-      },
-
-      /**
-       * Set the notes to attach this tie to.
        *
-       * @param {!Object} notes The notes to tie up.
-       */
-      setNotes : function(notes) {
-        if (!notes.first_note && !notes.last_note)
-          throw new Vex.RuntimeError("BadArguments", "Tie needs to have either first_note or last_note set.");
+       **/
+      this.notes = notes;
+      this.context = null;
+      this.text = text;
 
-        if (!notes.first_indices)
-          notes.first_indices = [0];
-        if (!notes.last_indices)
-          notes.last_indices = [0];
+      this.render_options = {
+        cp1 : 8, // Curve control point 1
+        cp2 : 12, // Curve control point 2
+        text_shift_x : 0,
+        first_x_shift : 0,
+        last_x_shift : 0,
+        y_shift : 7,
+        tie_spacing : 0,
+        font : {
+          family : "Arial",
+          size : 10,
+          style : ""
+        }
+      };
 
-        if (notes.first_indices.length != notes.last_indices.length)
-          throw new Vex.RuntimeError("BadArguments", "Tied notes must have similar" + " index sizes");
+      this.font = this.render_options.font;
+      this.setNotes(notes);
+    },
 
-        // Success. Lets grab 'em notes.
-        this.first_note = notes.first_note;
-        this.first_indices = notes.first_indices;
-        this.last_note = notes.last_note;
-        this.last_indices = notes.last_indices;
-        return this;
-      },
+    setContext : function(context) {
+      this.context = context;
+      return this;
+    },
+    setFont : function(font) {
+      this.font = font;
+      return this;
+    },
 
-      /**
-       * @return {boolean} Returns true if this is a partial bar.
-       */
-      isPartial : function() {
-        return (!this.first_note || !this.last_note);
-      },
+    /**
+     * Set the notes to attach this tie to.
+     *
+     * @param {!Object} notes The notes to tie up.
+     */
+    setNotes : function(notes) {
+      if (!notes.first_note && !notes.last_note)
+        throw new Vex.RuntimeError("BadArguments", "Tie needs to have either first_note or last_note set.");
+
+      if (!notes.first_indices)
+        notes.first_indices = [0];
+      if (!notes.last_indices)
+        notes.last_indices = [0];
+
+      if (notes.first_indices.length != notes.last_indices.length)
+        throw new Vex.RuntimeError("BadArguments", "Tied notes must have similar" + " index sizes");
+
+      // Success. Lets grab 'em notes.
+      this.first_note = notes.first_note;
+      this.first_indices = notes.first_indices;
+      this.last_note = notes.last_note;
+      this.last_indices = notes.last_indices;
+      return this;
+    },
+
+    /**
+     * @return {boolean} Returns true if this is a partial bar.
+     */
+    isPartial : function() {
+      return (!this.first_note || !this.last_note);
+    },
+
+    // START ADDITION
+    setDir : function(dir) {
+      this.curvedir = dir;
+    },
+
+    getDir : function() {
+      return this.curvedir;
+    },
+    // END ADDITION
+
+    renderTie : function(params) {
+      if (params.first_ys.length === 0 || params.last_ys.length === 0)
+        throw new Vex.RERR("BadArguments", "No Y-values to render");
 
       // START ADDITION
-      setDir : function(dir) {
-        this.curvedir = dir;
-      },
-
-      getDir : function() {
-        return this.curvedir;
-      },
+      if (this.curvedir) {
+        params.direction = (this.curvedir === 'above') ? -1 : 1;
+      } else {
+        this.curvedir = params.direction;
+      }
       // END ADDITION
 
-      renderTie : function(params) {
-        if (params.first_ys.length === 0 || params.last_ys.length === 0)
-          throw new Vex.RERR("BadArguments", "No Y-values to render");
+      var ctx = this.context;
+      var cp1 = this.render_options.cp1;
+      var cp2 = this.render_options.cp2;
 
-        // START ADDITION
-        if (this.curvedir) {
-          params.direction = (this.curvedir === 'above') ? -1 : 1;
-        } else {
-          this.curvedir = params.direction;
-        }
-        // END ADDITION
-
-        var ctx = this.context;
-        var cp1 = this.render_options.cp1;
-        var cp2 = this.render_options.cp2;
-
-        if (Math.abs(params.last_x_px - params.first_x_px) < 10) {
-          cp1 = 2;
-          cp2 = 8;
-        }
-
-        var first_x_shift = this.render_options.first_x_shift;
-        var last_x_shift = this.render_options.last_x_shift;
-        var y_shift = this.render_options.y_shift * params.direction;
-
-        for (var i = 0; i < this.first_indices.length; ++i) {
-          var cp_x = ((params.last_x_px + last_x_shift) + (params.first_x_px + first_x_shift)) / 2;
-          var first_y_px = params.first_ys[this.first_indices[i]] + y_shift;
-          var last_y_px = params.last_ys[this.last_indices[i]] + y_shift;
-
-          if (isNaN(first_y_px) || isNaN(last_y_px))
-            throw new Vex.RERR("BadArguments", "Bad indices for tie rendering.");
-
-          var top_cp_y = ((first_y_px + last_y_px) / 2) + (cp1 * params.direction);
-          var bottom_cp_y = ((first_y_px + last_y_px) / 2) + (cp2 * params.direction);
-
-          ctx.beginPath();
-          ctx.moveTo(params.first_x_px + first_x_shift, first_y_px);
-          ctx.quadraticCurveTo(cp_x, top_cp_y, params.last_x_px + last_x_shift, last_y_px);
-          ctx.quadraticCurveTo(cp_x, bottom_cp_y, params.first_x_px + first_x_shift, first_y_px);
-
-          ctx.closePath();
-          ctx.fill();
-        }
-      },
-
-      renderText : function(first_x_px, last_x_px) {
-        if (!this.text)
-          return;
-        var center_x = (first_x_px + last_x_px) / 2;
-        center_x -= this.context.measureText(this.text).width / 2;
-
-        this.context.save();
-        this.context.setFont(this.font.family, this.font.size, this.font.style);
-        this.context.fillText(this.text, center_x + this.render_options.text_shift_x, (this.first_note || this.last_note).getStave().getYForTopText() - 1);
-        this.context.restore();
-      },
-
-      draw : function() {
-        if (!this.context)
-          throw new Vex.RERR("NoContext", "No context to render tie.");
-        var first_note = this.first_note;
-        var last_note = this.last_note;
-        var first_x_px, last_x_px, first_ys, last_ys, stem_direction;
-
-        if (first_note) {
-          first_x_px = first_note.getTieRightX() + this.render_options.tie_spacing;
-          stem_direction = first_note.getStemDirection();
-          first_ys = first_note.getYs();
-        } else {
-          first_x_px = last_note.getStave().getTieStartX();
-          first_ys = last_note.getYs();
-          this.first_indices = this.last_indices;
-        }
-
-        if (last_note) {
-          last_x_px = last_note.getTieLeftX() + this.render_options.tie_spacing;
-          stem_direction = last_note.getStemDirection();
-          last_ys = last_note.getYs();
-        } else {
-          last_x_px = first_note.getStave().getTieEndX();
-          last_ys = first_note.getYs();
-          this.last_indices = this.first_indices;
-        }
-
-        this.renderTie({
-          first_x_px : first_x_px,
-          last_x_px : last_x_px,
-          first_ys : first_ys,
-          last_ys : last_ys,
-          direction : stem_direction
-        });
-
-        this.renderText(first_x_px, last_x_px);
-        return true;
+      if (Math.abs(params.last_x_px - params.first_x_px) < 10) {
+        cp1 = 2;
+        cp2 = 8;
       }
-    };
 
-    return StaveTie;
-  }());
+      var first_x_shift = this.render_options.first_x_shift;
+      var last_x_shift = this.render_options.last_x_shift;
+      var y_shift = this.render_options.y_shift * params.direction;
+
+      for (var i = 0; i < this.first_indices.length; ++i) {
+        var cp_x = ((params.last_x_px + last_x_shift) + (params.first_x_px + first_x_shift)) / 2;
+        var first_y_px = params.first_ys[this.first_indices[i]] + y_shift;
+        var last_y_px = params.last_ys[this.last_indices[i]] + y_shift;
+
+        if (isNaN(first_y_px) || isNaN(last_y_px))
+          throw new Vex.RERR("BadArguments", "Bad indices for tie rendering.");
+
+        var top_cp_y = ((first_y_px + last_y_px) / 2) + (cp1 * params.direction);
+        var bottom_cp_y = ((first_y_px + last_y_px) / 2) + (cp2 * params.direction);
+
+        ctx.beginPath();
+        ctx.moveTo(params.first_x_px + first_x_shift, first_y_px);
+        ctx.quadraticCurveTo(cp_x, top_cp_y, params.last_x_px + last_x_shift, last_y_px);
+        ctx.quadraticCurveTo(cp_x, bottom_cp_y, params.first_x_px + first_x_shift, first_y_px);
+
+        ctx.closePath();
+        ctx.fill();
+      }
+    },
+
+    renderText : function(first_x_px, last_x_px) {
+      if (!this.text)
+        return;
+      var center_x = (first_x_px + last_x_px) / 2;
+      center_x -= this.context.measureText(this.text).width / 2;
+
+      this.context.save();
+      this.context.setFont(this.font.family, this.font.size, this.font.style);
+      this.context.fillText(this.text, center_x + this.render_options.text_shift_x, (this.first_note || this.last_note).getStave().getYForTopText() - 1);
+      this.context.restore();
+    },
+
+    draw : function() {
+      if (!this.context)
+        throw new Vex.RERR("NoContext", "No context to render tie.");
+      var first_note = this.first_note;
+      var last_note = this.last_note;
+      var first_x_px, last_x_px, first_ys, last_ys, stem_direction;
+
+      if (first_note) {
+        first_x_px = first_note.getTieRightX() + this.render_options.tie_spacing;
+        stem_direction = first_note.getStemDirection();
+        first_ys = first_note.getYs();
+      } else {
+        first_x_px = last_note.getStave().getTieStartX();
+        first_ys = last_note.getYs();
+        this.first_indices = this.last_indices;
+      }
+
+      if (last_note) {
+        last_x_px = last_note.getTieLeftX() + this.render_options.tie_spacing;
+        stem_direction = last_note.getStemDirection();
+        last_ys = last_note.getYs();
+      } else {
+        last_x_px = first_note.getStave().getTieEndX();
+        last_ys = first_note.getYs();
+        this.last_indices = this.first_indices;
+      }
+
+      this.renderTie({
+        first_x_px : first_x_px,
+        last_x_px : last_x_px,
+        first_ys : first_ys,
+        last_ys : last_ys,
+        direction : stem_direction
+      });
+
+      this.renderText(first_x_px, last_x_px);
+      return true;
+    }
+  };
+
+  return StaveTie;
+}());
 
 
 
@@ -17877,7 +17942,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      * @param {XMLElement} element the MEI measure element
      */
     processMeasure : function (element) {
-      var me = this, measure_n, atSystemStart, left_barline, right_barline, system, system_n;
+      var me = this, atSystemStart, left_barline, right_barline, system, system_n;
 
       if (me.pendingSectionBreak || me.pendingSystemBreak) {
         system_n = me.systems.length;
@@ -17891,7 +17956,6 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
       m2v.log('debug', 'Converter.processMeasure()', '{enter}');
 
-      measure_n = +element.getAttribute('n');
       left_barline = element.getAttribute('left');
       right_barline = element.getAttribute('right');
 
@@ -17938,25 +18002,24 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       // 1) in each MEI2VF.Measure
       // 2) in MEI2VF.Converter.allVexMeasureStaffs
       var staffs = me.initializeMeasureStaffs(system, staffElements, left_barline, right_barline, atSystemStart);
-      me.allVexMeasureStaffs[measure_n] = staffs;
+      var measureIndex = me.allVexMeasureStaffs.push(staffs) - 1;
 
       var currentStaveVoices = new m2v.StaveVoices();
 
       $.each(staffElements, function () {
-        me.processStaffEvents(staffs, this, measure_n, currentStaveVoices);
+        me.processStaffEvents(staffs, this, measureIndex, currentStaveVoices);
       });
 
       me.directives.createInfos(dirElements, element);
       me.dynamics.createInfos(dynamElements, element);
       me.fermatas.createInfos(fermataElements, element);
       me.trills.createInfos(trillElements, element);
-      me.ties.createInfos(tieElements, element, me.systemInfo);
-      me.slurs.createInfos(slurElements, element, me.systemInfo);
-      me.hairpins.createInfos(hairpinElements, element, me.systemInfo);
+      me.ties.createInfos(tieElements, element, measureIndex, me.systemInfo);
+      me.slurs.createInfos(slurElements, element, measureIndex, me.systemInfo);
+      me.hairpins.createInfos(hairpinElements, element, measureIndex, me.systemInfo);
 
       system.addMeasure(new m2v.Measure({
         element : element,
-        n : measure_n,
         staffs : staffs,
         voices : currentStaveVoices,
         startConnectorCfg : (atSystemStart) ? {
@@ -18085,6 +18148,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
       var me = this, staff;
       staff = new m2v.Stave();
       staff.init(0, y, 1000, me.cfg.staff);
+      staff.setSlurEndX(me.printSpace.right);
       staff.options.bottom_text_position = me.cfg.staff.bottom_text_position;
       return staff;
     },
@@ -18135,11 +18199,11 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      * @param {Vex.Flow.Stave[]} staffs the staff objects in the current
      * measure
      * @param {XMLElement} staff_element the MEI staff element
-     * @param {Number} measure_n the measure number
+     * @param {Number} measureIndex the index of the current measure
      * @param {MEI2VF.StaveVoices} currentStaveVoices The current StaveVoices
      * object
      */
-    processStaffEvents : function (staffs, staff_element, measure_n, currentStaveVoices) {
+    processStaffEvents : function (staffs, staff_element, measureIndex, currentStaveVoices) {
       var me = this, staff, staff_n, readEvents, layerElements, i, j, layer_events, layerDir, currentGraceNotes = [], GN = VF.GraceNote, staffInfo;
 
       staff_n = +$(staff_element).attr('n');
@@ -18157,7 +18221,7 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
       for (i = 0, j = layerElements.length; i < j; i++) {
         layerDir = (j > 1) ? (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null;
-        me.resolveUnresolvedTimestamps(layerElements[i], staff_n, measure_n, meter);
+        me.resolveUnresolvedTimestamps(layerElements[i], staff_n, measureIndex, meter);
         staffInfo.checkInitialClef();
         layer_events = $(layerElements[i]).children().map(readEvents).get();
         currentStaveVoices.addVoice(me.createVexVoice(layer_events, meter), staff_n);
@@ -18192,15 +18256,12 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
     /**
      * @method resolveUnresolvedTimestamps
      */
-    resolveUnresolvedTimestamps : function (layer, staff_n, measure_n, meter) {
+    resolveUnresolvedTimestamps : function (layer, staff_n, measureIndex, meter) {
       var me = this, refLocationIndex;
       // check if there's an unresolved TStamp2 reference to this location
       // (measure, staff, layer):
-      if (isNaN(measure_n)) {
-        throw new m2v.RUNTIME_ERROR('MEI2VF.RERR.extract_events', '<measure> must have @n specified');
-      }
       staff_n = staff_n || 1;
-      refLocationIndex = measure_n + ':' + staff_n + ':' + ($(layer).attr('n') || '1');
+      refLocationIndex = measureIndex + ':' + staff_n + ':' + ($(layer).attr('n') || '1');
       if (me.unresolvedTStamp2[refLocationIndex]) {
         $(me.unresolvedTStamp2[refLocationIndex]).each(function (i) {
           this.setContext({
@@ -18246,11 +18307,14 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
         case 'clef' :
           return me.processClef(element, staff, staff_n, layerDir, staffInfo);
         case 'anchoredText' :
+          me.processAnchoredText(element, staff, staff_n, layerDir, staffInfo);
           return;
         default :
           m2v.log('info', 'Not supported', 'Element "' + element.localName + '" is not supported. Skipping element.');
       }
     },
+
+    processAnchoredText : function (element, staff, staff_n, layerDir, staffInfo) {},
 
     /**
      * @method processNote
@@ -18879,15 +18943,21 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
      * adds an articulation to a note-like object
      * @method addArticulation
      * @param {Vex.Flow.StaveNote} note the note-like VexFlow object
-     * @param {XMLElement} ar the articulation element
+     * @param {XMLElement} element the articulation element
      */
-    addArticulation : function (note, ar) {
-      var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]);
-      var place = ar.getAttribute('place');
-      if (place) {
-        vexArtic.setPosition(m2v.tables.positions[place]);
+    addArticulation : function (note, element) {
+      var articCode = m2v.tables.articulations[element.getAttribute('artic')];
+      if (articCode) {
+        var vexArtic = new VF.Articulation(articCode);
+        var place = element.getAttribute('place');
+        if (place) {
+          vexArtic.setPosition(m2v.tables.positions[place]);
+        }
+        note.addArticulation(0, vexArtic);
+      } else {
+        m2v.log('warn', 'unknown @artic', 'The @artic attribute in ' + m2v.Util.serializeElement(element) +
+                                          ' is unknown or undefined. Skipping element.');
       }
-      note.addArticulation(0, vexArtic);
     },
 
     /**
@@ -19559,7 +19629,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
      * create EventLink objects from  <b>tie</b>, <b>slur</b> or <b>hairpin</b>
      * elements
      */
-    createInfos : function(link_elements, measureElement, systemInfo) {
+    createInfos : function(link_elements, measureElement, measureIndex, systemInfo) {
       var me = this;
 
       var link_staffInfo = function(lnkelem) {
@@ -19640,8 +19710,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
               // need to save: measure.n, link.staff_n,
               // link.layer_n
               var staffinfo = link_staffInfo(this);
-              var target_measure_n = +$(measureElement).attr('n') + measures_ahead;
-              var refLocationIndex = target_measure_n.toString() + ':' + staffinfo.staff_n + ':' + staffinfo.layer_n;
+              var target_measure_n = measureIndex + measures_ahead;
+              var refLocationIndex = target_measure_n + ':' + staffinfo.staff_n + ':' + staffinfo.layer_n;
               if (!me.unresolvedTStamp2[refLocationIndex])
                 me.unresolvedTStamp2[refLocationIndex] = [];
               me.unresolvedTStamp2[refLocationIndex].push(eventLink);
@@ -20003,6 +20073,8 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       return this;
     },
 
+    // TODO auch noch unvollständige slurs testen
+
     createSingleSlur : function(f_note, l_note, params) {
       var me = this, vexSlur, bezier, cps;
 
@@ -20012,11 +20084,23 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
       };
 
+      // if one of the notes is in multi-voice staff ...
       if (f_note.layerDir || l_note.layerDir) {
+        // invert the slur so it points outwards
         slurOptions.invert = true;
 
         if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
-          slurOptions.position = VF.Curve.Position.NEAR_TOP; // = 2 position at stem end
+          slurOptions.position = VF.Curve.Position.NEAR_TOP; // = 2 STEM END POSITION
+
+          if (f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
+            slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+          }
+
+        }
+      } else {
+        if (f_note.vexNote && l_note.vexNote && f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
+          slurOptions.invert = true;
+          slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
         }
       }
 
@@ -20459,7 +20543,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
          * @cfg {Number} n The number of the current measure as specified in
          * the MEI document
          */
-        me.n = config.n;
+        me.n = +config.element.getAttribute('n'), // set in Measure constructor
         /**
          * @cfg {Array} staffs an array of the staffs in the current
          * measure. Contains
@@ -20541,6 +20625,10 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        */
       getVoices : function() {
         return this.voices;
+      },
+
+      getMeiElement : function() {
+        return this.element;
       },
 
       /**
@@ -20706,7 +20794,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @param {Number} x The x coordinate of the the measure
        * @param {String[]} labels The labels of all staves
        */
-      format : function(x, labels) {
+      format : function(x, labels, slurStartX) {
         var me = this, width = me.w, i = me.staffs.length, staff, k;
         while (i--) {
           if (me.staffs[i]) {
@@ -20732,11 +20820,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
             staff.start_x = staff.x + me.maxNoteStartX;
             staff.setWidth(width);
-
             staff.end_x -= me.maxEndModifierW;
+
+            staff.setSlurStartX(slurStartX || staff.getTieStartX());
+
           }
         }
         me.voices.format(me.getFirstDefinedStaff());
+        return slurStartX || staff.getTieStartX();
       },
 
       /**
@@ -21571,6 +21662,25 @@ var MEI2VF = ( function (m2v, MeiLib, VF, $, undefined) {
 
     hasTimeSig : function () {
       return typeof this.meiTimeSpecElement !== 'undefined';
+    },
+
+    setSlurStartX : function (x) {
+      this.slurStartX = x;
+    },
+
+    getSlurStartX : function () {
+      // Temporary
+//      return this.getTieStartX();
+
+      return this.slurStartX;
+    },
+
+    setSlurEndX : function (x) {
+      this.slurEndX = x;
+    },
+
+    getSlurEndX : function () {
+      return this.slurEndX;
     }
 
   });
@@ -22032,7 +22142,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @return {MEI2VF.System} this
        */
       format : function(ctx) {
-        var me = this, i, j, measures, offsetX, labels;
+        var me = this, i, j, measures, offsetX, labels, slurStartX;
         if ( typeof me.leftMar !== 'number') {
           me.calculateInitialIndent(ctx);
         }
@@ -22043,7 +22153,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         for ( i = 0, j = measures.length; i < j; i += 1) {
           if (measures[i]) {
             labels = (i === 0) ? me.labels : null;
-            measures[i].format(offsetX, labels);
+            slurStartX = measures[i].format(offsetX, labels, slurStartX);
             offsetX += measures[i].w;
           }
           measures[i].addRehearsalMarks();
@@ -22913,7 +23023,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       j = hTypes['barlines'].length;
       k = hTypes['measure_modifiers'].length;
       if (i > 0 || j > 0 || k > 0) {
-        me.calculateMeasureAreas(me.viewer.allVexMeasureStaffs);
+        me.calculateMeasureAreas(me.viewer.converter.getSystems());
         while (i--) {
           hTypes['measures'][i].addAreas(me.measureAreas);
         }
@@ -22966,51 +23076,55 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
 
     },
 
-    calculateMeasureAreas : function (staffs) {
-      var me = this, i, j, k, l, staff, x, y, w, y1;
+    calculateMeasureAreas : function (systems) {
+      var me = this, i, j, k, l, m, n, staff, x, y, w, y1, measures, staffs;
       var STAFF_BOTTOM_OFFSET = 20;
 
-      for (i = 0, j = staffs.length; i < j; i += 1) {
-        if (staffs[i]) {
-          for (k = 0, l = staffs[i].length; k < l; k += 1) {
-            staff = staffs[i][k];
-            if (staff) {
-              x = staff.x;
-              y = staff.y;
-              w = staff.width;
-              y1 = staff.getBottomY() - STAFF_BOTTOM_OFFSET;
-              me.measureAreas.push({
-                ctx : {
-                  x : x,
-                  y : y,
-                  w : w,
-                  h : y1 - y,
-                  x1 : x + w,
-                  y1 : y1
-                },
-                measureN : i,
-                staffN : k
-              });
 
-              var staffY = staff.getYForLine(0) - 5;
-              var staffH = staff.getYForLine(4) - staffY + 10;
-              me.calculateBarlineAreas(staff, staffY, staffH);
-              me.calculateStaffModifierAreas(staff, staffY, staffH);
+      for (i = 0, j = systems.length; i < j; i += 1) {
+        if (systems[i]) {
+          measures = systems[i].getMeasures();
+          for (k = 0, l = measures.length; k < l; k += 1) {
+            staffs = measures[k].getStaffs();
+            for (m = 0, n = staffs.length; m < n; m++) {
+              staff = staffs[m];
+              if (staff) {
+                x = staff.x;
+                y = staff.y;
+                w = staff.width;
+                y1 = staff.getBottomY() - STAFF_BOTTOM_OFFSET;
+                me.measureAreas.push({
+                  ctx : {
+                    x : x,
+                    y : y,
+                    w : w,
+                    h : y1 - y,
+                    x1 : x + w,
+                    y1 : y1
+                  },
+                  measureN : measures[k].n,
+                  staffN : m
+                });
+
+                var staffY = staff.getYForLine(0) - 5;
+                var staffH = staff.getYForLine(4) - staffY + 10;
+                me.calculateBarlineAreas(staff, staffY, staffH, measures[k].getMeiElement());
+                me.calculateStaffModifierAreas(staff, staffY, staffH);
+              }
             }
           }
         }
       }
-
     },
 
-    calculateBarlineAreas : function (staff, staffY, staffH) {
+    calculateBarlineAreas : function (staff, staffY, staffH, meiElement) {
       var me = this;
 
       if (staff.modifiers[0].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[0].x - 8, staffY, 16, staffH, null, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[0].x - 8, staffY, 16, staffH, meiElement, 1));
       }
       if (staff.modifiers[1].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj(staff.modifiers[1].x - 8, staffY, 16, staffH, null, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[1].x - 8, staffY, 16, staffH, meiElement, 1));
       }
     },
 
@@ -23034,7 +23148,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         glyph = staff.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff[codes[glyph.code] ||
+          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff[codes[glyph.code] ||
                                                                                         'meiTimeSpecElement'], i));
         }
         x += w;
@@ -23048,7 +23162,7 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         if (glyph.code) {
           w = glyph.getMetrics().width;
           x -= w;
-          me.measureModifierAreas.push(me.createNoteAreaObj(x, y - 15, w, h + 30, staff.meiEndClefElement, i));
+          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff.meiEndClefElement, i));
         }
       }
     },
@@ -23063,13 +23177,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         y = box.y - 10;
         w = 30;
         h = box.h + 20;
-        me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, meiElement, i));
+        me.noteAreas.push(me.createNoteAreaObj('note', x, y, w, h, meiElement, i));
         me.calculateNoteModifierAreas(note);
       }
     },
 
-    createNoteAreaObj : function (x, y, w, h, meiElement, xmlid) {
+    createNoteAreaObj : function (type, x, y, w, h, meiElement, xmlid) {
       return {
+        type : type,
         ctx : {
           x : x,
           y : y,
@@ -23114,14 +23229,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
             y = modifiers[i].y - 20;
             w = modifiers[i].text_width + 12;
             h = 30;
-            me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, modifiers[i].getMeiElement(), i));
+            me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
             break;
           case 'articulations':
             w = modifiers[i].width + 8;
             h = w;
             x = modifiers[i].x - w / 2 - modifiers[i].articulation.shift_right;
             y = modifiers[i].y - h / 2 - modifiers[i].articulation.shift_down;
-            me.noteAreas.push(me.createNoteAreaObj(x, y, w, h, modifiers[i].getMeiElement(), i));
+            me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
             break;
           case 'dots':
           case 'accidentals':
@@ -23295,6 +23410,14 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       this.y = y;
     },
 
+    setContainer : function (container) {
+      this.container = container;
+    },
+
+    getContainer : function () {
+      return this.container;
+    },
+
     setTextAlign : function (textAlign) {
       this.textAlign = textAlign;
     },
@@ -23384,14 +23507,16 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
      * Creates a model object from an element and adds it to {@link #allTexts}
      * @param {Element} element
      */
-    addText : function (element) {
+    addText : function (element, staff, staff_n, layerDir, staffInfo) {
       var me = this;
-      me.allTexts.push(new Text(element, {
+      var text = new Text(element, {
         fontfamily : me.font.family,
         fontweight : me.font.weight,
         fontsize : me.font.size,
         fontstyle : ''
-      }));
+      });
+      text.setContainer (staff);
+      me.allTexts.push(text);
     },
 
     /**
@@ -23405,37 +23530,25 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
       return element;
     },
 
-    // TODO better get container elements by id!?!?
-    getContainer : function (element, allVexMeasureStaffs) {
-      var me = this, staff, measure, measure_n, staff_n;
-      staff = me.getAncestor(element, 'staff');
-      if (staff) {
-        measure = me.getAncestor(staff, 'measure');
-        if (measure) {
-          measure_n = measure.getAttribute('n') || '1';
-          staff_n = staff.getAttribute('n') || '1';
-          return allVexMeasureStaffs[measure_n][staff_n];
-        }
-      }
-      return null;
-    },
-
     setContext : function (ctx) {
       this.ctx = ctx;
       return this;
     },
 
-    draw : function (allVexMeasureStaffs) {
+    draw : function () {
       var me = this, x, y, staff, ctx = me.ctx;
       $.each(me.allTexts, function () {
 
+        console.log(this)
+
+
         if (!this.y) {
-          staff = me.getContainer(this.meiElement, allVexMeasureStaffs);
+          staff = this.getContainer();
           this.setY(staff.getYForLine(3) - 4 + (+this.atts.vo * staff.getSpacingBetweenLines() / 2 || 0));
         }
         if (!this.x) {
           if (!staff) {
-            staff = me.getContainer(this.meiElement, allVexMeasureStaffs);
+            staff = this.getContainer();
           }
           this.setX(staff.getGlyphStartX() + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
         }
@@ -24022,7 +24135,12 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
        * @property {MEI2VF.Converter} converter the MEI2VF converter
        */
       me.converter = new m2v.Converter(me.cfg);
+
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
+      me.converter.processAnchoredText = function (element, staff, staff_n, layerDir, staffInfo) {
+        me.anchoredTexts.addText(element, staff, staff_n, layerDir, staffInfo);
+      };
+
 
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
@@ -24046,20 +24164,12 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
         me.measureNumbers.addToSystemStarts(me.converter.getSystems());
       }
-
-      me.allVexMeasureStaffs = me.converter.getAllVexMeasureStaffs();
-
-      var anchoredTextEls = xmlDoc.getElementsByTagName('anchoredText');
-      for (var i = 0, j = anchoredTextEls.length; i < j; i++) {
-        me.anchoredTexts.addText(anchoredTextEls[i]);
-      }
-
     },
 
     drawMEI : function (ctx) {
       var me = this;
       me.converter.draw(ctx);
-      me.anchoredTexts.setContext(ctx).draw(me.allVexMeasureStaffs);
+      me.anchoredTexts.setContext(ctx).draw();
     }
 
   };
@@ -24479,14 +24589,22 @@ var MEI2VF = ( function(m2v, MeiLib, VF, $, undefined) {
   //  };
 
 
-  MEI2VF.Converter.prototype.addArticulation = function (note, ar) {
-    var vexArtic = new VF.Articulation(m2v.tables.articulations[ar.getAttribute('artic')]).setMeiElement(ar);
-    var place = ar.getAttribute('place');
-    if (place) {
-      vexArtic.setPosition(m2v.tables.positions[place]);
+
+  MEI2VF.Converter.prototype.addArticulation = function (note, element) {
+    var articCode = m2v.tables.articulations[element.getAttribute('artic')];
+    if (articCode) {
+      var vexArtic = new VF.Articulation(articCode).setMeiElement(element);
+      var place = element.getAttribute('place');
+      if (place) {
+        vexArtic.setPosition(m2v.tables.positions[place]);
+      }
+      note.addArticulation(0, vexArtic);
+    } else {
+      m2v.log('warn', 'unknown @artic', 'The @artic attribute in ' + m2v.Util.serializeElement(element) +
+                                        ' is unknown or undefined. Skipping element.');
     }
-    note.addArticulation(0, vexArtic);
   };
+
 
 
   MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
