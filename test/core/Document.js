@@ -1,4 +1,4 @@
-define(['core/Document'], function (Document) {
+define(['msv/core/Document'], function (Document) {
 
   describe("Document", function () {
 

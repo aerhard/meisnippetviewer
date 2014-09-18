@@ -17,8 +17,8 @@
 define([
   'jquery',
   'vexflow',
-  'meitovexflow'
-], function ($, VF, m2v, undefined) {
+  'm2v/core/Util'
+], function ($, VF, Util, undefined) {
   /**
    * @exports mei2text/Text
    */
@@ -33,7 +33,7 @@ define([
       var me = this, atts;
       me.meiElement = meiElement;
       me.meiNodeMatch = meiNodeMatch;
-      atts = (overrideOpts) ? opts : $.extend({}, opts, m2v.Util.attsToObj(meiElement));
+      atts = (overrideOpts) ? opts : $.extend({}, opts, Util.attsToObj(meiElement));
       me.x = +atts.x;
       me.y = +atts.y;
       me.textAlign = atts.halign || 'left';

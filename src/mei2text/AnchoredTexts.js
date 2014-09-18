@@ -17,9 +17,8 @@
 define([
   'jquery',
   'vexflow',
-  'meitovexflow',
-  'mei2text/Text'
-], function ($, VF, m2v, Text, undefined) {
+  'msv/mei2text/Text'
+], function ($, VF, Text, undefined) {
   /**
    * @exports mei2text/AnchoredTexts
    */

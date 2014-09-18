@@ -15,8 +15,8 @@
  *
  */
 define([
-  'meitovexflow'
-], function (m2v, undefined) {
+  'm2v/core/Logger'
+], function (M2VLogger, undefined) {
   /**
    * @exports core/Logger
    */
@@ -59,7 +59,7 @@ define([
         if (levels[i] === value) return;
       }
       // set same logging level for mei2vf
-      m2v.setLogging(value);
+      M2VLogger.setLogging(value);
     },
 
     /**
@@ -68,7 +68,7 @@ define([
      * @private
      */
     log : function (level, category) {
-      if (m2v.logLevels[level] === true) {
+      if (this.logLevels[level] === true) {
         var line = Array.prototype.slice.call(arguments, 2).join(" ");
         window.console[level]('MEISnippetViewer (' + category + "): " + line);
       }

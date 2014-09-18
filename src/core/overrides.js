@@ -17,8 +17,15 @@
 define([
   'jquery',
   'vexflow',
-  'meitovexflow'
-], function ($, VF, m2v, undefined) {
+  'm2v/vexflow-overrides',
+  'm2v/eventpointer/Directives',
+  'm2v/eventpointer/Dynamics',
+  'm2v/eventpointer/Fermatas',
+  'm2v/core/Converter',
+  'm2v/core/Logger',
+  'm2v/core/Util',
+  'm2v/core/tables'
+], function ($, VF, overrides, Directives, Dynamics, Fermatas, Converter, Logger, Util, Tables, undefined) {
   /**
    * @exports core/overrides
    */
@@ -60,7 +67,7 @@ define([
   //  };
 
 
-  MEI2VF.Directives.prototype.createVexFromInfos = function (notes_by_id) {
+  Directives.prototype.createVexFromInfos = function (notes_by_id) {
     var me = this, i, model, note, annot;
     i = me.allModels.length;
     while (i--) {
@@ -82,12 +89,12 @@ define([
           note.vexNote.addAnnotation(0, annot);
         }
       } else {
-        m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
+        Logger.log('warn', 'Input error', Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
       }
     }
   };
 
-  MEI2VF.Dynamics.prototype.createVexFromInfos = function (notes_by_id) {
+  Dynamics.prototype.createVexFromInfos = function (notes_by_id) {
     var me = this, i, model, note, annot;
     i = me.allModels.length;
     while (i--) {
@@ -102,45 +109,45 @@ define([
           note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
         }
       } else {
-        m2v.log('warn', 'Input error', m2v.Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
+        Logger.log('warn', 'Input error', Util.serializeElement(model.element) + ' could not be rendered because the reference "' + model.startid + '" could not be resolved.');
       }
     }
   };
 
 
-  MEI2VF.Fermatas.prototype.addFermataToNote = function (note, place, index) {
-    var vexArtic = new VF.Articulation(m2v.tables.fermata[place]);
-    vexArtic.setPosition(m2v.tables.positions[place]);
+  Fermatas.prototype.addFermataToNote = function (note, place, index) {
+    var vexArtic = new VF.Articulation(Tables.fermata[place]);
+    vexArtic.setPosition(Tables.positions[place]);
     note.addArticulation(index || 0, vexArtic);
   };
 
   //  MEI2VF.Converter.prototype.addFermata = function(note, place, index) {
-  //  var vexArtic = new VF.Articulation(m2v.tables.fermata[place]);
-  //  vexArtic.setPosition(m2v.tables.positions[place]);
+  //  var vexArtic = new VF.Articulation(Tables.fermata[place]);
+  //  vexArtic.setPosition(Tables.positions[place]);
   //  vexArtic.setMeiElement(ar);
   //  note.addArticulation(index || 0, vexArtic);
   //  };
 
 
 
-  MEI2VF.Converter.prototype.addArticulation = function (note, element) {
-    var articCode = m2v.tables.articulations[element.getAttribute('artic')];
+  Converter.prototype.addArticulation = function (note, element) {
+    var articCode = Tables.articulations[element.getAttribute('artic')];
     if (articCode) {
       var vexArtic = new VF.Articulation(articCode).setMeiElement(element);
       var place = element.getAttribute('place');
       if (place) {
-        vexArtic.setPosition(m2v.tables.positions[place]);
+        vexArtic.setPosition(Tables.positions[place]);
       }
       note.addArticulation(0, vexArtic);
     } else {
-      m2v.log('warn', 'unknown @artic', 'The @artic attribute in ' + m2v.Util.serializeElement(element) +
+      Logger.log('warn', 'unknown @artic', 'The @artic attribute in ' + Util.serializeElement(element) +
                                         ' is unknown or undefined. Skipping element.');
     }
   };
 
 
 
-  MEI2VF.Converter.prototype.processSyllables = function (note, element, staff_n) {
+  Converter.prototype.processSyllables = function (note, element, staff_n) {
     var me = this, vexSyllable, syl, verse, text_line, verse_n, syls;
     // syl = me.processSyllable(element);
     syls = $(element).find('syl');

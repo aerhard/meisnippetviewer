@@ -17,16 +17,17 @@
 define([
   'jquery',
   'vexflow',
-  'meitovexflow',
-  'core/Document',
-  'core/RuntimeError',
-  'core/UI',
-  'areas/AreaHelper',
-  'mei2text/AnchoredTexts',
-  'mei2text/MeasureNumbers',
-  'mei2text/PgHead',
-  'pre/PreProcessor'
-], function ($, VF, m2v, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor, undefined) {
+  'meilib/MeiLib',
+  'm2v/core/Converter',
+  'msv/core/Document',
+  'msv/core/RuntimeError',
+  'msv/core/UI',
+  'msv/areas/AreaHelper',
+  'msv/mei2text/AnchoredTexts',
+  'msv/mei2text/MeasureNumbers',
+  'msv/mei2text/PgHead',
+  'msv/pre/PreProcessor'
+], function ($, VF, MeiLib, Converter, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor, undefined) {
   /**
    * @exports core/Viewer
    */
@@ -191,7 +192,7 @@ define([
       /**
        * @property {MEI2VF.Converter} converter the MEI2VF converter
        */
-      me.converter = new m2v.Converter(me.cfg);
+      me.converter = new Converter(me.cfg);
 
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
       me.converter.processAnchoredText = function (element, staff, staff_n, layerDir, staffInfo) {

@@ -15,7 +15,7 @@
  *
  */
 define([
-  'core/RuntimeError',
+  'msv/core/RuntimeError',
 ], function (RuntimeError, undefined) {
   /**
    * @exports areas/AbstractAreaCollection

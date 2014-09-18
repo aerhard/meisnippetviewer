@@ -15,7 +15,7 @@
  *
  */
 define([
-  'core/Logger'
+  'msv/core/Logger'
 ], function (Logger, undefined) {
   /**
    * @exports mei2text/PreProcessor

@@ -1,6 +1,6 @@
 define([
-  'core/Document',
-  'pre/PreProcessor'
+  'msv/core/Document',
+  'msv/pre/PreProcessor'
 ], function (Document, PreProcessor) {
 
   describe("PreProcessor", function () {

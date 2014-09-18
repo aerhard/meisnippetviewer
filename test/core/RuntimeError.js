@@ -1,4 +1,4 @@
-define(['core/RuntimeError'], function (RuntimeError) {
+define(['msv/core/RuntimeError'], function (RuntimeError) {
 
   describe("RuntimeError", function () {
 

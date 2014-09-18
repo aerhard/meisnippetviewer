@@ -15,10 +15,8 @@
  *
  */
 define([
-  'vexflow',
-  'meitovexflow',
-  'areas/AbstractAreaCollection'
-], function (VF, m2v, AbstractAreaCollection, undefined) {
+  'msv/areas/AbstractAreaCollection',
+], function (AbstractAreaCollection, undefined) {
   /**
    * @exports areas/DefaultAreaCollection
    */

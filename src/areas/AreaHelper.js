@@ -16,7 +16,7 @@
  */
 define([
   'vexflow',
-  'core/Logger'
+  'msv/core/Logger'
 ], function (VF, Logger, undefined) {
   /**
    * @exports areas/AreaHelper

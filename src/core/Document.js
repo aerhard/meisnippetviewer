@@ -15,8 +15,8 @@
  *
  */
 define([
-  'meitovexflow'
-], function (m2v, undefined) {
+  'm2v/core/Util'
+], function (Util, undefined) {
   /**
    * @exports core/Document
    */
@@ -59,7 +59,7 @@ define([
      * @return {Object} the config object
      */
     getMEIPageConfig : function (scoreDef) {
-      var obj = m2v.Util.attsToObj(scoreDef);
+      var obj = Util.attsToObj(scoreDef);
       var convert = function (input) {
         return (isNaN(input) || input.length === 0) ? undefined : +input;
       };

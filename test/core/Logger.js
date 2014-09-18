@@ -1,4 +1,4 @@
-define(['core/Logger'], function (Logger) {
+define(['msv/core/Logger'], function (Logger) {
 
   describe("Logger", function () {
 

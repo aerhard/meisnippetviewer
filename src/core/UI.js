@@ -17,8 +17,8 @@
 define([
   'jquery',
   'vexflow',
-  'core/Logger',
-  'core/RuntimeError'
+  'msv/core/Logger',
+  'msv/core/RuntimeError'
 ], function ($, VF, Logger, RuntimeError, undefined) {
   /**
    * @exports core/UI

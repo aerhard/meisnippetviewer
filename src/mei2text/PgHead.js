@@ -17,9 +17,9 @@
 define([
   'jquery',
   'vexflow',
-  'meitovexflow',
-  'mei2text/Text'
-], function ($, VF, m2v, Text, undefined) {
+  'm2v/core/Util',
+  'msv/mei2text/Text'
+], function ($, VF, Util, Text, undefined) {
   /**
    * @exports mei2text/PgHead
    */
@@ -115,7 +115,7 @@ define([
               me.breakLine();
               break;
             case 'title' :
-              atts = m2v.Util.attsToObj(childNodes[i]);
+              atts = Util.attsToObj(childNodes[i]);
               defaults = {
                 halign : 'center',
                 fontsize : (atts.type === 'sub') ? 35 : 50,
@@ -125,7 +125,7 @@ define([
               me.breakLine();
               break;
             default :
-              me.htmlToArray(childNodes[i], $.extend({}, opts, m2v.Util.attsToObj(childNodes[i])));
+              me.htmlToArray(childNodes[i], $.extend({}, opts, Util.attsToObj(childNodes[i])));
           }
         }
       }
