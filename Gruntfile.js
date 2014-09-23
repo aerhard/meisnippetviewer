@@ -19,15 +19,19 @@ module.exports = function (grunt) {
           name : 'main',
           baseUrl : 'src',
           paths: {
+            'jquery' : 'vendor/jquery',
+            'vexflow' : 'vendor/vexflow',
+            'vex' : 'vendor/vex',
             'msv' : '.',
-            'm2v' : '../bower_components/meitovexflow/src',
+            'meiv2f' : '../bower_components/meitovexflow/src',
             'meilib' : '../bower_components/meitovexflow/src/meilib'
           },
           out : 'tmp/<%= pkg.name %>.build.js',
 
           exclude : [
             'jquery',
-            'vexflow'
+            'vexflow',
+            'vex'
           ],
 
           optimize : "none",

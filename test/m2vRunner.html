@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>Jasmine Spec Runner</title>
+
+    <link rel="shortcut icon" type="image/png" href="lib/jasmine-1.3.1/jasmine_favicon.png">
+    <link rel="stylesheet" type="text/css" href="lib/jasmine-1.3.1/jasmine.css">
+
+    <style type="text/css">
+        .test-page {
+            padding: 2em;
+            text-align: center
+        }
+        canvas, svg {
+            background: #fff;
+        }
+    </style>
+
+
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine.js"></script>
+    <script type="text/javascript" src="lib/jasmine-1.3.1/jasmine-html.js"></script>
+
+    <!-- include source files here... -->
+
+    <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="../bower_components/vexflow/build/vexflow/vexflow-min.js"></script>
+
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/test/loadXMLDoc.js"></script>
+    <script type="text/JavaScript" src="../bower_components/meitovexflow/test/runtest.js"></script>
+
+
+
+    <!-- MEISnippetViewer development -->
+    <script src="../bower_components/requirejs/require.js"></script>
+
+    <!-- MEISnippetViewer production -->
+    <!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
+
+
+    <script>
+        $(document).ready(function () {
+
+            var warn = window.console.warn;
+            var info = window.console.info;
+
+            window.console.info = function () {
+                info.apply(window, arguments);
+                throw { message: 'stopped flow for debugging' };
+            };
+
+            window.console.warn = function () {
+                warn.apply(window, arguments);
+                throw { message: 'stopped flow for debugging' };
+            };
+
+            window.console.error = function () {
+                error.apply(window, arguments);
+                throw { message: 'stopped flow for debugging' };
+            };
+
+            var run = function () {
+                var jasmineEnv = jasmine.getEnv();
+                jasmineEnv.updateInterval = 1000;
+
+                var htmlReporter = new jasmine.HtmlReporter();
+
+                jasmineEnv.addReporter(htmlReporter);
+
+                jasmineEnv.specFilter = function (spec) {
+                    return htmlReporter.specFilter(spec);
+                };
+
+//                var currentWindowOnload = window.onload;
+//
+//                window.onload = function () {
+//                    if (currentWindowOnload) {
+//                        currentWindowOnload();
+//                    }
+//                    execJasmine();
+//                };
+//
+//                function execJasmine() {
+//                    jasmineEnv.execute();
+//                }
+
+                jasmineEnv.execute();
+            };
+
+
+            require.config({
+                baseUrl : '../src',
+                paths : {
+                    'test' : '../test',
+                    'msv' : '../src',
+                    'm2v' : '../bower_components/meitovexflow/src',
+                    'meilib' : '../bower_components/meitovexflow/src/meilib'
+                }
+            });
+
+            require([
+                'test/m2v/Rendering'
+            ], run);
+
+
+        });
+    </script>
+
+</head>
+
+<body>
+    <!--<script src="//localhost:35729/livereload.js"></script>-->
+</body>
+</html>

@@ -128,7 +128,7 @@ define([
     },
 
     calculateMeasureAreas : function (systems) {
-      var me = this, i, j, k, l, m, n, staff, x, y, w, y1, measures, staffs;
+      var me = this, i, j, k, l, m, n, stave, x, y, w, y1, measures, staves;
       var STAFF_BOTTOM_OFFSET = 20;
 
 
@@ -136,14 +136,14 @@ define([
         if (systems[i]) {
           measures = systems[i].getMeasures();
           for (k = 0, l = measures.length; k < l; k += 1) {
-            staffs = measures[k].getStaffs();
-            for (m = 0, n = staffs.length; m < n; m++) {
-              staff = staffs[m];
-              if (staff) {
-                x = staff.x;
-                y = staff.y;
-                w = staff.width;
-                y1 = staff.getBottomY() - STAFF_BOTTOM_OFFSET;
+            staves = measures[k].getStaves();
+            for (m = 0, n = staves.length; m < n; m++) {
+              stave = staves[m];
+              if (stave) {
+                x = stave.x;
+                y = stave.y;
+                w = stave.width;
+                y1 = stave.getBottomY() - STAFF_BOTTOM_OFFSET;
                 me.measureAreas.push({
                   ctx : {
                     x : x,
@@ -154,13 +154,13 @@ define([
                     y1 : y1
                   },
                   measureN : measures[k].n,
-                  staffN : m
+                  staveN : m
                 });
 
-                var staffY = staff.getYForLine(0) - 5;
-                var staffH = staff.getYForLine(4) - staffY + 10;
-                me.calculateBarlineAreas(staff, staffY, staffH, measures[k].getMeiElement());
-                me.calculateStaffModifierAreas(staff, staffY, staffH);
+                var staveY = stave.getYForLine(0) - 5;
+                var staveH = stave.getYForLine(4) - staveY + 10;
+                me.calculateBarlineAreas(stave, staveY, staveH, measures[k].getMeiElement());
+                me.calculateStaveModifierAreas(stave, staveY, staveH);
               }
             }
           }
@@ -168,21 +168,21 @@ define([
       }
     },
 
-    calculateBarlineAreas : function (staff, staffY, staffH, meiElement) {
+    calculateBarlineAreas : function (stave, staveY, staveH, meiElement) {
       var me = this;
 
-      if (staff.modifiers[0].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[0].x - 8, staffY, 16, staffH, meiElement, 1));
+      if (stave.modifiers[0].barline !== 7) {
+        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x - 8, staveY, 16, staveH, meiElement, 1));
       }
-      if (staff.modifiers[1].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj('barline', staff.modifiers[1].x - 8, staffY, 16, staffH, meiElement, 1));
+      if (stave.modifiers[1].barline !== 7) {
+        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x - 8, staveY, 16, staveH, meiElement, 1));
       }
     },
 
-    calculateStaffModifierAreas : function (staff, y, h) {
-      var me = this, modifiers = staff.modifiers, i, j, category, x, w;
-      j = staff.glyphs.length;
-      x = staff.getGlyphStartX();
+    calculateStaveModifierAreas : function (stave, y, h) {
+      var me = this, modifiers = stave.modifiers, i, j, category, x, w;
+      j = stave.glyphs.length;
+      x = stave.getGlyphStartX();
       var glyph, glyphXW = [], glyphXWindex = 0;
 
       var codes = {
@@ -196,24 +196,24 @@ define([
       };
 
       for (var i = 0; i < j; i++) {
-        glyph = staff.glyphs[i];
+        glyph = stave.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
-          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff[codes[glyph.code] ||
+          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h + 30, stave[codes[glyph.code] ||
                                                                                         'meiTimeSpecElement'], i));
         }
         x += w;
       }
 
-      j = staff.end_glyphs.length;
-      x = staff.getGlyphEndX();
+      j = stave.end_glyphs.length;
+      x = stave.getGlyphEndX();
       var glyph;
       for (var i = 0; i < j; i++) {
-        glyph = staff.end_glyphs[i];
+        glyph = stave.end_glyphs[i];
         if (glyph.code) {
           w = glyph.getMetrics().width;
           x -= w;
-          me.measureModifierAreas.push(me.createNoteAreaObj('staff-modifier', x, y - 15, w, h + 30, staff.meiEndClefElement, i));
+          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h + 30, stave.meiEndClefElement, i));
         }
       }
     },

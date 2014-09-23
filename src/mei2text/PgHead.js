@@ -17,7 +17,7 @@
 define([
   'jquery',
   'vexflow',
-  'm2v/core/Util',
+  'mei2vf/core/Util',
   'msv/mei2text/Text'
 ], function ($, VF, Util, Text, undefined) {
   /**
@@ -125,7 +125,12 @@ define([
               me.breakLine();
               break;
             default :
-              me.htmlToArray(childNodes[i], $.extend({}, opts, Util.attsToObj(childNodes[i])));
+              atts = Util.attsToObj(childNodes[i]);
+              me.htmlToArray(childNodes[i], $.extend({}, opts, atts));
+              if (atts.valign) {
+                me.breakLine();
+              }
+
           }
         }
       }

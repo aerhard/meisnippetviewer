@@ -15,7 +15,7 @@
  *
  */
 define([
-  'm2v/core/Util'
+  'mei2vf/core/Util'
 ], function (Util, undefined) {
   /**
    * @exports core/Document

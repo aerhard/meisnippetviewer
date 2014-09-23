@@ -17,7 +17,7 @@
 define([
   'jquery',
   'vexflow',
-  'm2v/core/Util'
+  'mei2vf/core/Util'
 ], function ($, VF, Util, undefined) {
   /**
    * @exports mei2text/Text
@@ -36,6 +36,7 @@ define([
       atts = (overrideOpts) ? opts : $.extend({}, opts, Util.attsToObj(meiElement));
       me.x = +atts.x;
       me.y = +atts.y;
+      me.h = +atts.fontsize;
       me.textAlign = atts.halign || 'left';
       me.text = (customText === undefined) ? $(meiElement).text() : customText;
       me.atts = atts;
@@ -88,7 +89,6 @@ define([
       var me = this, ctx = me.ctx, atts = me.atts;
       this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + atts.fontsize + 'px ' + atts.fontfamily;
       ctx.font = this.font;
-      me.h = atts.fontsize;
       me.w = ctx.measureText(me.text).width;
       return this;
     },

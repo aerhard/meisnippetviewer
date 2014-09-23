@@ -7,14 +7,13 @@
 <link rel="stylesheet" href="inspector.css"/>
 
 <script type="text/JavaScript" src="../bower_components/jquery/dist/jquery.min.js"></script>
-
-<!-- MEISnippetViewer development -->
-<!--<script src="../bower_components/requirejs/require.js"></script>-->
-
 <script type="text/JavaScript" src="../bower_components/vexflow/build/vexflow/vexflow-debug.js"></script>
 
+<!-- MEISnippetViewer development -->
+<script src="../bower_components/requirejs/require.js"></script>
+<script src="../src/config.js"></script>
 <!-- MEISnippetViewer production -->
-<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>
+<!--<script type="text/JavaScript" src="../build/meisnippetviewer.min.js"></script>-->
 
 <script type="text/JavaScript" src="Inspector.js"></script>
 
@@ -27,13 +26,26 @@
 
             var path = 'MEI2013/Music/';
 
+            // auto-height, auto-width noch einrichten
+
+            // TODO pgHead: line breaks unterscheiden für left/right/center
+
             // noch option ignore width parameters einrichten
             // noch option ignore original line breaks einrichten
 
+            // doch tr usw zu den areas hinzufügen
+
+            // noch an font sizes im header und überall arbeiten!
+
             // multiple ties / fermatas in rendering: due to encoding:: QUESTION: best practice??
+
+            // bei readings nicht alle ancestors durchgehen, sondern nur die children
 
 
             // ################## GOOD ##############
+
+//            inspector.render(path + 'Complete examples/Echigo-Jishi.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1060, pageHeight: 1400});
+
 
             // hier aber noch den clef berücksichtigen!!
 //            inspector.render('Ahle2013.xml', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
@@ -65,40 +77,43 @@
 //                        inspector.render(path + 'Complete examples/Mozart_Quintett.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 1800, pageHeight: 5800,staveSpacing:90});
 
             // ISSUE ties across staffs ENCODING: some slurs don't have @stave set // ISSUE SLUR FORMS // DISPLAY: pick-up beat too wide
-            //            inspector.render(path + 'Complete examples/JSB_BWV1047_1.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500, staveSpacing: 90});
+//                        inspector.render(path + 'Complete examples/JSB_BWV1047_1.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 40000, pageHeight: 1500, staveSpacing: 90});
 
 
 
             // ################ SMALLER ISSUES ##############
 
 
+// font sizes in heading don't look good
+//            inspector.render(path + 'Complete examples/Handel_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth: 2300});
+
+            // ISSUE lyrics collide with music (two-voice stave, lyrics to first voice, not to second) QUESTION multiple fermatas
+            // ENCODING viertelnoten in beams!!
+            // rhythmische verschiebungen (siehe letzten takt)
+//                                    inspector.render(path + 'Complete examples/Bach_Ein_festeBurg.mei', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
 
 
-            // ISSUE vertical rest positioning ISSUE slur with different stem dirs
-//            inspector.render(path + 'Complete examples/Czerny_op603_6.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800});
-
-            // ISSUE pgHead leads to area artifacts (good to fix!) !!!!!!!!!!!!!!!!!!!
-//            inspector.render(path + 'Complete examples/Handel_Arie.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth: 2000});
 
 
-
-            // ISSUE lyrics collide with music QUESTION multiple fermatas
-//                        inspector.render(path + 'Complete examples/Bach_Ein_festeBurg.mei', {autoStaveConnectorLine : true, staveSpacing: 170, pageScale: 0.8, pageWidth: 1500, pageHeight: 1500});
-
-            // ISSUE vertical rest alignment ISSUE doesn't take rest dot into account (M. 24/2) ISSUE scaling doesn't look good
+            // ISSUE vertical rest alignment ISSUE scaling doesn't look good
 //            inspector.render(path + 'Complete examples/Telemann_Suite.mei', {autoStaveConnectorLine : true, pageScale: 0.6, pageWidth: 1800, pageHeight: 5800});
-
-            // ISSUE pgHead artifacts
-            inspector.render(path + 'Complete examples/Echigo-Jishi.mei', {autoStaveConnectorLine : true, pageScale: 0.8, pageWidth: 1060, pageHeight: 5800});
 
 
             // ################### CATEGORY 3 ##############
 
             // GOOD FOR FIXING SLURS
-            //                            inspector.render(path + 'Complete examples/Mahler_Song.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth:2000});
+//                                        inspector.render(path + 'Complete examples/Mahler_Song.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 5800, pageWidth:1400});
+
+
+            // ISSUE vertical rest positioning ISSUE slur with different stem dirs
+            // T. 9: ganze note in oberstimme - wird nicht als oberstimme erkannt - (korrigieren in vexflow oder bei mir !?)
+            // M. 8 etc: polyphony: whole note not shifted (vexFlow issue??)
+            //            inspector.render(path + 'Complete examples/Czerny_op603_6.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageHeight: 6000, pageTopMar : 350});
+
+
 
             // ISSUE vertical rest alignment DISPLAY ugly slurs
-            //                            inspector.render(path + 'Complete examples/Schumann_Landmann.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 4800, pageHeight: 5800});
+                                        inspector.render(path + 'Complete examples/Schumann_Landmann.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 4800, pageHeight: 5800});
 
                 // ISSUE slurs across staffs ISSUE notes across systems
 //            inspector.render(path + 'Complete examples/Vivaldi_Op8_No.2.mei', {autoStaveConnectorLine : true, pageScale: 0.5, pageWidth: 38000, pageHeight: 5800, staveSpacing: 80});
@@ -193,14 +208,6 @@
         if (typeof require === 'undefined') {
             run();
         } else {
-            require.config({
-                baseUrl : '../src',
-                paths: {
-                    'msv' : '../src',
-                    'm2v': '../bower_components/meitovexflow/src',
-                    'meilib' : '../bower_components/meitovexflow/src/meilib'
-                }
-            });
             require(['main'], run);
         }
     });

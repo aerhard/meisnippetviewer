@@ -15,6 +15,7 @@
 
     <!-- MEISnippetViewer development -->
     <script src="../bower_components/requirejs/require.js"></script>
+    <script src="../src/config.js"></script>
 
     <script type="text/JavaScript" src="../bower_components/vexflow/build/vexflow/vexflow-debug.js"></script>
 
@@ -93,14 +94,6 @@
             if (typeof require === 'undefined') {
                 run();
             } else {
-                require.config({
-                    baseUrl : '../src',
-                    paths: {
-                        'msv' : '../src',
-                        'm2v': '../bower_components/meitovexflow/src',
-                        'meilib' : '../bower_components/meitovexflow/src/meilib'
-                    }
-                });
                 require(['main'], run);
             }
 

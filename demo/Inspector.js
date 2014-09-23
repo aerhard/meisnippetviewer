@@ -10,7 +10,7 @@ Inspector.prototype = {
     me.handlers = {
 
       onEnterMeasure : function (measureArea, element, e) {
-        $('#measureinfo').text('M. ' + measureArea.measureN + '-' + measureArea.staffN);
+        $('#measureinfo').text('M. ' + measureArea.measureN + '-' + measureArea.staveN);
       },
 
       onLeaveMeasure : function (measureArea, element, e) {
@@ -105,7 +105,7 @@ Inspector.prototype = {
     me.tooltip.hide();
   },
 
-  render : function (docName, options) {
+  render : function (docName, options, callback) {
 
     var me = this, options = options || {};
 
@@ -119,9 +119,6 @@ Inspector.prototype = {
           autoMeasureNumbers : true,
           labelMode : 'full',
           useMeiLib : true,
-          staff : {
-            fill_style : '#000'
-          },
 
           layers : [
             new MSV.DefaultAreaCollection({
@@ -160,6 +157,11 @@ Inspector.prototype = {
         console.time('m');
         MSV.Logger.setLevel('info');
         var mei2vf = new MSV.Viewer(options);
+
+        if (typeof callback === 'function') {
+          callback.call(this, mei2vf);
+        }
+
         console.timeEnd('m');
 
       } catch (e) {

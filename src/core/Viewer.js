@@ -18,7 +18,7 @@ define([
   'jquery',
   'vexflow',
   'meilib/MeiLib',
-  'm2v/core/Converter',
+  'mei2vf/core/Converter',
   'msv/core/Document',
   'msv/core/RuntimeError',
   'msv/core/UI',
@@ -86,12 +86,6 @@ define([
         family : 'Times',
         size : 22,
         weight : ''
-      },
-      /**
-       * @cfg {Object} staff Staff options (For details, see the comments in VexFlow's `stave.js`)
-       */
-      staff : {
-        fill_style : "#000000"
       },
       /**
        * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used to pre-process the input XML document. Necessary when there are variants in the MEI document.
@@ -195,8 +189,8 @@ define([
       me.converter = new Converter(me.cfg);
 
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
-      me.converter.processAnchoredText = function (element, staff, staff_n, layerDir, staffInfo) {
-        me.anchoredTexts.addText(element, staff, staff_n, layerDir, staffInfo);
+      me.converter.processAnchoredText = function (element, stave, stave_n, layerDir, staveInfo) {
+        me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
       };
 
 

@@ -40,7 +40,7 @@ define([
           measure = systems[i].getMeasure(0);
           n = measure.getN();
           if (n > 1) {
-            measure.getFirstDefinedStaff().setMeasure(n).font = me.font;
+            measure.getFirstDefinedStave().setMeasure(n).font = me.font;
           }
         }
       }

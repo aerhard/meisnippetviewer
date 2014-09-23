@@ -47,7 +47,7 @@ define([
      * Creates a model object from an element and adds it to {@link #allTexts}
      * @param {Element} element
      */
-    addText : function (element, staff, staff_n, layerDir, staffInfo) {
+    addText : function (element, stave, stave_n, layerDir, staveInfo) {
       var me = this;
       var text = new Text(element, {
         fontfamily : me.font.family,
@@ -55,7 +55,7 @@ define([
         fontsize : me.font.size,
         fontstyle : ''
       });
-      text.setContainer (staff);
+      text.setContainer (stave);
       me.allTexts.push(text);
     },
 
@@ -76,21 +76,21 @@ define([
     },
 
     draw : function () {
-      var me = this, x, y, staff, ctx = me.ctx;
+      var me = this, x, y, stave, ctx = me.ctx;
       $.each(me.allTexts, function () {
 
         console.log(this)
 
 
         if (!this.y) {
-          staff = this.getContainer();
-          this.setY(staff.getYForLine(3) - 4 + (+this.atts.vo * staff.getSpacingBetweenLines() / 2 || 0));
+          stave = this.getContainer();
+          this.setY(stave.getYForLine(3) - 4 + (+this.atts.vo * stave.getSpacingBetweenLines() / 2 || 0));
         }
         if (!this.x) {
-          if (!staff) {
-            staff = this.getContainer();
+          if (!stave) {
+            stave = this.getContainer();
           }
-          this.setX(staff.getGlyphStartX() + (+this.atts.ho * staff.getSpacingBetweenLines() / 2 || 0));
+          this.setX(stave.getGlyphStartX() + (+this.atts.ho * stave.getSpacingBetweenLines() / 2 || 0));
         }
 
         this.setContext(ctx).preProcess().draw();
