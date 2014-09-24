@@ -7,6 +7,8 @@ JavaScript viewer utility to display music fragments encoded in the MEI format o
 
 See the instructions at https://github.com/TEI-Music-SIG/MEItoVexFlow#build
 
+Please note that it's necessary to build VexFlow (with rake) if you don't use meisnippetviewer.js or meisnippetviewer.min.js. 
+
 ## Demos
 
 After installing npm and bower you can view the demos by running `grunt run` from the root directory and navigating to `localhost:8000/demo` in your browser (browser support: IE9+, Chrome, Firefox). 
