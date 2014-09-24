@@ -15,7 +15,7 @@
  *
  */
 define([
-  'msv/core/Logger'
+  'mei2vf/core/Logger'
 ], function (Logger, undefined) {
   /**
    * @exports mei2text/PreProcessor
@@ -30,7 +30,7 @@ define([
         if (typeof me[fnName] === 'function') {
           me[fnName](element, options[i]);
         } else {
-          Logger.log('warn', 'Config error', 'Pre-processing option "' + fnName + '" doesn\'t exist.');
+          Logger.warn('Config error', 'Pre-processing option "' + fnName + '" doesn\'t exist.');
         }
       }
     },

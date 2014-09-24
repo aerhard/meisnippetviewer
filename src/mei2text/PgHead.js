@@ -30,15 +30,20 @@ define([
    *
    * @constructor
    */
-  var PgHead = function (element, coords) {
-    this.init(element, coords);
+  var PgHead = function (element, coords, scale) {
+    this.init(element, coords, scale);
   };
 
   PgHead.prototype = {
 
-    init : function (element, coords) {
+    init : function (element, coords, scale) {
       var me = this;
-      me.defaultFontSize = 25;
+
+      console.log(scale);
+
+
+      me.scale = scale;
+      me.defaultFontSize = 12;
       me.lineHeight = 1.3;
 
       // TODO treat rend[@align]s like floating HTML divs
@@ -97,7 +102,7 @@ define([
       for (i = 0, j = childNodes.length; i < j; i++) {
 
         if (childNodes[i].nodeName === '#text') {
-          text = childNodes[i].textContent.replace(/([\n|\r]+\s*)/g, '');
+          text = childNodes[i].textContent.replace(/([\n|\r]+\s*)/g, ' ');
           if (text) {
             // MSV.Text always expects an element as the first argument; we pass
             // the parent element of the current text node. If the parent
@@ -117,9 +122,9 @@ define([
             case 'title' :
               atts = Util.attsToObj(childNodes[i]);
               defaults = {
-                halign : 'center',
-                fontsize : (atts.type === 'sub') ? 35 : 50,
-                fontweight : 'Bold'
+                halign : 'center'
+//                fontsize : (atts.type === 'sub') ? 35 : 50,
+//                fontweight : 'Bold'
               };
               me.htmlToArray(childNodes[i], $.extend({}, opts, defaults, atts));
               me.breakLine();
@@ -150,7 +155,7 @@ define([
     draw : function () {
       var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i;
 
-      currentCoords = me.currentCoords;
+      var currentCoords = me.currentCoords;
 
       var processTextLine = function () {
         leftTexts = [];
@@ -158,7 +163,7 @@ define([
         rightTexts = [];
         maxFontSizeInLine = 0;
         $.each(this, function () {
-          this.setContext(me.ctx).preProcess();
+          this.setContext(me.ctx).preProcess(me.scale);
           this.setTextAlign('left');
           switch (this.atts.halign) {
             case 'center' :
@@ -205,7 +210,7 @@ define([
         obj = rightTexts[i];
         offsetX += obj.w;
         obj.setX(currentCoords.x + currentCoords.w - offsetX);
-        obj.setY(currentCoords.y);
+        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         maxH = Math.max(obj.h, maxH);
       }
@@ -216,7 +221,7 @@ define([
       var me = this, maxH = 0, offsetX = 0;
       $.each(leftTexts, function (i, obj) {
         obj.setX(currentCoords.x + offsetX);
-        obj.setY(currentCoords.y);
+        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         offsetX += obj.w;
         maxH = Math.max(obj.h, maxH);

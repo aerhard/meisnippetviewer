@@ -1,6 +1,6 @@
 define([
   'mei2vf/vexflow-overrides',
-  'msv/core/Logger',
+  'mei2vf/core/Logger',
   'msv/core/Viewer',
   'msv/areas/AbstractAreaCollection',
   'msv/areas/DefaultAreaCollection',

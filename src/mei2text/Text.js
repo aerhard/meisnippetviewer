@@ -31,14 +31,17 @@ define([
 
     init : function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
       var me = this, atts;
+
       me.meiElement = meiElement;
       me.meiNodeMatch = meiNodeMatch;
       atts = (overrideOpts) ? opts : $.extend({}, opts, Util.attsToObj(meiElement));
       me.x = +atts.x;
       me.y = +atts.y;
+
       me.h = +atts.fontsize;
       me.textAlign = atts.halign || 'left';
       me.text = (customText === undefined) ? $(meiElement).text() : customText;
+
       me.atts = atts;
     },
 
@@ -85,9 +88,13 @@ define([
       return this;
     },
 
-    preProcess : function () {
+    preProcess : function (scale) {
       var me = this, ctx = me.ctx, atts = me.atts;
-      this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + atts.fontsize + 'px ' + atts.fontfamily;
+
+      scale = scale || 1;
+      me.h = atts.fontsize / scale;
+
+      this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + (me.h) + 'px ' + atts.fontfamily;
       ctx.font = this.font;
       me.w = ctx.measureText(me.text).width;
       return this;

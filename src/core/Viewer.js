@@ -147,7 +147,7 @@ define([
 
       if (me.cfg.useMeiLib) {
         meiDoc = new MeiLib.MeiDoc(xmlDoc);
-//        meiDoc.initSectionView();
+        //        meiDoc.initSectionView();
         me.convertMEI(meiDoc.sectionview_score, layers[me.UI.vexLayerIndex].ctx);
       } else {
         me.convertMEI(xmlDoc, layers[me.UI.vexLayerIndex].ctx);
@@ -201,7 +201,7 @@ define([
           x : me.converter.printSpace.left,
           y : 200,
           w : me.converter.printSpace.width
-        });
+        }, me.cfg.pageScale);
         me.pgHead.setContext(vexCtx).draw();
         if (!me.cfg.pageTopMar && me.pgHead.lowestY) {
           me.cfg.pageTopMar = me.pgHead.lowestY;

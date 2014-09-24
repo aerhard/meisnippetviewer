@@ -16,7 +16,6 @@
     <!-- MEISnippetViewer development -->
     <script src="../bower_components/requirejs/require.js"></script>
     <script src="../src/config.js"></script>
-
     <script type="text/JavaScript" src="../bower_components/vexflow/build/vexflow/vexflow-debug.js"></script>
 
     <!-- MEISnippetViewer production -->
@@ -42,7 +41,7 @@
 
             var render = function (xmlDoc, target) {
                 console.time('m');
-                MSV.Logger.setLevel('info');
+                MSV.Logger.setLevel('debug');
                 new MSV.Viewer({
                     data   : xmlDoc,
                     target   : target,

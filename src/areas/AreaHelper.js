@@ -16,7 +16,7 @@
  */
 define([
   'vexflow',
-  'msv/core/Logger'
+  'mei2vf/core/Logger'
 ], function (VF, Logger, undefined) {
   /**
    * @exports areas/AreaHelper
@@ -64,7 +64,7 @@ define([
             if (hType) {
               hType.push(areaCollection);
             } else {
-              Logger.log('warn', 'Configuration error', 'Unknown area type "' + areaCollection.content[j] + '".');
+              Logger.warn('Configuration error', 'Unknown area type "' + areaCollection.content[j] + '".');
             }
           }
         }

@@ -17,7 +17,7 @@
 define([
   'jquery',
   'vexflow',
-  'msv/core/Logger',
+  'mei2vf/core/Logger',
   'msv/core/RuntimeError'
 ], function ($, VF, Logger, RuntimeError, undefined) {
   /**
@@ -59,7 +59,7 @@ define([
 
       // add VexFlow layer if no VexFlow layer has been specified
       if (!hasVexLayer) {
-        Logger.log('UI.createLayers()', 'No VexFlow layer specified. Adding it.');
+        Logger.debug('UI.createLayers()', 'No VexFlow layer specified. Adding it.');
         layers.push({
           type : 'vex'
         });
