@@ -18,14 +18,6 @@ module.exports = function (grunt) {
         options : {
           name : 'main',
           baseUrl : 'src',
-//          paths: {
-//            'jquery' : 'vendor/jquery',
-//            'vexflow' : 'vendor/vexflow',
-//            'vex' : 'vendor/vex',
-//            'msv' : '.',
-//            'meiv2f' : '../bower_components/meitovexflow/src',
-//            'meilib' : '../bower_components/meitovexflow/src/meilib'
-//          },
           mainConfigFile: "src/config.js",
           out : 'tmp/<%= pkg.name %>.build.js',
 
@@ -174,28 +166,6 @@ module.exports = function (grunt) {
 
           'src/build/post-vexflow.js',
 
-//          'bower_components/meitovexflow/src/vexflow-overrides.js',
-//          'bower_components/meitovexflow/src/meilib.js',
-//          'bower_components/meitovexflow/src/Converter.js',
-//          'bower_components/meitovexflow/src/Chord.js',
-//          'bower_components/meitovexflow/src/EventLink.js',
-//          'bower_components/meitovexflow/src/EventReference.js',
-//          'bower_components/meitovexflow/src/Hyphenation.js',
-//          'bower_components/meitovexflow/src/Verses.js',
-//          'bower_components/meitovexflow/src/LinkCollections.js',
-//          'bower_components/meitovexflow/src/PointerCollections.js',
-//          'bower_components/meitovexflow/src/Measure.js',
-//          'bower_components/meitovexflow/src/MEI2VF.js',
-//          'bower_components/meitovexflow/src/Note.js',
-//          'bower_components/meitovexflow/src/tables.js',
-//          'bower_components/meitovexflow/src/Rest.js',
-//          'bower_components/meitovexflow/src/StaffInfo.js',
-//          'bower_components/meitovexflow/src/Stave.js',
-//          'bower_components/meitovexflow/src/StaveConnector.js',
-//          'bower_components/meitovexflow/src/StaveVoices.js',
-//          'bower_components/meitovexflow/src/System.js',
-//          'bower_components/meitovexflow/src/SystemInfo.js',
-//          'bower_components/meitovexflow/src/Util.js',
           'tmp/<%= pkg.name %>.build.js'
         ],
         dest : 'build/<%= pkg.name %>.js'

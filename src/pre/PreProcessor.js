@@ -15,7 +15,7 @@
  *
  */
 define([
-  'mei2vf/core/Logger'
+  'common/Logger'
 ], function (Logger, undefined) {
   /**
    * @exports mei2text/PreProcessor

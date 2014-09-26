@@ -20,7 +20,7 @@ define([
   'meilib/MeiLib',
   'mei2vf/core/Converter',
   'msv/core/Document',
-  'msv/core/RuntimeError',
+  'common/RuntimeError',
   'msv/core/UI',
   'msv/areas/AreaHelper',
   'msv/mei2text/AnchoredTexts',
@@ -122,18 +122,18 @@ define([
       var me = this, xmlDoc, firstScoreDef, cfg, canvas, ctx, meiDoc, layers;
 
       if (!config) {
-        throw new RuntimeError('NoConfig', 'No config passed to Viewer.');
+        throw new RuntimeError('No config passed to Viewer.');
       }
 
       if (!config.data) {
-        throw new RuntimeError('MissingData', 'No XML document passed to Viewer.');
+        throw new RuntimeError('No XML document passed to Viewer.');
       }
 
       xmlDoc = Document.initXmlDoc(config.data);
 
       firstScoreDef = xmlDoc.getElementsByTagName('scoreDef')[0];
       if (!firstScoreDef) {
-        throw new RuntimeError('BadMEIFile', 'No <scoreDef> found in config.data.');
+        throw new RuntimeError('No <scoreDef> found in config.data.');
       }
 
       me.cfg = $.extend(true, {}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);

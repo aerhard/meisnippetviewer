@@ -15,7 +15,7 @@
  *
  */
 define([
-  'mei2vf/core/Util'
+  'common/Util'
 ], function (Util, undefined) {
   /**
    * @exports core/Document

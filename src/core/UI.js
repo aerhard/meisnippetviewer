@@ -17,8 +17,8 @@
 define([
   'jquery',
   'vexflow',
-  'mei2vf/core/Logger',
-  'msv/core/RuntimeError'
+  'common/Logger',
+  'common/RuntimeError'
 ], function ($, VF, Logger, RuntimeError, undefined) {
   /**
    * @exports core/UI
@@ -83,7 +83,7 @@ define([
           layers[i].setContext(ctx);
           layers[i].setScale(cfg.pageScale);
         } else {
-          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
+          throw new RuntimeError('Layer type "' + layers[i].type + '" not valid.');
         }
         me.scaleContext(ctx, cfg);
       }

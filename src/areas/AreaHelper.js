@@ -16,7 +16,7 @@
  */
 define([
   'vexflow',
-  'mei2vf/core/Logger'
+  'common/Logger'
 ], function (VF, Logger, undefined) {
   /**
    * @exports areas/AreaHelper

@@ -17,7 +17,7 @@
 define([
   'jquery',
   'vexflow',
-  'mei2vf/core/Util',
+  'common/Util',
   'msv/mei2text/Text'
 ], function ($, VF, Util, Text, undefined) {
   /**

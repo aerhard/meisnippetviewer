@@ -15286,9 +15286,7 @@ Vex.Flow.TextDynamics = (function(){
     if (has_stem) {
       stem_ext = this.note.getStem().getExtents();
 
-      // ADDED FACTOR
-      spacing = stave.getSpacingBetweenLines() * 1.6;
-      // END ADDED FACTOR
+      spacing = stave.getSpacingBetweenLines();
     }
 
     // START ADDITION
@@ -16076,28 +16074,6 @@ Vex.Flow.TextDynamics = (function(){
     this.stack = (new Error()).stack;
   };
   RuntimeError.prototype = new Error;
-
-
-//  /**
-//   * @class MEI2VF.RuntimeError
-//   * @private
-//   *
-//   * @constructor
-//   * @param {String} error_code
-//   * @param {String} message
-//   */
-//  var RuntimeError = function (error_code, message) {
-//    this.error_code = error_code;
-//    this.message = message;
-//  };
-//
-//  /**
-//   * @method
-//   * @return {String} the string representation of the error
-//   */
-//  RuntimeError.prototype.toString = function () {
-//    return "MEI2VF.RUNTIME_ERROR: " + this.error_code + ': ' + this.message;
-//  };
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
  *
@@ -16208,18 +16184,8 @@ Vex.Flow.TextDynamics = (function(){
           this[allLevels[i]] = emptyFn;
         }
       }
-    },
-
-    /**
-     * @method log the MEI2VF logging function. Logs the arguments to the window
-     * console if they are listed in {@link logLevels}
-     */
-    log : function (level, caller) {
-      if (logLevels[level] === true) {
-        var line = Array.prototype.slice.call(arguments, 2).join(' ');
-        window.console[level]('MEI2VF (' + caller + "): " + line);
-      }
     }
+    
   };
 
   /*
@@ -17561,7 +17527,102 @@ Vex.Flow.TextDynamics = (function(){
         }
       }
       return result + '>';
+    },
+
+
+    /**
+     * jQuery's method, without window check
+     * @param obj
+     * @returns {boolean}
+     */
+    isPlainObject : function (obj) {
+      // Not plain objects:
+      // - Any object or value whose internal [[Class]] property is not "[object Object]"
+      // - DOM nodes
+      if (typeof obj !== "object" || obj.nodeType) {
+        return false;
+      }
+      if (obj.constructor && !obj.hasOwnProperty.call(obj.constructor.prototype, "isPrototypeOf")) {
+        return false;
+      }
+      // If the function hasn't returned already, we're confident that
+      // |obj| is a plain object, created by {} or constructed with new Object
+      return true;
+    },
+
+    /**
+     * jQuery's extend method, without deep parameter (deep is assumed to be true)
+     */
+    extend : function () {
+      var options, name, src, copy, copyIsArray, clone, target = arguments[ 0 ] || {}, i = 1, length = arguments.length;
+
+      if (typeof target !== "object" && typeof target !== 'function') {
+        target = {};
+      }
+
+      for (; i < length; i++) {
+        // Only deal with non-null/undefined values
+        if ((options = arguments[ i ]) != null) {
+          // Extend the base object
+          for (name in options) {
+            src = target[ name ];
+            copy = options[ name ];
+            // Prevent never-ending loop
+            if (target === copy) {
+              continue;
+            }
+            // Recurse if we're merging plain objects or arrays
+            if (copy && ( Util.isPlainObject(copy) || (copyIsArray = Array.isArray(copy)) )) {
+              if (copyIsArray) {
+                copyIsArray = false;
+                clone = src && Array.isArray(src) ? src : [];
+              } else {
+                clone = src && Util.isPlainObject(src) ? src : {};
+              }
+              // Never move original objects, clone them
+              target[ name ] = Util.extend(clone, copy);
+              // Don't bring in undefined values
+            } else if (copy !== undefined) {
+              target[ name ] = copy;
+            }
+          }
+        }
+      }
+      // Return the modified object
+      return target;
+    },
+
+    // from sizzle.js
+    getText : function (elem) {
+      var node, ret = "", i = 0, nodeType = elem.nodeType;
+      if (!nodeType) {
+        // If no nodeType, this is expected to be an array
+        while ((node = elem[i++])) {
+          // Do not traverse comment nodes
+          ret += getText(node);
+        }
+      } else if (nodeType === 1 || nodeType === 9 || nodeType === 11) {
+        // Use textContent for elements
+        // innerText usage removed for consistency of new lines (jQuery #11153)
+        if (typeof elem.textContent === "string") {
+          return elem.textContent;
+        } else {
+          // Traverse its children
+          for (elem = elem.firstChild; elem; elem = elem.nextSibling) {
+            ret += getText(elem);
+          }
+        }
+      } else if (nodeType === 3 || nodeType === 4) {
+        return elem.nodeValue;
+      }
+      // Do not include comment or processing instruction nodes
+      return ret;
     }
+
+//    getNormalizedText : function (elem) {
+//      return Util.getText(elem).replace(/\s+/g, ' ')
+//    }
+
   };
 /*
  * Component of MEItoVexFlow Author: Raffaele Viglianti, 2012
@@ -17874,7 +17935,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   var Note = function (options) {
-    var me = this, dots, i, element = options.element, atts = options.atts;
+    var me = this, dots, i, j, element = options.element, atts = options.atts;
 
     var vexOptions = {
       keys : [options.vexPitch],
@@ -17904,9 +17965,11 @@ Vex.Flow.TextDynamics = (function(){
       EventUtil.processAttrHo(atts.ho, this, options.stave);
     }
 
-    $.each($(element).find('artic'), function () {
-      EventUtil.addArticulation(me, this);
-    });
+    var articElements = element.getElementsByTagName('artic');
+    for (i=0,j=articElements.length;i<j;i++) {
+      EventUtil.addArticulation(me, articElements[i]);
+    }
+
     if (atts.fermata) {
       EventUtil.addFermataAtt(this, element, atts.fermata);
     }
@@ -17937,7 +18000,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   var GraceNote = function (options) {
-    var me = this, dots, i, element = options.element, atts = options.atts;
+    var me = this, dots, i, j, element = options.element, atts = options.atts;
 
     var vexOptions = {
       keys : [options.vexPitch],
@@ -17968,9 +18031,11 @@ Vex.Flow.TextDynamics = (function(){
       EventUtil.processAttrHo(atts.ho, this, options.stave);
     }
 
-    $.each($(element).find('artic'), function () {
-      EventUtil.addArticulation(me, this);
-    });
+    var articElements = element.getElementsByTagName('artic');
+    for (i=0,j=articElements.length;i<j;i++) {
+      EventUtil.addArticulation(me, articElements[i]);
+    }
+
     if (atts.fermata) {
       EventUtil.addFermataAtt(this, element, atts.fermata);
     }
@@ -18004,23 +18069,23 @@ Vex.Flow.TextDynamics = (function(){
     var Chord = function (options) {
 
           var me = this, atts = options.atts, element = options.element;
-          var hasDots, durAtt, durations = [], duration, keys = [], i, j, children, dots;
+          var hasDots, durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
 
-          children = options.children;
+          noteElements = options.noteElements;
 
           durAtt = atts.dur;
 
           if (durAtt) {
             duration = EventUtil.processAttsDuration(element, atts);
             dots = +atts.dots || 0;
-            for (i = 0, j = children.length; i < j; i += 1) {
-              keys.push(EventUtil.getVexPitch(children[i]));
+            for (i = 0, j = noteElements.length; i < j; i += 1) {
+              keys.push(EventUtil.getVexPitch(noteElements[i]));
             }
           } else {
-            for (i = 0, j = children.length; i < j; i += 1) {
-              durations.push(+children[i].getAttribute('dur'));
-              dots =+children[i].getAttribute('dots') || 0;
-              keys.push(EventUtil.getVexPitch(children[i]));
+            for (i = 0, j = noteElements.length; i < j; i += 1) {
+              durations.push(+noteElements[i].getAttribute('dur'));
+              dots =+noteElements[i].getAttribute('dots') || 0;
+              keys.push(EventUtil.getVexPitch(noteElements[i]));
             }
             duration = EventUtil.translateDuration(element, Math.max.apply(Math, durations));
             for (i = 0; i < dots; i += 1) {
@@ -18050,9 +18115,12 @@ Vex.Flow.TextDynamics = (function(){
           if (atts.ho) {
             EventUtil.processAttrHo(atts.ho, me, options.stave);
           }
-          $(element).find('artic').each(function () {
-            EventUtil.addArticulation(me, this);
-          });
+
+          var articElements = element.getElementsByTagName('artic');
+          for (i=0,j=articElements.length;i<j;i++) {
+            EventUtil.addArticulation(me, articElements[i]);
+          }
+
           if (atts.fermata) {
             EventUtil.addFermataAtt(me, element, atts.fermata);
           }
@@ -18083,23 +18151,23 @@ Vex.Flow.TextDynamics = (function(){
 
   var GraceChord = function (options) {
     var me = this, atts = options.atts, element = options.element;
-    var hasDots, durAtt, durations = [], duration, keys = [], i, j, children, dots;
+    var hasDots, durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
 
-    children = options.children;
+    noteElements = options.noteElements;
 
     durAtt = atts.dur;
 
     if (durAtt) {
       duration = EventUtil.processAttsDuration(element, atts);
       dots = +atts.dots || 0;
-      for (i = 0, j = children.length; i < j; i += 1) {
-        keys.push(EventUtil.getVexPitch(children[i]));
+      for (i = 0, j = noteElements.length; i < j; i += 1) {
+        keys.push(EventUtil.getVexPitch(noteElements[i]));
       }
     } else {
-      for (i = 0, j = children.length; i < j; i += 1) {
-        durations.push(+children[i].getAttribute('dur'));
-        dots =+children[i].getAttribute('dots') || 0;
-        keys.push(EventUtil.getVexPitch(children[i]));
+      for (i = 0, j = noteElements.length; i < j; i += 1) {
+        durations.push(+noteElements[i].getAttribute('dur'));
+        dots =+noteElements[i].getAttribute('dots') || 0;
+        keys.push(EventUtil.getVexPitch(noteElements[i]));
       }
       duration = EventUtil.translateDuration(element, Math.max.apply(Math, durations));
       for (i = 0; i < dots; i += 1) {
@@ -18133,9 +18201,13 @@ Vex.Flow.TextDynamics = (function(){
     if (atts.ho) {
       EventUtil.processAttrHo(atts.ho, me, options.stave);
     }
-    $(element).find('artic').each(function () {
-      EventUtil.addArticulation(me, this);
-    });
+
+    var articElements = element.getElementsByTagName('artic');
+    for (i=0,j=articElements.length;i<j;i++) {
+      EventUtil.addArticulation(me, articElements[i]);
+    }
+
+
     if (atts.fermata) {
       EventUtil.addFermataAtt(me, element, atts.fermata);
     }
@@ -18334,6 +18406,1294 @@ Vex.Flow.TextDynamics = (function(){
   Space.prototype = Object.create(VF.GhostNote.prototype);
 
   Space.prototype.beamable = true;
+
+  /*
+   * meilib.js
+   *
+   * Author: Zoltan Komives Created: 05.07.2013
+   *
+   * Copyright © 2012, 2013 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
+   * University of Maryland
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+   * use this file except in compliance with the License. You may obtain a copy of
+   * the License at
+   *
+   * http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+   * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+   * License for the specific language governing permissions and limitations under
+   * the License.
+   */
+  /**
+   * Contributor: Alexander Erhard
+   */
+  /**
+   * @class MeiLib
+   * MeiLib - General purpose JavaScript functions for processing MEI documents.
+   * @singleton
+   */
+  var MeiLib = {};
+
+  /**
+   * @class MeiLib.RuntimeError
+   *
+   * @constructor
+   * @param {String} errorcode
+   * @param {String} message
+   */
+  MeiLib.RuntimeError = function (errorcode, message) {
+    this.errorcode = errorcode;
+    this.message = message;
+  };
+  /**
+   * @method toString
+   * @return {String} the string representation of the error
+   */
+  MeiLib.RuntimeError.prototype.toString = function () {
+    return 'MeiLib.RuntimeError: ' + this.errorcode + ': ' + this.message ? this.message : "";
+  };
+  /**
+   * @class MeiLib
+   * @singleton
+   */
+
+  /**
+   * @method createPseudoUUID
+   */
+  MeiLib.createPseudoUUID = function () {
+    return ("0000" + (Math.random() * Math.pow(36, 4) << 0).toString(36)).substr(-4)
+  };
+  /**
+   * @class MeiLib.EventEnumerator
+   * Enumerate over the children events of node (node is a layer, beam or tuplet).
+   * @constructor
+   * @param {Object} node an XML DOM object
+   * @param {} proportion
+   */
+  MeiLib.EventEnumerator = function (node, proportion) {
+    this.init(node, proportion);
+  }
+  /**
+   * @method init
+   * @param {} node
+   * @param {} proportion
+   */
+  MeiLib.EventEnumerator.prototype.init = function (node, proportion) {
+    if (!node) {
+      throw new MeiLib.RuntimeError('MeiLib.EventEnumerator.init():E01', 'node is null or undefined');
+    }
+    this.node = node;
+    this.next_evnt = null;
+    this.EoI = true;
+    // false if and only if next_evnt is valid.
+    this.children = $(this.node).children();
+    this.i_next = -1;
+    this.proportion = proportion || {
+      num : 1,
+      numbase : 1
+    };
+    this.outputProportion = proportion || {
+      num : 1,
+      numbase : 1
+    };
+    this.read_ahead();
+  }
+  /**
+   * @method nextEvent
+   * @return
+   */
+  MeiLib.EventEnumerator.prototype.nextEvent = function () {
+    if (!this.EoI) {
+      var result = this.next_evnt;
+      this.read_ahead();
+      return result;
+    }
+    throw new MeiLib.RuntimeError('MeiLib.LayerEnum:E01', 'End of Input.')
+  }
+  /**
+   * @method read_ahead
+   * @return
+   */
+  MeiLib.EventEnumerator.prototype.read_ahead = function () {
+    if (this.beam_enumerator) {
+      if (!this.beam_enumerator.EoI) {
+        this.next_evnt = this.beam_enumerator.nextEvent();
+        this.EoI = false;
+      } else {
+        this.EoI = true;
+        this.beam_enumerator = null;
+        this.step_ahead()
+      }
+    } else {
+      this.step_ahead()
+    }
+  }
+  /**
+   * @method step_ahead
+   */
+  MeiLib.EventEnumerator.prototype.step_ahead = function () {
+    ++this.i_next;
+    if (this.i_next < this.children.length) {
+      this.next_evnt = this.children[this.i_next];
+      var node_name = $(this.next_evnt).prop('localName');
+      if (node_name === 'note' || node_name === 'rest' || node_name === 'mRest' || node_name === 'chord') {
+        this.EoI = false
+      } else if (node_name === 'beam') {
+        this.beam_enumerator = new MeiLib.EventEnumerator(this.next_evnt);
+        if (!this.beam_enumerator.EoI) {
+          this.next_evnt = this.beam_enumerator.nextEvent();
+          this.EoI = false;
+        } else {
+          this.EoI = true;
+        }
+      } else if (node_name === 'tuplet') {
+
+        var proportion = {
+          num : this.proportion.num * +this.next_evnt.getAttribute('num') || 3,
+          numbase : this.proportion.numbase * +this.next_evnt.getAttribute('numbase') || 2
+        };
+
+        this.beam_enumerator = new MeiLib.EventEnumerator(this.next_evnt, proportion);
+        if (!this.beam_enumerator.EoI) {
+          this.outputProportion = this.beam_enumerator.outputProportion;
+          this.next_evnt = this.beam_enumerator.nextEvent();
+          this.EoI = false;
+        } else {
+          this.outputProportion = this.proportion;
+          this.EoI = true;
+        }
+      }
+    } else {
+      this.EoI = true;
+    }
+  }
+  /**
+   * @class MeiLib
+   * @singleton
+   */
+
+  /**
+   * @method durationOf
+   * Calculate the duration of an event (number of beats) according to the given
+   * meter.
+   *
+   * Event refers to musical event such as notes, rests, chords. The MEI element
+   * <b>space</b> is also considered an event.
+   *
+   * @param evnt an XML DOM object
+   * @param meter the time signature object { count, unit }
+   * @param {Boolean} zeroGraceNotes Specifies if all grace notes should return the duration 0
+   */
+  MeiLib.durationOf = function (evnt, meter, zeroGraceNotes) {
+
+    var IsZeroDurEvent = zeroGraceNotes ? function (evnt, tagName) {
+      return evnt.hasAttribute('grace') || tagName === 'clef';
+    } : function (evnt, tagName) {
+      return tagName === 'clef';
+    };
+    var IsSimpleEvent = function (tagName) {
+      return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
+    }
+    var durationOf_SimpleEvent = function (simple_evnt, meter) {
+      var dur = $(simple_evnt).attr('dur');
+      if (!dur) {
+        console.warn('@dur of <b>note</b>, <b>rest</b> or <b>space</b> must be specified. Proceeding with default @dur="4". Element:');
+        console.log(simple_evnt);
+        dur = "4";
+        //      throw new MeiLib.RuntimeError('MeiLib.durationOf:E04', '@dur of <b>note</b>, <b>rest</b> or <b>space</b> must be specified.');
+      }
+      //    console.log(MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter));
+      return MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter);
+    };
+    var durationOf_Chord = function (chord, meter, layer_no) {
+      if (!layer_no) {
+        layer_no = "1";
+      }
+      var dur = $(chord).attr('dur');
+      var dotsMult = MeiLib.dotsMult(chord);
+      if (dur) {
+        return dotsMult * MeiLib.dur2beats(Number(dur), meter);
+      }
+      $(chord).find('note').each(function () {
+        var lyr_n = $(this).attr('layer');
+        if (!lyr_n || lyr_n === layer_no) {
+          var dur_note = $(this).attr('dur');
+          var dotsMult_note = MeiLib.dotsMult(chord);
+          if (!dur && dur_note) {
+            dur = dur_note;
+            dotsMult = dotsMult_note;
+          } else if (dur && dur != dur_note) {
+            throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', 'duration of <chord> is ambiguous.');
+          }
+        }
+      });
+      if (!dur) {
+        console.warn('@dur of chord must be specified either in <chord> or in at least one of its <note> elements. Proceeding with default @dur="4". Element:');
+        console.log(chord);
+        dur = "4";
+      }
+      return dotsMult * MeiLib.dur2beats(Number(dur), meter);
+    }
+
+    var durationOf_Beam = function (beam, meter) {
+      var acc = 0;
+      $(beam).children().each(function () {
+        var dur_b;
+        var tagName = this.localName;
+        if (IsZeroDurEvent(this, tagName)) {
+          dur_b = 0;
+        } else if (IsSimpleEvent(tagName)) {
+          dur_b = durationOf_SimpleEvent(this, meter);
+        } else if (tagName === 'chord') {
+          dur_b = durationOf_Chord(this, meter);
+        } else if (tagName === 'beam') {
+          dur_b = durationOf_Beam(this, meter);
+        } else if (tagName === 'tuplet') {
+          dur_b = durationOf_Tuplet(this, meter);
+        } else {
+          dur_b = 0;
+          //throw new MeiLib.RuntimeError('MeiLib.durationOf:E03', "Not supported element '" + tagName + "'");
+        }
+        acc += dur_b;
+      });
+      return acc;
+    }
+    var durationOf_Tuplet = function (tuplet, meter) {
+      // change the meter unit according to the ratio in the tuplet, the get the duration as if the tuplet were a beam
+      var num = +tuplet.getAttribute('num') || 3;
+      var numbase = +tuplet.getAttribute('numbase') || 2;
+      var acc = durationOf_Beam(tuplet, {
+        count : meter.count,
+        unit : meter.unit * numbase / num
+      });
+      return acc;
+    }
+    var evnt_name = $(evnt).prop('localName');
+    if (IsZeroDurEvent(evnt, evnt_name)) {
+      return 0;
+    }
+    if (IsSimpleEvent(evnt_name)) {
+      return durationOf_SimpleEvent(evnt, meter);
+    }
+    if (evnt_name === 'mRest') {
+      return meter.count;
+    }
+    if (evnt_name === 'chord') {
+      return durationOf_Chord(evnt, meter);
+    }
+    if (evnt_name === 'beam') {
+      return durationOf_Beam(evnt, meter);
+    }
+    if (evnt_name === 'tuplet') {
+      return durationOf_Tuplet(evnt, meter);
+    }
+    return 0;
+    //throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', "Not supported element: '" + evnt_name + "'");
+
+  }
+  /**
+   * @method tstamp2id
+   * Find the event with the minimum distance from of the given timestamp.
+   *
+   * @param {String} tstamp the timestamp to match against events in the given
+   * context. Local timestamp only (without measure part).
+   * @param {Object} layer an XML DOM object, contains all events in the given
+   * measure.
+   * @param {Object} meter the effective time signature object { count, unit } in
+   * the measure containing layer.
+   * @return {String} the xml:id of the closest element, or
+   * undefined if <b>layer</b> contains no events.
+   */
+  MeiLib.tstamp2id = function (tstamp, layer, meter) {
+    var ts = Number(tstamp);
+    var ts_acc = 0;
+    // total duration of events before current event
+    var c_ts = function () {
+      return ts_acc + 1;
+    };// tstamp of current event
+    var distF = function () {
+      return ts - c_ts();
+    }// signed distance between tstamp and tstamp of current event;
+    var eventList = new MeiLib.EventEnumerator(layer);
+    var evnt;
+    var dist;
+    var prev_evnt;
+    // previous event
+    var prev_dist;
+    // previous distance
+    while (!eventList.EoI && (dist === undefined || dist > 0)) {
+      prev_evnt = evnt;
+      prev_dist = dist;
+      evnt = eventList.nextEvent();
+      dist = distF();
+      if (!evnt.hasAttribute('grace') && evnt.localName !== 'clef') {
+        ts_acc +=
+        MeiLib.durationOf(evnt, meter, true) * eventList.outputProportion.numbase / eventList.outputProportion.num;
+      }
+      //    m = meter;
+      //    e = evnt;
+    }
+
+    if (dist === undefined) {
+      return undefined;
+    }
+    var winner;
+    if (dist < 0) {
+      if (prev_evnt && prev_dist < Math.abs(dist)) {
+        winner = prev_evnt;
+      } else {
+        winner = evnt;
+      }
+    } else {
+      winner = evnt;
+    }
+
+    var getFullNote = function (evnt) {
+      if (evnt.hasAttribute('grace') || evnt.localName === 'clef') {
+        var next = eventList.nextEvent();
+        return getFullNote(next) || evnt;
+      }
+      return evnt;
+    };
+
+    winner = getFullNote(winner);
+
+    var xml_id;
+    xml_id = $(winner).attr('xml:id');
+    if (!xml_id) {
+      xml_id = MeiLib.createPseudoUUID();
+      $(winner).attr('xml:id', xml_id);
+    }
+    return xml_id;
+  }
+  /**
+   * @method XMLID
+   * returns the xml:id attribute of an element; if there is none, the function
+   * created a pseudo id, adds it to the element and returns that id.
+   * @param {Element} elem the element to process
+   * @return {String} the xml:id of the element
+   */
+  MeiLib.XMLID = function (elem) {
+    var xml_id = $(elem).attr('xml:id');
+    if (!xml_id) {
+      xml_id = MeiLib.createPseudoUUID();
+      $(elem).attr('xml:id', xml_id);
+    }
+    return xml_id;
+  }
+  /**
+   * @method id2tstamp
+   * Calculates a timestamp value for an event in a given context. (Event refers
+   * to musical events such as notes, rests and chords).
+   *
+   * @param eventid {String} the xml:id of the event
+   * @param context {Array} of contextual objects {layer, meter}. Time signature
+   * is mandatory for the first one, but optional for the rest. All layers belong
+   * to a single logical layer. They are the layer elements from some consequtive
+   * measures.
+   * @return {String} the MEI timestamp value (expressed in beats relative to the
+   * meter of the measure containing the event) of all events that happened before
+   * the given event in the given context. If the event is not in the first
+   * measure (layer) the timestamp value contains a 'measure part', that is for
+   * example 2m+2 if the event is at the second beat in the 3rd measure.
+   */
+  MeiLib.id2tstamp = function (eventid, context) {
+    var meter;
+    var found = false;
+    for (var i = 0; i < context.length && !found; ++i) {
+      if (context[i].meter) {
+        meter = context[i].meter;
+      }
+      if (i === 0 && !meter) {
+        throw new MeiLib.RuntimeError('MeiLib.id2tstamp:E001', 'No time signature specified');
+      }
+
+      var result = MeiLib.sumUpUntil(eventid, context[i].layer, meter);
+      if (result.found) {
+        found = true;
+        return i.toString() + 'm' + '+' + (result.beats + 1).toString();
+      }
+    }
+    throw new MeiLib.RuntimeError('MeiLib.id2tstamp:E002', 'No event with xml:id="' + eventid +
+                                                           '" was found in the given MEI context.');
+  };
+
+  /**
+   * @method dur2beats
+   * Convert absolute duration into relative duration (nuber of beats) according
+   * to time signature.
+   *
+   * @param dur {Number} reciprocal value of absolute duration (e.g. 4->quarter
+   * note, 8->eighth note, etc.)
+   * @param {Object} meter the time signature object { count, unit }
+   * @return {Number}
+   */
+  MeiLib.dur2beats = function (dur, meter) {
+    return (meter.unit / dur);
+  }
+  /**
+   * @method beats2dur
+   * Convert relative duration (nuber of beats) into absolute duration (e.g.
+   * quarter note, eighth note, etc) according to time signature.
+   *
+   * @param beats {Number} duration in beats @param meter time signature object {
+ * count, unit } @return {Number} reciprocal value of absolute duration (e.g. 4
+   * -> quarter note, 8 -> eighth note, etc.)
+   * @param {Object} meter
+   */
+  MeiLib.beats2dur = function (beats, meter) {
+    return (meter.unit / beats);
+  }
+  /**
+   * @method dotsMult
+   * Converts the <b>dots</b> attribute value into a duration multiplier.
+   *
+   * @param node XML DOM object containing a node which may have <code>dots</code>
+   * attribute
+   * @return {Number} The result is 1 if no <code>dots</code> attribute is present.
+   * For <code>dots="1"</code> the result is 1.5, for <code>dots="2"</code> the
+   * result is 1.75, etc.
+   */
+  MeiLib.dotsMult = function (node) {
+    var dots = $(node).attr('dots');
+    dots = Number(dots || "0");
+    var mult = 1;
+    for (; dots > 0; --dots) {
+      mult += (1 / Math.pow(2, dots))
+    }
+    return mult;
+  }
+  /**
+   * @method sumUpUntil
+   * For a given event (such as note, rest chord or space) calculates the combined
+   * length of preceding events, or the combined length of all events if the given
+   * event isn't present.
+   *
+   * @param {String} eventid the value of the xml:id attribute of the event
+   * @param {Object} layer an XML DOM object containing the MEI <b>Layer</b>
+   * element
+   * @param {Object} meter the time signature object { count, unit }
+   * @return {Object} an object { beats:number, found:boolean }. 1. 'found' is true
+   * and 'beats' is the total duration of the events that happened before the event
+   * 'eventid' within 'layer', or 2. 'found' is false and 'beats is the total
+   * duration of the events in 'layer'.
+   */
+  MeiLib.sumUpUntil = function (eventid, layer, meter) {
+
+    var sumUpUntil_inNode = function (node_elem) {
+      var beats, children, found = null, dur, dots, subtotal, chord_dur, i;
+      var node = $(node_elem);
+      var node_name = node.prop('localName');
+      if (node_elem.hasAttribute('grace') || node_name === 'clef') {
+        return {
+          beats : 0,
+          found : (node.attr('xml:id') === eventid)
+        };
+      }
+      if (node_name === 'note' || node_name === 'rest') {
+        if (node.attr('xml:id') === eventid) {
+          return {
+            beats : 0,
+            found : true
+          };
+        } else {
+          dur = Number(node.attr('dur'));
+          if (!dur) {
+            throw new MeiLib.RuntimeError('MeiLib.sumUpUntil:E001', "Duration is not a number ('breve' and 'long' are not supported).");
+          }
+          dots = node.attr('dots');
+          dots = Number(dots || "0");
+          beats = MeiLib.dotsMult(node) * MeiLib.dur2beats(dur, meter);
+
+          return {
+            beats : beats,
+            found : false
+          };
+        }
+      } else if (node_name === 'mRest') {
+        if (node.attr('xml:id') === eventid) {
+          return {
+            beats : 0,
+            found : true
+          };
+        } else {
+          return {
+            beats : meter.count,
+            found : false
+          };
+          // the duration of a whole bar expressed in number of beats.
+        }
+      } else if (node_name === 'layer' || node_name === 'beam' || node_name === 'tuplet') {
+
+        // sum up childrens' duration
+        beats = 0;
+        children = node.children();
+        found = false;
+        for (i = 0; i < children.length && !found; ++i) {
+          subtotal = sumUpUntil_inNode(children[i]);
+          beats += subtotal.beats;
+          found = subtotal.found;
+        }
+        return {
+          beats : beats,
+          found : found
+        };
+      } else if (node_name === 'chord') {
+        chord_dur = node.attr('dur');
+        if (node.attr('xml:id') === eventid) {
+          return {
+            beats : 0,
+            found : true
+          };
+        } else {
+          // ... or find the longest note in the chord ????
+          chord_dur = node.attr('dur');
+          if (chord_dur) {
+            if (node.find("[xml\\:id='" + eventid + "']").length) {
+              return {
+                beats : 0,
+                found : true
+              };
+            } else {
+              return {
+                beats : MeiLib.dur2beats(chord_dur, meter),
+                found : found
+              };
+            }
+          } else {
+            children = node.children();
+            found = false;
+            for (i = 0; i < children.length && !found; ++i) {
+              subtotal = sumUpUntil_inNode(children[i]);
+              beats = subtotal.beats;
+              found = subtotal.found;
+            }
+            return {
+              beats : beats,
+              found : found
+            };
+          }
+        }
+      }
+      return {
+        beats : 0,
+        found : false
+      };
+    };
+
+    return sumUpUntil_inNode(layer);
+  };
+
+  /**
+   * @method SliceMEI
+   * Returns a slice of the MEI. The slice is specified by the number of the
+   * starting and ending measures.
+   *
+   * About the <code>staves</code> parameter: it specifies a list of staff
+   * numbers. If it is defined, only the listed staves will be kept in the
+   * resulting slice. The following elements will be removed from:
+   *
+   * 1. <b>staffDef</b> elements (@staff value is matched against the specified list)
+   * 2. <b>staff</b> elements (@n value is matched against the specified list)
+   * 3. any other child element of measures that has
+   *
+   * @staff specified AND it is not listed.
+   *
+   * Note that <b>staff</b> elements without @n will be removed.
+   *
+   * @param {Object} MEI
+   * @param {Object} params like { start_n:NUMBER, end_n:NUMBER, noKey:BOOLEAN,
+ *            noClef:BOOLEAN, noMeter:BOOLEAN, noConnectors, staves:[NUMBER] },
+   *            where <code>noKey</code>, <code>noClef</code> and
+   *            <code>noMeter</code> and <code>noConnectors</code> are
+   *            optional. taves is optional. If staves is set, it is an array of
+   *            staff numbers. Only the staves specified in the list will be
+   *            included in the resulting MEI.
+   * @return XML DOM object
+   */
+  MeiLib.SliceMEI = function (MEI, params) {
+
+    var setVisibles = function (elements, params) {
+      $.each(elements, function (i, elem) {
+        if (params.noClef) {
+          $(elem).attr('clef.visible', 'false');
+        }
+        if (params.noKey) {
+          $(elem).attr('key.sig.show', 'false');
+        }
+        if (params.noMeter) {
+          $(elem).attr('meter.rend', 'false');
+        }
+      });
+    }
+    var paramsStaves = params.staves;
+    if (paramsStaves) {
+      var staffDefSelector = '';
+      var staffNSelector = '';
+      var commaspace = '';
+      for (var i = 0; i < paramsStaves.length; i++) {
+        staffDefSelector += commaspace + '[n="' + paramsStaves[i] + '"]';
+        staffNSelector += commaspace + '[staff="' + paramsStaves[i] + '"]'
+        if (i === 0) {
+          commaspace = ', ';
+        }
+      }
+    }
+
+    var slice = MEI.cloneNode(true);
+    if (paramsStaves) {
+      $(slice).find('staffDef').remove(':not(' + staffDefSelector + ')');
+    }
+    if (params.noClef || params.noKey || params.noMeter) {
+      var scoreDef = $(slice).find('scoreDef')[0];
+      var staffDefs = $(scoreDef).find('staffDef');
+      setVisibles($(scoreDef), params);
+      setVisibles(staffDefs, params);
+    }
+    if (params.noConnectors) {
+      $(slice).find('staffGrp').removeAttr('symbol');
+    }
+    var section = $(slice).find('section')[0];
+    var inside_slice = false;
+
+    /**
+     * Keep or remove child from section depending whether it's inside the section or not.
+     * If it's kept, remove unwanted staves
+     */
+    var keepOrRemove = function (elem, inside_slice, staffNSelector, params) {
+      if (!inside_slice) {
+        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.start_n) {
+          inside_slice = true;
+        } else {
+          elem.parentNode.removeChild(elem);
+        }
+      }
+
+      if (inside_slice) {
+        // remove unwanted staff
+        if (params.staves) {
+          $(elem).find('[staff]').remove(':not(' + staffNSelector + ')');
+          var staves = $(elem).find('staff');
+          $(staves).each(function () {
+            var staff = this;
+            if ($.inArray(Number($(staff).attr('n')), params.staves) === -1) {
+              var parent = this.parentNode;
+              parent.removeChild(this);
+            }
+          })
+        }
+
+        // finish inside_slice state if it's the end of slice.
+        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.end_n) {
+          inside_slice = false;
+        }
+      }
+      return inside_slice;
+    }
+
+    /*
+     * Iterate through each child of the section and remove everything outside
+     * the slice. Remove
+     */
+    var section_children = section.childNodes;
+
+    $(section_children).each(function () {
+
+      if (this.localName === 'ending') {
+        var ending_children = this.childNodes;
+        $(ending_children).each(function () {
+          inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
+        });
+        if ($(this).find('measure').length === 0) {
+          this.parentNode.removeChild(this);
+        }
+      } else {
+        inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
+      }
+
+    });
+
+    return slice;
+  }
+  /**
+   * Represents an MEI <b>app</b> or <b>choice</b> element.
+   *
+   * @class MeiLib.Alt
+   * @constructor
+   * @param {Element} elem
+   * @param {String} xmlID the xml:id attribute value of the <b>app</b> or
+   * <b>choice</b> element.
+   * @param {String} parentID the xml:id attribute value of the direct parent
+   * element of the <b>app</b> or <b>choice</b> element.
+   * @param {String} tagname
+   */
+  MeiLib.Alt = function (elem, xmlID, parentID, tagname) {
+    this.elem = elem;
+    this.xmlID = xmlID;
+    this.altitems = [];
+    this.parentID = parentID;
+    this.tagname = tagname;
+  }
+
+  MeiLib.Alt.prototype.getDefaultItem = function () {
+
+    /* find the editors pick or the first alternative */
+    var findDefault = function (altitems, editorspick_tagname, other_tagname) {
+      var first_sic, alt;
+      for (alt in altitems) {
+        if (altitems[alt].tagname === editorspick_tagname) {
+          return altitems[alt];
+        } else if (!first_sic && (altitems[alt].tagname === other_tagname)) {
+          first_sic = altitems[alt];
+        }
+      }
+      return first_sic;
+    };
+    if (this.tagname === 'choice') {
+      return findDefault(this.altitems, 'corr', 'sic');
+    } else if (this.tagname === 'app') {
+//      return findDefault(this.altitems, 'lem', 'rdg');
+      return findDefault(this.altitems, 'lem');
+    }
+  };
+  /**
+   * @class MeiLib.Variant
+   * Represents a <b>lem</b>, <b>rdg</b>, <b>sic</b> or <b>corr</b> element.
+   *
+   * @constructor
+   * @param elem {Element}
+   * @param xmlID {String} the xml:id attribute value of the element.
+   * @param tagname {String} 'lem' for <b>lem</b> and 'rdg for <b>rdg</b> elements.
+   * @param source {String} space-separated list of the source IDs what the given
+   *            item belongs to.
+   * @param resp {String} xmlID of the editor responsible for the given reading or
+   *            correction.
+   * @param n {String} @n attribute value of the element.
+   */
+  MeiLib.Variant = function (elem, xmlID, tagname, source, resp, n) {
+    this.elem = elem;
+    this.xmlID = xmlID;
+    this.tagname = tagname;
+    this.source = source;
+    this.resp = resp;
+    this.n = n;
+  }
+  /**
+   * @class MeiLib.MeiDoc
+   * A Rich MEI is an MEI that contain ambiguity represented by Critical Apparatus
+   * (<b>app</b>, <b>rdg</b>, etc.), or Editorial Transformation (<b>choice</b>,
+   * <b>corr</b>, etc.)
+   * elements.
+   *
+   * @constructor
+   * @param {XMLDocument} meiXmlDoc the MEI document.
+   */
+  MeiLib.MeiDoc = function (meiXmlDoc) {
+    if (meiXmlDoc) {
+      this.init(meiXmlDoc);
+    }
+  }
+  /**
+   * @method init
+   * Initializes a <code>MeiLib.MeiDoc</code> object.
+   *
+   * The constructor extracts information about alternative encodings and compiles
+   * them into a JS object (this.ALTs). The obejcts are exposed as per the
+   * following: 1. <code>sourceList</code> is the list of sources as defined in
+   * the MEI header (meiHead). 2. <code>editorList</code> is the list of editors
+   * listed in the MEI header. 3. <code>ALTs</code> is the object that contains
+   * information about the alternative encodings. It contains one entry per for
+   * each <b>app</b> or <b>choice</b> element. It is indexed by the xml:id
+   * attribute value of the elements. 4. <code>altgroups</code> is the obejct that
+   * contains how <b>app</b> and <b>choice</b> elements are grouped together to
+   * form a logical unit of alternative encoding.
+   *
+   * @param {XMLDocument} meiXmlDoc an XML document containing the rich MEI
+   */
+  MeiLib.MeiDoc.prototype.init = function (meiXmlDoc) {
+    this.xmlDoc = meiXmlDoc;
+    this.rich_head = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'meiHead')[0];
+    this.rich_music = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'music')[0];
+    this.rich_score = $(this.rich_music).find('score')[0];
+    this.parseSourceList();
+    this.parseEditorList();
+    this.parseALTs();
+    this.initAltgroups();
+    this.initSectionView();
+  }
+  /**
+   * @method getRichScore
+   */
+  MeiLib.MeiDoc.prototype.getRichScore = function () {
+    return this.rich_score;
+  }
+  /**
+   * @method getPlainScore
+   */
+  MeiLib.MeiDoc.prototype.getPlainScore = function () {
+    return this.plain_score;
+  }
+  /**
+   * @method getALTs
+   */
+  MeiLib.MeiDoc.prototype.getALTs = function () {
+    return this.ALTs;
+  }
+  /**
+   * @method getSourceList
+   */
+  MeiLib.MeiDoc.prototype.getSourceList = function () {
+    return this.sourceList;
+  }
+  /**
+   * @method getEditorList
+   */
+  MeiLib.MeiDoc.prototype.getEditorList = function () {
+    return this.editorList;
+  }
+  /**
+   * @method parseSourceList
+   * Extracts information about the sources as defined in the MEI header.
+   *
+   * @return {Object} is a container indexed by the xml:id attribute value of the
+   *         <b>sourceDesc</b> element.
+   */
+  MeiLib.MeiDoc.prototype.parseSourceList = function () {
+    // var srcs = $(this.rich_head).find('sourceDesc').children();
+    // this.sourceList = {};
+    // var i
+    // for(i=0;i<srcs.length;++i) {
+    // var src = srcs[i];
+    // var xml_id = $(src).attr('xml:id');
+    // var serializer = new XMLSerializer();
+    // this.sourceList[xml_id] = serializer.serializeToString(src);
+    // }
+    // return this.sourceList;
+    this.sources = $(this.rich_head).find('sourceDesc').children();
+    return this.sources;
+  }
+  /**
+   * @method parseEditorList
+   */
+  MeiLib.MeiDoc.prototype.parseEditorList = function () {
+    // var edtrs = $(this.rich_head).find('titleStmt').children('editor');
+    // this.editorList = {};
+    // var i
+    // for(i=0;i<edtrs.length;++i) {
+    // var edtr = edtrs[i];
+    // var xml_id = $(edtr).attr('xml:id');
+    // this.editorList[xml_id] = edtr;
+    // }
+    this.editors = $(this.rich_head).find('titleStmt').children('editor');
+    return this.editors;
+  }
+  /**
+   * @method parseALTs
+   * Extracts information about the elements encoding alternatives. The method
+   * stores its result in the <code>ALTs</code> property.
+   *
+   * <code>ALTs</code> is a container of MeiLib.Alt obejcts indexed by the
+   * xml:id attribute value of the <b>app</b> or <b>choice</b> elements.
+   */
+  MeiLib.MeiDoc.prototype.parseALTs = function () {
+    var i, j;
+    this.ALTs = {};
+    // console.log(this.rich_score);
+    var apps = $(this.rich_score).find('app, choice');
+    for (i = 0; i < apps.length; i++) {
+      var app = apps[i];
+      var parent = app.parentNode;
+      var altitems = $(app).find('rdg, lem, sic, corr');
+      var AppsItem = new MeiLib.Alt(app, MeiLib.XMLID(app), MeiLib.XMLID(parent), app.localName);
+      AppsItem.altitems = {};
+      for (j = 0; j < altitems.length; j++) {
+        var altitem = altitems[j];
+        var source = $(altitem).attr('source');
+        var resp = $(altitem).attr('resp');
+        var n = $(altitem).attr('n');
+        var tagname = $(altitem).prop('localName');
+        var varXMLID = MeiLib.XMLID(altitem);
+        AppsItem.altitems[varXMLID] = new MeiLib.Variant(altitem, varXMLID, tagname, source, resp, n);
+      }
+      this.ALTs[MeiLib.XMLID(app)] = AppsItem;
+    }
+  }
+  /**
+   * @method initAltgroups
+   */
+  MeiLib.MeiDoc.prototype.initAltgroups = function () {
+    var i, j, altgroup, token_list;
+    //var ALTs = this.ALTs;
+    var annots = $(this.rich_score).find('annot[type="appGrp"], annot[type="choiceGrp"]');
+    this.altgroups = {};
+    for (i = 0; i < annots.length; i++) {
+      altgroup = [];
+      token_list = $(annots[i]).attr('plist').split(' ');
+      for (j = 0; j < token_list.length; j++) {
+        altgroup.push(token_list[j].replace('#', ''));
+      }
+      for (j in altgroup) {
+        this.altgroups[altgroup[j]] = altgroup;
+      }
+    }
+  };
+  /**
+   * @method initSectionView
+   * The MeiLib.MeiDoc.initSectionView transforms the rich MEI (this.rich_score)
+   * into a plain MEI (this.sectionview_score)
+   *
+   * An MEI is called 'plain' MEI if it contains no <b>app</b> or <b>choice</b>
+   * elements.
+   * Such an MEI can also be referred after the analogy of 2D section views of a
+   * 3D object: the rich MEI is a higher-dimensional object, of which we would
+   * like to display a 'flat' section view. The term 'section plane' refers to a
+   * combination of alternatives at different locations in the score. The section
+   * plane defines the actual view of the higher-dimensional object. For instance,
+   * consider a score that has two different variants at measure #5 (let's call
+   * them (variant A and variant B), and it contains three different variants at
+   * measure #10 (let's call those ones variants C, D and E). In this case the
+   * section plane would contain two elements the first one is either A or B, the
+   * second one is C, D or E.
+   *
+   * The extracted information about all the <b>app</b> and <b>choice</b> elements
+   * are stored in an array. Using this array the application can access information
+   * such as what alternative encodings are present in the score, what source a
+   * variant comes from, etc. This array is exposed by te <code>ALTs</code>
+   * property.
+   *
+   */
+
+  MeiLib.MeiDoc.prototype.selectDefaultAlternative = function (alt) {
+    var result = {};
+    if (alt.localName === 'choice') {
+      // ...the default replacement is...
+      var corr = $(alt).find('corr')[0];
+      if (corr) {
+        // ...the first corr...
+        result.alt_item_xml_id = MeiLib.XMLID(corr);
+        result.alt_item = corr;
+        //...or
+      } else {
+        // ...the first sic.
+        var sic = $(alt).find('sic')[0];
+        if (sic) {
+          result.alt_item_xml_id = MeiLib.XMLID(sic);
+          result.alt_item = sic;
+        } else {
+          result = {};
+        }
+      }
+    } else {
+      var lem = $(alt).find('lem')[0];
+      if (lem) {
+        // ...the first lem...
+        result.alt_item_xml_id = MeiLib.XMLID(lem);
+        result.alt_item = lem;
+        //...or nothing:
+      } else {
+        var rdg = $(alt).find('rdg')[0];
+        if (rdg) {
+          // ...the first rdg...
+          result.alt_item_xml_id = MeiLib.XMLID(rdg);
+          result.alt_item = rdg;
+          //...or nothing:
+        } else {
+          result = {};
+        }
+      }
+    }
+    return result;
+  }
+
+  MeiLib.MeiDoc.prototype.initSectionView = function (altReplacements) {
+    altReplacements = altReplacements || {};
+    // Make a copy of the rich MEI. We don't want to remove nodes from the
+    // original object.
+    this.sectionview_score = this.rich_score.cloneNode(true);
+    this.sectionplane = {};
+
+    // Transform this.sectionview_score into a plain MEI:
+    //
+    // * itereate through all <app> and <choice> elements:
+    // o chose the appropriate rdg or lem defined by sectionplane
+    // (sectionplane[app.xmlID]).
+    // If nothing is defined, leave it empty.
+    // o chose the appropriate sic or corr defined by sectionplance
+    // (sectionplane[choice.xmlID])
+    // If nothing is defined, chose the first corr, if exists, otherwise chose
+    // sic, if exists.
+    // When replacing an item, mark the location of replacement with XML
+    // processing instructions.
+
+    var alts = $(this.sectionview_score).find('app, choice');
+
+    var alt_item_xml_id;
+    var this_sectionview_score = this.sectionview_score;
+    var this_sectionplane = this.sectionplane;
+    var this_ALTs = this.ALTs;
+    var xmlDoc = this.xmlDoc;
+    var me = this;
+    $(alts).each(function (i, alt) {
+      var alt_xml_id = MeiLib.XMLID(alt);
+      var replacement = altReplacements[alt_xml_id];
+      if (replacement) {
+        // apply replacement, or...
+        alt_item_xml_id = replacement.xmlID;
+        var alt_item2insert = $(this_sectionview_score).find(replacement.tagname + '[xml\\:id="' + alt_item_xml_id +
+                                                             '"]')[0];
+        if (!alt_item2insert) {
+          throw new MeiLib.RuntimeError('MeiLib.MeiDoc.prototype.initSectionView():E01', "Cannot find <lem>, <rdg>, <sic>, or <corr> with @xml:id '" +
+                                                                                         alt_item_xml_id + "'.");
+        }
+      } else {
+        var defaultAlt = me.ALTs[alt_xml_id].getDefaultItem();
+        if (defaultAlt) {
+          alt_item_xml_id = defaultAlt.xmlID;
+          alt_item2insert = defaultAlt.elem;
+        }
+      }
+      var parent = alt.parentNode;
+      var PIStart = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgStart="' + alt_xml_id + '"');
+      parent.insertBefore(PIStart, alt);
+      if (alt_item2insert) {
+        var childNodes = alt_item2insert.childNodes;
+        var j;
+        for (j = 0; j < childNodes.length; ++j) {
+          parent.insertBefore(childNodes.item(j).cloneNode(true), alt);
+        }
+      }
+      var PIEnd = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgEnd="' + alt_xml_id + '"');
+      parent.insertBefore(PIEnd, alt);
+      parent.removeChild(alt);
+
+      this_sectionplane[alt_xml_id] = [];
+      if (this_ALTs[alt_xml_id].altitems[alt_item_xml_id]) {
+        this_sectionplane[alt_xml_id].push(this_ALTs[alt_xml_id].altitems[alt_item_xml_id]);
+      }
+    });
+
+    return this.sectionview_score;
+
+  }
+  /**
+   * @method updateSectionView
+   * Updates the sectionview score (plain MEI) by replacing one or more
+   * alternative instance with other alternatives.
+   *
+   * @param sectionplaneUpdate
+   *            {object} the list of changes. It is an container of xml:id
+   *            attribute values of <b>rdg</b>, <b>lem</b>, <b>sic</b> or
+   * <b>corr</b> elements,
+   *            indexed by the xml:id attribute values of the corresponding
+   * <b>app</b>
+   *            or <b>choice</b> elements. sectionplaneUpdate[altXmlID] =
+   * altInstXmlID
+   *            is the xml:id attribute value of the <b>rdg</b>, <b>lem</b>,
+   * <b>sic</b> or <b>corr</b>
+   *            element, which is to be inserted in place of the original <app
+   *            xml:id=altXmlID> or <b>choice xml:id=altXmlID</b> When replacing an
+   *            <b>app</b> or <b>choice</b> that is part of a group of such
+   * elements
+   *            (defined by this.altgroups), then those other elements needs to be
+   *            replaced as well.
+   */
+  MeiLib.MeiDoc.prototype.updateSectionView = function (sectionplaneUpdate) {
+
+    var altID, altID__;
+
+    var corresponding_alt_item = function (altitems, altitem) {
+      var vars_match = function (v1, v2) {
+        var res = 0;
+        for (var field in v1) {
+          if (v1[field] !== undefined && v1[field] === v2[field]) {
+            res++;
+          }
+        }
+        //      console.log('vars_match: ' + res);
+        return res;
+      }
+      var max = 0;
+      var corresponding_item, M;
+      for (var alt_item_id in altitems) {
+        M = vars_match(altitems[alt_item_id], altitem);
+        if (max < M) {
+          max = M;
+          corresponding_item = altitems[alt_item_id];
+        }
+      }
+      return corresponding_item;
+    };
+
+    for (altID in sectionplaneUpdate) {
+      var this_ALTs = this.ALTs;
+      var altitems2insert = [];
+      // preserving backward compatibility:
+      if (typeof sectionplaneUpdate[altID] === 'string') {
+        sectionplaneUpdate[altID] = [sectionplaneUpdate[altID]];
+      }
+      if (sectionplaneUpdate[altID].length > 0) {
+        $(sectionplaneUpdate[altID]).each(function () {
+          altitems2insert.push(this_ALTs[altID].altitems[this]);
+        });
+      } else {
+        var defaultAltItem = this.ALTs[altID].getDefaultItem();
+        if (defaultAltItem) {
+          altitems2insert.push(defaultAltItem);
+        }
+      }
+      var altgroup = this.altgroups[altID];
+      if (altgroup) {
+        // if altID is present in altgroups, then replace all corresponding alts
+        // with the
+        // altitems that correspons to the any of the alt item that are being
+        // inserted.
+        var i;
+        for (i = 0; i < altgroup.length; i++) {
+          altID__ = altgroup[i];
+          var altitems2insert__ = [];
+          $(altitems2insert).each(function () {
+            altitems2insert__.push(corresponding_alt_item(this_ALTs[altID__].altitems, this))
+          });
+          this.replaceAltInstance({
+            appXmlID : altID__,
+            replaceWith : altitems2insert__
+          });
+        }
+      } else {
+        // otherwise just replace alt[xml:id=altID] with the list of items
+        this.replaceAltInstance({
+          appXmlID : altID,
+          replaceWith : altitems2insert
+        });
+      }
+    }
+  };
+  /**
+   * @method replaceAltInstance
+   * Replace an alternative instance in the sectionview score and in the
+   * sectionplane
+   *
+   * @param {Object} alt_inst_update
+   * @return the updated score
+   */
+  MeiLib.MeiDoc.prototype.replaceAltInstance = function (alt_inst_update) {
+
+    var extendWithNodeList = function (nodeArray, nodeList) {
+      var res = nodeArray;
+      var i;
+      for (i = 0; i < nodeList.length; ++i) {
+        res.push(nodeList.item(i));
+      }
+      return res;
+    };
+    var app_xml_id = alt_inst_update.appXmlID;
+    var parent = $(this.sectionview_score).find('[xml\\:id=' + this.ALTs[app_xml_id].parentID + ']')[0];
+    if (typeof parent === 'undefined') {
+      return;
+    }
+    var children = parent.childNodes;
+
+    var replaceWith = alt_inst_update.replaceWith;
+    var nodes2insert = [];
+    var this_rich_score = this.rich_score;
+    if (replaceWith) {
+      var i;
+      for (i = 0; i < replaceWith.length; ++i) {
+        var replaceWith_item = replaceWith[i];
+        var replaceWith_xmlID = replaceWith_item.xmlID;
+        var var_inst_elem = $(this_rich_score).find(replaceWith_item.tagname + '[xml\\:id="' + replaceWith_xmlID +
+                                                    '"]')[0];
+        nodes2insert = extendWithNodeList(nodes2insert, var_inst_elem.childNodes);
+      }
+    }
+    //  console.log(nodes2insert)
+
+    var match_pseudo_attrValues = function (data1, data2) {
+      data1 = data1.replace("'", '"');
+      data2 = data2.replace("'", '"');
+      return data1 === data2;
+    }
+    var inside_inst = false;
+    var found = false;
+    var insert_before_this = null;
+    $(children).each(function () {
+      var child = this;
+      if (child.nodeType === 7) {
+        if (child.nodeName === 'MEI2VF' && match_pseudo_attrValues(child.nodeValue, 'rdgStart="' + app_xml_id + '"')) {
+          inside_inst = true;
+          found = true;
+        } else if (child.nodeName === 'MEI2VF' &&
+                   match_pseudo_attrValues(child.nodeValue, 'rdgEnd="' + app_xml_id + '"')) {
+          inside_inst = false;
+          insert_before_this = child;
+        }
+      } else if (inside_inst) {
+        parent.removeChild(child);
+      }
+    });
+
+    if (!found) {
+      throw "processing instruction not found";
+    }
+    if (inside_inst) {
+      throw "Unmatched <?MEI2VF rdgStart?>";
+    }
+
+    var insert_method;
+    if (insert_before_this) {
+      insert_method = function (elem) {
+        parent.insertBefore(elem, insert_before_this)
+      };
+    } else {
+      insert_method = function (elem) {
+        parent.appendChild(elem)
+      };
+    }
+
+    $.each(nodes2insert, function () {
+      insert_method(this.cloneNode(true));
+    });
+
+    this.sectionplane[app_xml_id] = alt_inst_update.replaceWith;
+
+    return this.sectionview_score;
+  }
+  /**
+   * @method getSectionViewSlice
+   * Get a slice of the sectionview_score.
+   *
+   * @param params
+   *            {Obejct} contains the parameters for slicing. For more info see at
+   *            documentation of MeiLib.SliceMEI
+   * @return an XML DOM object containing the slice of the plain MEI
+   */
+  MeiLib.MeiDoc.prototype.getSectionViewSlice = function (params) {
+    return MeiLib.SliceMEI(this.sectionview_score, params);
+  }
+  /**
+   * @method getRichSlice
+   * Get a slice of the whole rich MEI document.
+   *
+   * @param params
+   *            {Obejct} contains the parameters for slicing. For more info see at
+   *            documentation of MeiLib.SliceMEI
+   * @return {MeiLib.MeiDoc} a MeiDoc object
+   */
+  MeiLib.MeiDoc.prototype.getRichSlice = function (params) {
+    var slice = new MeiLib.MeiDoc();
+    slice.xmlDoc = this.xmlDoc;
+    slice.rich_head = this.rich_head.cloneNode(true);
+    slice.rich_music = this.rich_music.cloneNode(true);
+    slice.rich_score = MeiLib.SliceMEI(this.rich_score, params);
+    slice.sourceList = this.sourceList;
+    slice.editorList = this.editorList;
+    slice.ALTs = this.ALTs;
+    slice.altgroups = this.altgroups;
+    return slice;
+  };
 /*
  * EventReference.js Author: Zoltan Komives (zolaemil@gmail.com) Created:
  * 04.07.2013
@@ -18615,23 +19975,26 @@ Vex.Flow.TextDynamics = (function(){
 
       var link_staveInfo = function (lnkelem) {
         return {
-          stave_n : $(lnkelem).attr('staff') || '1',
-          layer_n : $(lnkelem).attr('layer') || '1'
+          stave_n : lnkelem.getAttribute('staff') || '1',
+          layer_n : lnkelem.getAttribute('layer') || '1'
         };
       };
 
       // convert tstamp into startid in current measure
       var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
+        var i, j, element, eventLink, atts, startid, tstamp, endid, tstamp2, measures_ahead;
+
         var stffinf = link_staveInfo(lnkelem);
-        var stave = $(measureElement).find('staff[n="' + stffinf.stave_n + '"]');
-        var layer = $(stave).find('layer[n="' + stffinf.layer_n + '"]').get(0);
+        var stave = measureElement.querySelector('staff[n="' + stffinf.stave_n + '"]');
+        var layer = stave.querySelector('layer[n="' + stffinf.layer_n + '"]');
         if (!layer) {
-          var layer_candid = $(stave).find('layer');
-          if (layer_candid && !layer_candid.attr('n')) {
+          var layer_candid = stave.getElementsByTagName('layer')[0];
+          if (layer_candid && !layer_candid.hasAttribute('n')) {
             layer = layer_candid;
           }
           if (!layer) {
-            throw new RuntimeError('Cannot find layer');
+            throw new RuntimeError('Cannot find layer @n="' + stffinf.layer_n + '" in ' +
+                                   Util.serializeElement(measureElement));
           }
         }
         var staveInfo = systemInfo.getStaveInfo(stffinf.stave_n);
@@ -18653,12 +20016,12 @@ Vex.Flow.TextDynamics = (function(){
         return tstamp2.substring(tstamp2.indexOf('+') + 1);
       };
 
-      $.each(link_elements, function () {
-        var eventLink, atts, startid, tstamp, endid, tstamp2, measures_ahead;
+      for (i = 0, j = link_elements.length; i < j; i++) {
+        element = link_elements[i];
 
         eventLink = new EventLink(null, null);
 
-        atts = Util.attsToObj(this);
+        atts = Util.attsToObj(element);
 
         me.validateAtts(atts);
 
@@ -18672,7 +20035,7 @@ Vex.Flow.TextDynamics = (function(){
         } else {
           tstamp = atts.tstamp;
           if (tstamp) {
-            startid = local_tstamp2id(tstamp, this, measureElement);
+            startid = local_tstamp2id(tstamp, element, measureElement);
             eventLink.setFirstId(startid);
           }
           // else {
@@ -18694,7 +20057,7 @@ Vex.Flow.TextDynamics = (function(){
               // register that eventLink needs context;
               // need to save: measure.n, link.stave_n,
               // link.layer_n
-              var staveInfo = link_staveInfo(this);
+              var staveInfo = link_staveInfo(element);
               var target_measure_n = measureIndex + measures_ahead;
               var refLocationIndex = target_measure_n + ':' + staveInfo.stave_n + ':' + staveInfo.layer_n;
               if (!me.unresolvedTStamp2[refLocationIndex]) {
@@ -18702,7 +20065,7 @@ Vex.Flow.TextDynamics = (function(){
               }
               me.unresolvedTStamp2[refLocationIndex].push(eventLink);
             } else {
-              endid = local_tstamp2id(beat_partOf(tstamp2), this, measureElement);
+              endid = local_tstamp2id(beat_partOf(tstamp2), element, measureElement);
               eventLink.setLastId(endid);
             }
           }
@@ -18711,7 +20074,7 @@ Vex.Flow.TextDynamics = (function(){
           // }
         }
         me.addModel(eventLink);
-      });
+      }
     },
 
     /**
@@ -18743,10 +20106,10 @@ Vex.Flow.TextDynamics = (function(){
      * draws the link collection to the canvas set by {@link #setContext}
      */
     draw : function () {
-      var ctx = this.ctx;
-      $.each(this.allVexObjects, function () {
-        this.setContext(ctx).draw();
-      });
+      var ctx = this.ctx, i, j, allVexObjects = this.allVexObjects;
+      for (i = 0, j = allVexObjects.length; i < j; i++) {
+        allVexObjects[i].setContext(ctx).draw();
+      }
     }
   };
 /*
@@ -18795,23 +20158,23 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note, vex_options;
+      var me = this, f_note, l_note, vex_options, i, j, model;
       vex_options = {
         height : 10,
         y_shift : 0,
         left_shift_px : 0,
         r_shift_px : 0
       };
-      $.each(me.allModels, function () {
-        f_note = notes_by_id[this.getFirstId()] || {};
-        l_note = notes_by_id[this.getLastId()] || {};
+      for (i=0,j=me.allModels.length;i<j;i++) {
+        model = me.allModels[i];
+        f_note = notes_by_id[model.getFirstId()] || {};
+        l_note = notes_by_id[model.getLastId()] || {};
 
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
         } else {
-          me.createSingleHairpin(f_note, l_note, this.params, vex_options);
+          me.createSingleHairpin(f_note, l_note, model.params, vex_options);
         }
-
-      });
+      }
       return this;
     },
 
@@ -18932,37 +20295,40 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note;
-      $.each(me.allModels, function () {
+      var me = this, f_note, l_note, i, j,model;
+
+      for (i=0,j=me.allModels.length;i<j;i++) {
+        model = me.allModels[i];
+
         var keysInChord;
-        f_note = notes_by_id[this.getFirstId()] || {};
-        l_note = notes_by_id[this.getLastId()] || {};
+        f_note = notes_by_id[model.getFirstId()] || {};
+        l_note = notes_by_id[model.getLastId()] || {};
 
 
         if (!f_note.vexNote && !l_note.vexNote) {
-          Logger.warn('Tie could not be rendered', 'Neither xml:id could be found: "' + this.getFirstId() +
-                                                          '" / "' + this.getLastId() + '"');
+          Logger.warn('Tie could not be rendered', 'Neither xml:id could be found: "' + model.getFirstId() +
+                                                          '" / "' + model.getLastId() + '"');
           return true;
         }
 
-        if (!this.params.curvedir) {
+        if (!model.params.curvedir) {
           var layerDir = f_note.layerDir || l_note.layerDir;
           if (layerDir) {
             // calculate default curve direction based on the relative layer
-            this.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
+            model.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
             // if the tie links to a note in a chord, let the outer ties of the
             // chord point outwards
             if (f_note.vexNote) {
               keysInChord = f_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                this.params.curvedir =
+                model.params.curvedir =
                 (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
               }
             } else if (l_note.vexNote) {
               keysInChord = l_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                this.params.curvedir =
+                model.params.curvedir =
                 +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
               }
             }
@@ -18970,15 +20336,15 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
-          me.createSingleTie(f_note, {}, this.params);
-          if (!this.params.curvedir) {
-            this.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
+          me.createSingleTie(f_note, {}, model.params);
+          if (!model.params.curvedir) {
+            model.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
           }
-          me.createSingleTie({}, l_note, this.params);
+          me.createSingleTie({}, l_note, model.params);
         } else {
-          me.createSingleTie(f_note, l_note, this.params);
+          me.createSingleTie(f_note, l_note, model.params);
         }
-      });
+      }
       return this;
     },
 
@@ -19076,37 +20442,39 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note;
-      $.each(me.allModels, function () {
+      var me = this, f_note, l_note, i, j, model;
+      for (i=0,j=me.allModels.length;i<j;i++) {
+        model = me.allModels[i];
+
         var keysInChord;
-        f_note = notes_by_id[this.getFirstId()] || {};
-        l_note = notes_by_id[this.getLastId()] || {};
+        f_note = notes_by_id[model.getFirstId()] || {};
+        l_note = notes_by_id[model.getLastId()] || {};
 
 
         if (!f_note.vexNote && !l_note.vexNote) {
-          Logger.warn('Slur could not be rendered', 'Neither xml:id could be found: "' + this.getFirstId() +
-                                                           '" / "' + this.getLastId() + '"');
+          Logger.warn('Slur could not be rendered', 'Neither xml:id could be found: "' + model.getFirstId() +
+                                                           '" / "' + model.getLastId() + '"');
           return true;
         }
 
-        if (!this.params.curvedir) {
+        if (!model.params.curvedir) {
           var layerDir = f_note.layerDir || l_note.layerDir;
           if (layerDir) {
             // calculate default curve direction based on the relative layer
-            this.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
+            model.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
             // if the slur links to a note in a chord, let the outer slurs of the
             // chord point outwards
             if (f_note.vexNote) {
               keysInChord = f_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                this.params.curvedir =
+                model.params.curvedir =
                 (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
               }
             } else if (l_note.vexNote) {
               keysInChord = l_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                this.params.curvedir =
+                model.params.curvedir =
                 +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
               }
             }
@@ -19114,15 +20482,15 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
-          me.createSingleSlur(f_note, {}, this.params);
-          if (!this.params.curvedir) {
-            this.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
+          me.createSingleSlur(f_note, {}, model.params);
+          if (!model.params.curvedir) {
+            model.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
           }
-          me.createSingleSlur({}, l_note, this.params);
+          me.createSingleSlur({}, l_note, model.params);
         } else {
-          me.createSingleSlur(f_note, l_note, this.params);
+          me.createSingleSlur(f_note, l_note, model.params);
         }
-      });
+      }
       return this;
     },
 
@@ -19267,27 +20635,28 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createInfos : function (elements, measureElement) {
-      var me = this;
+      var me = this, i, j, element, atts, startid, tstamp;
 
       var link_staveInfo = function (lnkelem) {
         return {
-          stave_n : $(lnkelem).attr('staff') || '1',
-          layer_n : $(lnkelem).attr('layer') || '1'
+          stave_n : lnkelem.getAttribute('staff') || '1',
+          layer_n : lnkelem.getAttribute('layer') || '1'
         };
       };
 
       // convert tstamp into startid in current measure
       var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
         var stffinf = link_staveInfo(lnkelem);
-        var stave = $(measureElement).find('staff[n="' + stffinf.stave_n + '"]');
-        var layer = $(stave).find('layer[n="' + stffinf.layer_n + '"]').get(0);
+        var stave = measureElement.querySelector('staff[n="' + stffinf.stave_n + '"]');
+        var layer = stave.querySelector('layer[n="' + stffinf.layer_n + '"]');
         if (!layer) {
-          var layer_candid = $(stave).find('layer');
-          if (layer_candid && !layer_candid.attr('n')) {
+          var layer_candid = stave.getElementsByTagName('layer')[0];
+          if (layer_candid && !layer_candid.hasAttribute('n')) {
             layer = layer_candid;
           }
           if (!layer) {
-            throw new RuntimeError('Cannot find layer');
+            throw new RuntimeError('Cannot find layer @n="' + stffinf.layer_n + '" in ' +
+                                   Util.serializeElement(measureElement));
           }
         }
         var staveInfo = me.systemInfo.getStaveInfo(stffinf.stave_n);
@@ -19301,10 +20670,10 @@ Vex.Flow.TextDynamics = (function(){
         return MeiLib.tstamp2id(tstamp, layer, meter);
       };
 
-      $.each(elements, function () {
-        var atts, startid, tstamp;
+      for (i = 0, j = elements.length; i < j; i++) {
+        element = elements[i];
 
-        atts = Util.attsToObj(this);
+        atts = Util.attsToObj(element);
 
         startid = atts.startid;
         if (startid) {
@@ -19312,19 +20681,19 @@ Vex.Flow.TextDynamics = (function(){
         } else {
           tstamp = atts.tstamp;
           if (tstamp) {
-            startid = local_tstamp2id(tstamp, this, measureElement);
+            startid = local_tstamp2id(tstamp, element, measureElement);
           } else {
-            Logger.warn('@startid or @tstamp expected', Util.serializeElement(this) +
-                                                               ' could not be processed because neither @startid nor @tstamp are specified.');
+            Logger.warn('@startid or @tstamp expected', Util.serializeElement(element) +
+                                                        ' could not be processed because neither @startid nor @tstamp are specified.');
             return;
           }
         }
         me.allModels.push({
-          element : this,
+          element : element,
           atts : atts,
           startid : startid
         });
-      });
+      }
     },
 
     /**
@@ -19390,7 +20759,7 @@ Vex.Flow.TextDynamics = (function(){
         note = notes_by_id[model.startid];
         if (note) {
           annot =
-          (new VF.Annotation($(model.element).text().replace(/\s+/g, ' ').trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+          (new VF.Annotation(Util.getText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
 
           // TEMPORARY: set width of modifier to zero so voices with modifiers
           // don't get too much width; remove when the width calculation in
@@ -19459,7 +20828,7 @@ Vex.Flow.TextDynamics = (function(){
         note = notes_by_id[model.startid];
         if (note) {
           annot =
-          (new VF.Annotation($(model.element).text().trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+          (new VF.Annotation(Util.getText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
 
           // TEMPORARY: set width of modifier to zero so voices with modifiers
           // don't get too much width; remove when the width calculation in
@@ -19751,13 +21120,19 @@ Vex.Flow.TextDynamics = (function(){
      * @param annot
      * @param element
      * @param stave_n
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     addSyllable : function (annot, element, stave_n) {
-      var me = this;
+      var me = this, verse_n;
 
-      var wordpos = $(element).attr('wordpos');
-      var verse_n = $(element).parents('verse').attr('n') || '1';
+      var wordpos = element.getAttribute('wordpos');
+
+      var parentNode = element.parentNode;
+      if (parentNode.localName === 'verse' && parentNode.hasAttribute('n')) {
+        verse_n = parentNode.getAttribute('n');
+      } else {
+        verse_n = '1';
+      }
 
       if (!me.systemVerses[stave_n]) {
         me.systemVerses[stave_n] = {};
@@ -19801,7 +21176,7 @@ Vex.Flow.TextDynamics = (function(){
 
     /**
      * @public
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     format : function () {
       var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding;
@@ -19837,7 +21212,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param ctx
      * @param leftX
      * @param rightX
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     drawHyphens : function (ctx, leftX, rightX) {
       var me = this, stave_n, verse_n;
@@ -19862,7 +21237,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   var Syllable = function (element, font) {
-    this.init($(element).text());
+    this.init(Util.getText(element));
     this.setFont(font.family, font.size, font.weight);
     this.setMeiElement(element);
     this.setLineSpacing(font.spacing);
@@ -20290,7 +21665,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     init : function (config) {
-      var me = this, vexType, topStave, bottomStave, vexConnector, label, labelMode;
+      var me = this, vexType, topStave, bottomStave, vexConnector, label, labelMode, i, model;
       var models = config.models;
       var staves = config.staves;
       var barline_l = config.barline_l;
@@ -20298,11 +21673,12 @@ Vex.Flow.TextDynamics = (function(){
       var system_n = config.system_n;
       labelMode = config.labelMode;
 
-      $.each(models, function () {
+      for (i in models) {
+        model = models[i];
 
-        vexType = (barline_r) ? me.vexTypesBarlineRight[barline_r] : me.vexTypes[this.symbol];
-        topStave = staves[this.top_stave_n];
-        bottomStave = staves[this.bottom_stave_n];
+        vexType = (barline_r) ? me.vexTypesBarlineRight[barline_r] : me.vexTypes[model.symbol];
+        topStave = staves[model.top_stave_n];
+        bottomStave = staves[model.bottom_stave_n];
 
         if (typeof vexType === 'number' && topStave && bottomStave) {
           vexConnector = new VF.StaveConnector(topStave, bottomStave);
@@ -20310,16 +21686,16 @@ Vex.Flow.TextDynamics = (function(){
 
           // TODO implement offset in VexFlow
           // offset nested connectors
-          //if (this.ancestorSymbols) {
-          //console.log(this.ancestorSymbols);
+          //if (model.ancestorSymbols) {
+          //console.log(model.ancestorSymbols);
           //vexConnector.x_shift = -30;
           //}
 
           me.allVexConnectors.push(vexConnector);
           if (labelMode === 'full') {
-            label = (system_n === 1) ? this.label : this.labelAbbr;
+            label = (system_n === 1) ? model.label : model.labelAbbr;
           } else if (labelMode === 'abbr') {
-            label = this.labelAbbr;
+            label = model.labelAbbr;
           }
           if (label) {
             vexConnector.setText(label);
@@ -20338,7 +21714,7 @@ Vex.Flow.TextDynamics = (function(){
           }
         }
 
-      });
+      }
     },
 
     getAll : function () {
@@ -20544,13 +21920,14 @@ Vex.Flow.TextDynamics = (function(){
      * the corresponding Vex.Flow.Stave object
      */
     addRehearsalMarks : function () {
-      var me = this, stave_n, vexStave, offsetX;
-      $.each(me.rehElements, function () {
-        stave_n = this.getAttribute('staff');
+      var me = this, stave_n, vexStave, offsetX, i, j, rehElement;
+      for (i=0,j=me.rehElements.length;i<j;i++) {
+        rehElement = me.rehElements[i];
+        stave_n = rehElement.getAttribute('staff');
         vexStave = me.staves[stave_n];
         offsetX = (vexStave.getModifierXShift() > 0) ? -40 : 0;
-        vexStave.modifiers.push(new VF.StaveSection($(this).text(), vexStave.x + offsetX, 0));
-      });
+        vexStave.modifiers.push(new VF.StaveSection(Util.getText(rehElement), vexStave.x + offsetX, 0));
+      }
     },
 
     // TODO handle timestamps! (is it necessary to handle tempo element
@@ -20562,13 +21939,15 @@ Vex.Flow.TextDynamics = (function(){
      * corresponding Vex.Flow.Stave object
      */
     addTempoToStaves : function () {
-      var me = this, offsetX, vexStave, vexTempo, atts, halfLineDistance;
-      $.each(me.tempoElements, function () {
-        atts = Util.attsToObj(this);
+      var me = this, offsetX, vexStave, vexTempo, atts, halfLineDistance, i, j, tempoElement;
+      for (i=0,j=me.tempoElements.length;i<j;i++) {
+        tempoElement = me.tempoElements[i];
+
+        atts = Util.attsToObj(tempoElement);
         vexStave = me.staves[atts.staff];
         halfLineDistance = vexStave.getSpacingBetweenLines() / 2;
         vexTempo = new VF.StaveTempo({
-          name : $(this).text(),
+          name : Util.getText(tempoElement),
           duration : atts['mm.unit'],
           dots : +atts['mm.dots'],
           bpm : +atts.mm
@@ -20589,7 +21968,7 @@ Vex.Flow.TextDynamics = (function(){
         vexTempo.setShiftX(offsetX);
         vexTempo.font = me.tempoFont;
         vexStave.modifiers.push(vexTempo);
-      });
+      }
     },
 
     /**
@@ -20778,13 +22157,19 @@ Vex.Flow.TextDynamics = (function(){
      * @param annot
      * @param element
      * @param stave_n
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     addSyllable : function (annot, element, stave_n) {
-      var me = this;
+      var me = this, verse_n;
 
-      var wordpos = $(element).attr('wordpos');
-      var verse_n = $(element).parents('verse').attr('n') || '1';
+      var wordpos = element.getAttribute('wordpos');
+
+      var parentNode = element.parentNode;
+      if (parentNode.localName === 'verse' && parentNode.hasAttribute('n')) {
+        verse_n = parentNode.getAttribute('n');
+      } else {
+        verse_n = '1';
+      }
 
       if (!me.systemVerses[stave_n]) {
         me.systemVerses[stave_n] = {};
@@ -20828,7 +22213,7 @@ Vex.Flow.TextDynamics = (function(){
 
     /**
      * @public
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     format : function () {
       var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding;
@@ -20864,7 +22249,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param ctx
      * @param leftX
      * @param rightX
-     * @returns {MEI2VF.Verses}
+     * @returns {Verses}
      */
     drawHyphens : function (ctx, leftX, rightX) {
       var me = this, stave_n, verse_n;
@@ -21747,22 +23132,25 @@ Vex.Flow.TextDynamics = (function(){
      *
      */
     processScoreDef : function (scoredef) {
-      var me = this, i, j, children, systemLeftmar;
+      var me = this, i, j, children, systemLeftmar, hasChild = false;
       me.scoreDefElement = scoredef;
-      systemLeftmar = me.scoreDefElement.getAttribute('system.leftmar');
-      if (systemLeftmar !== null) {
-        me.setLeftMar(+systemLeftmar);
+      systemLeftmar = parseFloat(me.scoreDefElement.getAttribute('system.leftmar'));
+      if (!isNaN(systemLeftmar)) {
+        me.setLeftMar(systemLeftmar);
       }
-      children = me.scoreDefElement.children;
-      j = children.length;
+      children = me.scoreDefElement.childNodes;
 
-      if (j === 0) {
+      for (i = 0, j = children.length; i < j; i += 1) {
+        if (children[i].nodeType === 1) {
+          me.processScoreDef_child(children[i]);
+          hasChild = true;
+        }
+      }
+
+      if (!hasChild) {
         me.updateStaffDefs(scoredef);
       }
 
-      for (i = 0; i < j; i += 1) {
-        me.processScoreDef_child(children[i]);
-      }
     },
 
     /**
@@ -21819,18 +23207,20 @@ Vex.Flow.TextDynamics = (function(){
      */
     processStaffGrp : function (staffGrp, isChild, ancestorSymbols) {
       var me = this, range = {}, isFirst = true, children, i, j, childRange;
-      children = staffGrp.children;
-      j = children.length;
-      for (i = 0; i < j; i++) {
-        childRange = me.processStaffGrp_child(staffGrp, children[i], ancestorSymbols);
-        if (childRange) {
-          Logger.debug('Converter.processStaffGrp() {1}.{a}', 'childRange.first_n: ' +
-                                                              childRange.first_n, ' childRange.last_n: ' +
-                                                                                  childRange.last_n);
-          if (isFirst) range.first_n = childRange.first_n;
-          range.last_n = childRange.last_n;
-          isFirst = false;
+      children = staffGrp.childNodes;
+      for (i = 0, j = children.length; i < j; i++) {
+        if (children[i].nodeType === 1) {
+          childRange = me.processStaffGrp_child(staffGrp, children[i], ancestorSymbols);
+          if (childRange) {
+            Logger.debug('Converter.processStaffGrp() {1}.{a}', 'childRange.first_n: ' +
+                                                                childRange.first_n, ' childRange.last_n: ' +
+                                                                                    childRange.last_n);
+            if (isFirst) range.first_n = childRange.first_n;
+            range.last_n = childRange.last_n;
+            isFirst = false;
+          }
         }
+
       }
       me.setConnectorModels(staffGrp, range, isChild, ancestorSymbols);
       return range;
@@ -22114,7 +23504,7 @@ Vex.Flow.TextDynamics = (function(){
        */
       pageRightMar : 20,
       /**
-       * @cfg {Number} systemSpacing The spacing between two staff
+       * @cfg {Number} systemSpacing The spacing between two stave
        * systems
        */
       systemSpacing : 90,
@@ -22212,9 +23602,9 @@ Vex.Flow.TextDynamics = (function(){
      */
     initConfig : function (config) {
       var me = this;
-      me.cfg = $.extend(true, {}, me.defaults, config);
+      me.cfg = Util.extend({}, me.defaults, config);
       /**
-       * an instance of MEI2VF.SystemInfo dealing with the system and staff
+       * an instance of MEI2VF.SystemInfo dealing with the system and stave
        * info derived from the MEI data
        * @property {MEI2VF.SystemInfo} systemInfo
        */
@@ -22251,6 +23641,7 @@ Vex.Flow.TextDynamics = (function(){
      */
     reset : function () {
       var me = this;
+      console.debug('Converter.reset()');
       me.systemInfo.init(me.cfg, me.printSpace);
       /**
        * @property {MEI2VF.EventLink[][]} unresolvedTStamp2
@@ -22362,7 +23753,7 @@ Vex.Flow.TextDynamics = (function(){
        */
       me.pendingSectionBreak = true;
       /**
-       * Contains information about the volta type of the current staff. Properties:
+       * Contains information about the volta type of the current stave. Properties:
        *
        * -  `start` {String} indicates the number to render to the volta. When
        * falsy, it is assumed that the volta does not start in the current
@@ -22389,7 +23780,7 @@ Vex.Flow.TextDynamics = (function(){
     process : function (xmlDoc) {
       var me = this;
       me.reset();
-      me.systemInfo.processScoreDef($(xmlDoc).find('scoreDef')[0]);
+      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
       me.processSections(xmlDoc);
       me.directives.createVexFromInfos(me.notes_by_id);
       me.dynamics.createVexFromInfos(me.notes_by_id);
@@ -22410,9 +23801,9 @@ Vex.Flow.TextDynamics = (function(){
      */
     draw : function (ctx) {
       var me = this;
-      me.drawSystems(ctx);
-      me.drawVexBeams(me.allBeams, ctx);
-      me.drawVexTuplets(me.allTuplets, ctx);
+      me.checkSetContextAndDraw(me.systems, ctx);
+      me.setContextAndDraw(me.allBeams, ctx);
+      me.setContextAndDraw(me.allTuplets, ctx);
       me.ties.setContext(ctx).draw();
       me.slurs.setContext(ctx).draw();
       me.hairpins.setContext(ctx).draw();
@@ -22491,7 +23882,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     /**
-     * creates in initializes a new {@link MEI2VF.System} and updates the staff
+     * creates in initializes a new {@link MEI2VF.System} and updates the stave
      * modifier infos
      * @method createNewSystem
      */
@@ -22535,36 +23926,41 @@ Vex.Flow.TextDynamics = (function(){
      * @method processSections
      */
     processSections : function (xmlDoc) {
-      var me = this;
-      $(xmlDoc).find('section').each(function () {
-        me.processSection(this);
-      });
+      var me = this, i, j, sections;
+      sections = xmlDoc.getElementsByTagName('section');
+      for (i = 0, j = sections.length; i < j; i++) {
+        me.processSection(sections[i]);
+      }
     },
 
     /**
      *@method processSection
      */
     processSection : function (element) {
-      var me = this, i, j, sectionChildren = $(element).children();
-      for (i = 0, j = sectionChildren.length; i < j; i += 1) {
-        me.processSectionChild(sectionChildren[i]);
-      }
+      var me = this, i, j, sectionChildren = element.childNodes;
+        for (i = 0, j = sectionChildren.length; i < j; i += 1) {
+          if (sectionChildren[i].nodeType === 1) {
+            me.processSectionChild(sectionChildren[i]);
+          }
+        }
     },
 
     /**
      * @method processEnding
      */
     processEnding : function (element) {
-      var me = this, i, j, sectionChildren = $(element).children();
+      var me = this, i, j, sectionChildren = element.childNodes;
       for (i = 0, j = sectionChildren.length; i < j; i += 1) {
-        me.currentVoltaType = {};
-        if (i === 0) {
-          me.currentVoltaType.start = $(element).attr('n');
+        if (sectionChildren[i].nodeType === 1) {
+          me.currentVoltaType = {};
+          if (i === 0) {
+            me.currentVoltaType.start = element.getAttribute('n');
+          }
+          if (i === j - 1) {
+            me.currentVoltaType.end = true;
+          }
+          me.processSectionChild(sectionChildren[i]);
         }
-        if (i === j - 1) {
-          me.currentVoltaType.end = true;
-        }
-        me.processSectionChild(sectionChildren[i]);
       }
       me.currentVoltaType = null;
     },
@@ -22621,7 +24017,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Element} element the MEI measure element
      */
     processMeasure : function (element) {
-      var me = this, atSystemStart, left_barline, right_barline, system, system_n;
+      var me = this, atSystemStart, left_barline, right_barline, system, system_n, allDescendants;
 
       if (me.pendingSectionBreak || me.pendingSystemBreak) {
         system_n = me.systems.length;
@@ -22638,46 +24034,47 @@ Vex.Flow.TextDynamics = (function(){
       left_barline = element.getAttribute('left');
       right_barline = element.getAttribute('right');
 
-      var staveElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], trillElements = [], rehElements = [];
+      var staveElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], trillElements = [], rehElements = [], i, j;
 
-      $(element).find('*').each(function () {
-        switch (this.localName) {
+      allDescendants = element.querySelectorAll('*');
+      for (i = 0, j = allDescendants.length; i < j; i++) {
+        switch (allDescendants[i].localName) {
           case 'staff':
-            staveElements.push(this);
+            staveElements.push(allDescendants[i]);
             break;
           case 'dir':
-            dirElements.push(this);
+            dirElements.push(allDescendants[i]);
             break;
           case 'tie':
-            tieElements.push(this);
+            tieElements.push(allDescendants[i]);
             break;
           case 'slur':
-            slurElements.push(this);
+            slurElements.push(allDescendants[i]);
             break;
           case 'hairpin':
-            hairpinElements.push(this);
+            hairpinElements.push(allDescendants[i]);
             break;
           case 'tempo':
-            tempoElements.push(this);
+            tempoElements.push(allDescendants[i]);
             break;
           case 'dynam':
-            dynamElements.push(this);
+            dynamElements.push(allDescendants[i]);
             break;
           case 'fermata':
-            fermataElements.push(this);
+            fermataElements.push(allDescendants[i]);
             break;
           case 'trill':
-            trillElements.push(this);
+            trillElements.push(allDescendants[i]);
             break;
           case 'reh':
-            rehElements.push(this);
+            rehElements.push(allDescendants[i]);
             break;
           default:
             break;
         }
-      });
+      }
 
-      // the staff objects will be stored in two places:
+      // the stave objects will be stored in two places:
       // 1) in each MEI2VF.Measure
       // 2) in MEI2VF.Converter.allVexMeasureStaves
       var staves = me.initializeStavesInMeasure(system, staveElements, left_barline, right_barline, atSystemStart);
@@ -22685,9 +24082,9 @@ Vex.Flow.TextDynamics = (function(){
 
       var currentStaveVoices = new StaveVoices();
 
-      $.each(staveElements, function () {
-        me.processStaveEvents(staves, this, measureIndex, currentStaveVoices);
-      });
+      for (i = 0, j = staveElements.length; i < j; i++) {
+        me.processStaveEvents(staves, staveElements[i], measureIndex, currentStaveVoices);
+      }
 
       me.directives.createInfos(dirElements, element);
       me.dynamics.createInfos(dynamElements, element);
@@ -22723,14 +24120,14 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method initializeStavesInMeasure
      * @param {MEI2VF.System} system the current system
-     * @param {Element[]} staveElements all staff elements in the current
+     * @param {Element[]} staveElements all stave elements in the current
      * measure
      * @param {String} left_barline the left barline
      * @param {String} right_barline the right barline
      * @param {Boolean} atSystemStart indicates if the current measure is the system's start measure
      */
     initializeStavesInMeasure : function (system, staveElements, left_barline, right_barline, atSystemStart) {
-      var me = this, stave, stave_n, staves, isFirstVolta = true, clefOffsets = {}, maxClefOffset = 0, keySigOffsets = {}, maxKeySigOffset = 0, precedingMeasureStaves, newClef, currentStaveInfo;
+      var me = this, i, j, stave, stave_n, staves, isFirstVolta = true, clefOffsets = {}, maxClefOffset = 0, keySigOffsets = {}, maxKeySigOffset = 0, precedingMeasureStaves, newClef, currentStaveInfo, element, padding;
 
       staves = [];
 
@@ -22739,14 +24136,12 @@ Vex.Flow.TextDynamics = (function(){
       }
 
       // first run: create MEI2VF.Stave objects, store them in the staves
-      // array. Set staff barlines and staff volta. Add clef. Get each staff's
+      // array. Set stave barlines and stave volta. Add clef. Get each stave's
       // clefOffset and calculate the maxClefOffset.
-      $.each(staveElements, function () {
-        stave_n = +$(this).attr('n');
-        if (!stave_n) {
-          Logger.warn('@n expected', Util.serializeElement(this) +
-                                     ' does not contain an @n attribute. Proceeding in first staff.');
-          stave_n = 1;
+      for (i = 0, j = staveElements.length; i < j; i++) {
+        stave_n = parseInt(staveElements[i].getAttribute('n'), 10);
+        if (isNaN(stave_n)) {
+          throw new RuntimeError(Util.serializeElement(element) + ' must have an @n attribute of type integer.');
         }
 
         stave = new Stave({
@@ -22773,9 +24168,8 @@ Vex.Flow.TextDynamics = (function(){
         } else {
           currentStaveInfo = me.systemInfo.getStaveInfo(stave_n);
           if (!currentStaveInfo) {
-            throw new RuntimeError(Util.serializeElement(this) +
-                                                               ' refers to staff "' + stave_n +
-                                                  '", but no corresponding staff definition could be found in the document.');
+            throw new RuntimeError(Util.serializeElement(staveElements[i]) + ' refers to stave "' + stave_n +
+                                   '", but no corresponding stave definition could be found in the document.');
           }
           if (currentStaveInfo.showClefCheck()) {
             stave.addClefFromInfo(currentStaveInfo.getClef());
@@ -22784,40 +24178,45 @@ Vex.Flow.TextDynamics = (function(){
           maxClefOffset = Math.max(maxClefOffset, clefOffsets[stave_n]);
         }
         isFirstVolta = false;
-      });
+      }
 
-      // second run: add key signatures; if the clefOffset of a staff is less than
+      // second run: add key signatures; if the clefOffset of a stave is less than
       // maxClefOffset, add padding to the left of the key signature. Get each
-      // staff's keySigOffset and calculate the maxKeySigOffset.
-      $.each(staves, function (i, staff) {
-        var padding;
-        if (staff) {
+      // stave's keySigOffset and calculate the maxKeySigOffset.
+      j = staves.length;
+      for (i = 0; i < j; i++) {
+        stave = staves[i];
+        if (stave) {
           if (clefOffsets[i] !== maxClefOffset) {
             padding = maxClefOffset - clefOffsets[i] + 10;
+          } else {
+            padding = null;
           }
           currentStaveInfo = me.systemInfo.getStaveInfo(i);
           if (currentStaveInfo.showKeysigCheck()) {
-            staff.addKeySpecFromInfo(currentStaveInfo.getKeySpec(), padding);
+            stave.addKeySpecFromInfo(currentStaveInfo.getKeySpec(), padding);
           }
-          keySigOffsets[i] = staff.getModifierXShift();
+          keySigOffsets[i] = stave.getModifierXShift();
           maxKeySigOffset = Math.max(maxKeySigOffset, keySigOffsets[i]);
         }
-      });
+      }
 
-      // third run: add time signatures; if the keySigOffset of a staff is
+      // third run: add time signatures; if the keySigOffset of a stave is
       // less than maxKeySigOffset, add padding to the left of the time signature.
-      $.each(staves, function (i, stave) {
-        var padding;
+      for (i = 0; i < j; i++) {
+        stave = staves[i];
         if (stave) {
           if (keySigOffsets[i] !== maxKeySigOffset) {
             padding = maxKeySigOffset - keySigOffsets[i] + 15;
+          } else {
+            padding = null;
           }
           currentStaveInfo = me.systemInfo.getStaveInfo(i);
           if (currentStaveInfo.showTimesigCheck()) {
             stave.addTimeSpecFromInfo(currentStaveInfo.getTimeSpec(), padding);
           }
         }
-      });
+      }
 
       return staves;
     },
@@ -22846,7 +24245,7 @@ Vex.Flow.TextDynamics = (function(){
      * Processes a single stave in a measure
      *
      * @method processStaveEvents
-     * @param {Vex.Flow.Stave[]} staves the staff objects in the current
+     * @param {Vex.Flow.Stave[]} staves the stave objects in the current
      * measure
      * @param {Element} staveElement the MEI staff element
      * @param {Number} measureIndex the index of the current measure
@@ -22854,28 +24253,23 @@ Vex.Flow.TextDynamics = (function(){
      * object
      */
     processStaveEvents : function (staves, staveElement, measureIndex, currentStaveVoices) {
-      var me = this, stave, stave_n, readEvents, layerElements, i, j, layer_events, layerDir, staveInfo;
+      var me = this, stave, stave_n, readEvents, layerElements, i, j, k, l, childElements, vexNotes, layerDir, staveInfo, event;
 
-      stave_n = +$(staveElement).attr('n') || 1;
+      stave_n = parseInt(staveElement.getAttribute('n'), 10) || 1;
       stave = staves[stave_n];
 
       staveInfo = me.systemInfo.getStaveInfo(stave_n);
       var meter = staveInfo.getTimeSpec();
 
-      readEvents = function () {
-        var event = me.processNoteLikeElement(this, stave, stave_n, layerDir, staveInfo);
-        return event ? (event.vexNote || event) : null;
-      };
-
-      layerElements = $(staveElement).find('layer');
+      layerElements = staveElement.getElementsByTagName('layer');
 
       for (i = 0, j = layerElements.length; i < j; i++) {
         layerDir = (j > 1) ? (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null;
         me.resolveUnresolvedTimestamps(layerElements[i], stave_n, measureIndex, meter);
         staveInfo.checkInitialClef();
-        layer_events = $(layerElements[i]).children().map(readEvents).get();
-        currentStaveVoices.addVoice(me.createVexVoice(layer_events, meter), stave_n);
 
+        vexNotes = me.processNoteLikeChildren(layerElements[i], stave, stave_n, layerDir, staveInfo);
+        currentStaveVoices.addVoice(me.createVexVoice(vexNotes, meter), stave_n);
       }
 
       // if there is a clef not yet attached to a note (i.e. the last clef), add it to the last voice
@@ -22897,7 +24291,7 @@ Vex.Flow.TextDynamics = (function(){
      */
     createVexVoice : function (voice_contents, meter) {
       var me = this, voice;
-      if (!$.isArray(voice_contents)) {
+      if (!Array.isArray(voice_contents)) {
         throw new RuntimeError('me.createVexVoice() voice_contents argument must be an array.');
       }
       voice = new VF.Voice({
@@ -22914,23 +24308,42 @@ Vex.Flow.TextDynamics = (function(){
      * @method resolveUnresolvedTimestamps
      */
     resolveUnresolvedTimestamps : function (layer, stave_n, measureIndex, meter) {
-      var me = this, refLocationIndex;
+      var me = this, refLocationIndex, i, j, unresolvedTStamp2;
       // check if there's an unresolved TStamp2 reference to this location
       // (measure, staff, layer):
       stave_n = stave_n || 1;
-      refLocationIndex = measureIndex + ':' + stave_n + ':' + ($(layer).attr('n') || '1');
-      if (me.unresolvedTStamp2[refLocationIndex]) {
-        $(me.unresolvedTStamp2[refLocationIndex]).each(function (i) {
-          this.setContext({
+      refLocationIndex = measureIndex + ':' + stave_n + ':' + (parseInt(layer.getAttribute('n'), 10) || '1');
+      unresolvedTStamp2 = me.unresolvedTStamp2[refLocationIndex];
+      if (unresolvedTStamp2) {
+        for (i = 0, j = unresolvedTStamp2.length; i < j; i++) {
+          unresolvedTStamp2[i].setContext({
             layer : layer,
             meter : meter
           });
           // TODO: remove eventLink from the list
-          me.unresolvedTStamp2[refLocationIndex][i] = null;
-        });
+          unresolvedTStamp2[i] = null;
+        }
         // at this point all references should be supplied with context.
         me.unresolvedTStamp2[refLocationIndex] = null;
       }
+    },
+
+    processNoteLikeChildren : function (element, stave, stave_n, layerDir, staveInfo) {
+      var me = this, vexNotes = [], k, l, processingResults;
+      var childElements = element.childNodes;
+      for (k = 0, l = childElements.length; k < l; k++) {
+        if (childElements[k].nodeType === 1) {
+          processingResults = me.processNoteLikeElement(childElements[k], stave, stave_n, layerDir, staveInfo);
+          if (processingResults) {
+            if (Array.isArray(processingResults)) {
+              vexNotes = vexNotes.concat(processingResults);
+            } else {
+              vexNotes.push(processingResults);
+            }
+          }
+        }
+      }
+      return vexNotes;
     },
 
     /**
@@ -22939,8 +24352,8 @@ Vex.Flow.TextDynamics = (function(){
      *
      * @method processNoteLikeElement
      * @param {Element} element the element to process
-     * @param {MEI2VF.Stave} stave the containing staff
-     * @param {Number} stave_n the number of the containing staff
+     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Number} stave_n the number of the containing stave
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
      * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
@@ -22972,7 +24385,7 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    processAnchoredText : function (element, stave, stave_n, layerDir, staffInfo) {
+    processAnchoredText : function (element, stave, stave_n, layerDir, staveInfo) {
     },
 
     /**
@@ -22999,9 +24412,9 @@ Vex.Flow.TextDynamics = (function(){
             stave = otherStave;
             clef = me.systemInfo.getClef(stave_n);
           } else {
-            Logger.warn('Staff not found', 'No staff could be found which corresponds to @staff="' + mei_stave_n +
+            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + mei_stave_n +
                                            '" specified in ' + Util.serializeElement(element) +
-                                           '". Adding note to current staff.');
+                                           '". Adding note to current stave.');
           }
         }
 
@@ -23028,15 +24441,15 @@ Vex.Flow.TextDynamics = (function(){
 
 
         // FIXME For now, we'll remove any child nodes of <note>
-        $(element).children().each(function () {
-          $(this).remove();
-        });
+        while (element.firstChild) {
+          element.removeChild(element.firstChild);
+        }
 
         if (mei_tie) {
           me.processAttrTie(mei_tie, xml_id, vexPitch, stave_n);
         }
         if (mei_slur) {
-          me.processAttrSlur(mei_slur, xml_id);
+          me.processSlurAttribute(mei_slur, xml_id);
         }
 
         me.notes_by_id[xml_id] = {
@@ -23060,14 +24473,11 @@ Vex.Flow.TextDynamics = (function(){
             me.currentGraceNotes = [];
           }
         }
-        return {
-          vexNote : note,
-          id : xml_id
-        };
+        return note;
 
       } catch (e) {
         throw new RuntimeError('A problem occurred processing ' + Util.serializeElement(element) +
-                                               '\nORIGINAL ERROR MESSAGE: ' + e.toString());
+                               '\nORIGINAL ERROR MESSAGE: ' + e.toString());
       }
     },
 
@@ -23075,9 +24485,9 @@ Vex.Flow.TextDynamics = (function(){
      * @method processChord
      */
     processChord : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, children, xml_id, chord, chord_opts, atts;
+      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j;
 
-      children = $(element).children('note');
+      noteElements = element.getElementsByTagName('note');
 
       atts = Util.attsToObj(element);
 
@@ -23086,7 +24496,7 @@ Vex.Flow.TextDynamics = (function(){
       try {
 
         chord_opts = {
-          children : children,
+          noteElements : noteElements,
           clef : staveInfo.getClef(),
           stave : stave,
           element : element,
@@ -23102,10 +24512,10 @@ Vex.Flow.TextDynamics = (function(){
 
         var allNoteIndices = [];
 
-        children.each(function (i) {
-          me.processNoteInChord(i, this, element, chord, stave_n, layerDir);
+        for (i = 0, j = noteElements.length; i < j; i++) {
+          me.processNoteInChord(i, noteElements[i], element, chord, stave_n, layerDir);
           allNoteIndices.push(i);
-        });
+        }
 
         me.notes_by_id[xml_id] = {
           meiNote : element,
@@ -23129,16 +24539,13 @@ Vex.Flow.TextDynamics = (function(){
             me.currentGraceNotes = [];
           }
         }
-        return {
-          vexNote : chord,
-          id : xml_id
-        };
+        return chord;
       } catch (e) {
-        var childStrings = $(element).children().map(function () {
-          return '\n    ' + Util.serializeElement(this);
-        }).get().join('');
-        throw new RuntimeError('A problem occurred processing \n' + Util.serializeElement(element) +
-                                               childStrings + '\n</chord>\nORIGINAL ERROR MESSAGE: ' + e.toString());
+        var xmlString = Util.serializeElement(element), i;
+        for (i = 0, j = noteElements.length; i < j; i++) {
+          xmlString += '\n    ' + Util.serializeElement(noteElements[i]);
+        }
+        throw new RuntimeError('A problem occurred processing \n' + xmlString + '\n</chord>\n: ' + e.toString());
       }
     },
 
@@ -23158,7 +24565,7 @@ Vex.Flow.TextDynamics = (function(){
         me.processAttrTie(atts.tie, xml_id, vexPitch, stave_n);
       }
       if (atts.slur) {
-        me.processAttrSlur(atts.slur, xml_id);
+        me.processSlurAttribute(atts.slur, xml_id);
       }
 
       me.notes_by_id[xml_id] = {
@@ -23202,10 +24609,7 @@ Vex.Flow.TextDynamics = (function(){
           vexNote : rest,
           system : me.currentSystem_n
         };
-        return {
-          vexNote : rest,
-          id : xml_id
-        };
+        return rest;
       } catch (e) {
         console.log(e);
         throw new RuntimeError('A problem occurred processing ' + Util.serializeElement(element));
@@ -23235,10 +24639,7 @@ Vex.Flow.TextDynamics = (function(){
           vexNote : mRest,
           system : me.currentSystem_n
         };
-        return {
-          vexNote : mRest,
-          id : xml_id
-        };
+        return mRest;
       } catch (e) {
         throw new RuntimeError('A problem occurred processing ' + Util.serializeElement(element));
       }
@@ -23251,15 +24652,13 @@ Vex.Flow.TextDynamics = (function(){
       var space = null;
       if (element.hasAttribute('dur')) {
         try {
-          space = {
-            vexNote : new Space({ element : element, stave : stave })
-          };
+          space = new Space({ element : element, stave : stave });
         } catch (e) {
           throw new RuntimeError('A problem occurred processing ' + Util.serializeElement(element));
         }
       } else {
         Logger.info('@dur expected', 'No duration attribute in ' + Util.serializeElement(element) +
-                                       '". Ignoring element.');
+                                     '". Ignoring element.');
       }
       return space;
     },
@@ -23267,8 +24666,8 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processClef
      * @param {Element} element the MEI clef element
-     * @param {MEI2VF.Stave} stave the containing staff
-     * @param {Number} stave_n the number of the containing staff
+     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Number} stave_n the number of the containing stave
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
      * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
@@ -23280,34 +24679,30 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processBeam
      * @param {Element} element the MEI beam element
-     * @param {MEI2VF.Stave} stave the containing staff
-     * @param {Number} stave_n the number of the containing staff
+     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Number} stave_n the number of the containing stave
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
      * @param {MEI2VF.StaveInfo} staveInfo
      */
     processBeam : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, elements;
+      var me = this, vexNotes, childElements, k, l;
       me.inBeamNo += 1;
-      var process = function () {
-        // make sure to get vexNote out of wrapped note objects
-        var proc_element = me.processNoteLikeElement(this, stave, stave_n, layerDir, staveInfo);
-        return proc_element ? (proc_element.vexNote || proc_element) : null;
-      };
-      elements = $(element).children().map(process).get();
+
+      vexNotes = me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
 
       // TODO remove filter later and modify beam object to skip objects other than note and clef
-      var filteredElements = elements.filter(function (element) {
+      var filteredElements = vexNotes.filter(function (element) {
         return element.beamable === true;
       });
 
       // set autostem parameter of VF.Beam to true if neither layerDir nor any stem direction in the beam is specified
 
-      if (elements.length > 0) {
+      if (vexNotes.length > 0) {
         try {
           me.allBeams.push(new VF.Beam(filteredElements, !layerDir && !me.hasStemDirInBeam));
         } catch (e) {
-          Logger.error('VexFlow Error', 'An error occurred processing ' + Util.serializeElement(element) +
-                                         ': "'+ e.toString() + '". Ignoring beam creation.');
+          Logger.error('VexFlow Error', 'An error occurred processing ' + Util.serializeElement(element) + ': "' +
+                                        e.toString() + '". Ignoring beam.');
         }
       }
 
@@ -23315,7 +24710,7 @@ Vex.Flow.TextDynamics = (function(){
       if (me.inBeamNo === 0) {
         me.hasStemDirInBeam = false;
       }
-      return elements;
+      return vexNotes;
     },
 
     /**
@@ -23330,30 +24725,26 @@ Vex.Flow.TextDynamics = (function(){
      *
      * @method processTuplet
      * @param {Element} element the MEI tuplet element
-     * @param {MEI2VF.Stave} stave the containing staff
-     * @param {Number} stave_n the number of the containing staff
+     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Number} stave_n the number of the containing stave
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
      * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
      */
     processTuplet : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, elements, tuplet, bracketPlace;
-      var process = function () {
-        // make sure to get vexNote out of wrapped note objects
-        var proc_element = me.processNoteLikeElement(this, stave, stave_n, layerDir, staveInfo);
-        return proc_element ? (proc_element.vexNote || proc_element) : null;
-      };
-      elements = $(element).children().map(process).get();
+      var me = this, vexNotes, tuplet, bracketPlace;
 
-      if (elements.length === 0) {
+      vexNotes = me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
+
+      if (vexNotes.length === 0) {
         Logger.warn('Missing content', 'Not content found in ' + Util.serializeElement(element) +
-                                       '". Ignoring tuplet creation.');
+                                       '". Ignoring tuplet.');
         return;
       }
 
-      tuplet = new VF.Tuplet(elements, {
-        num_notes : +element.getAttribute('num') || 3,
-        beats_occupied : +element.getAttribute('numbase') || 2
+      tuplet = new VF.Tuplet(vexNotes, {
+        num_notes : parseInt(element.getAttribute('num'), 10) || 3,
+        beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
       });
 
       if (element.getAttribute('num.format') === 'ratio') {
@@ -23368,7 +24759,7 @@ Vex.Flow.TextDynamics = (function(){
       }
 
       me.allTuplets.push(tuplet);
-      return elements;
+      return vexNotes;
     },
 
     /**
@@ -23393,25 +24784,26 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     /**
-     * @method processAttrSlur
+     * @method processSlurAttribute
      */
-    processAttrSlur : function (mei_slur, xml_id) {
-      var me = this, tokens;
+    processSlurAttribute : function (mei_slur, xml_id) {
+      var me = this, tokens, token, i, j;
       if (mei_slur) {
         // create a list of { letter, num }
         tokens = me.parseSlurAttribute(mei_slur);
-        $.each(tokens, function () {
-          if (this.letter === 't') {
+        for (i = 0, j = tokens.length; i < j; i++) {
+          token = tokens[i];
+          if (token.letter === 't') {
             me.slurs.terminateSlur(xml_id, {
-              nesting_level : this.nesting_level
+              nesting_level : token.nesting_level
             });
           }
-          if (this.letter === 'i') {
+          if (token.letter === 'i') {
             me.slurs.startSlur(xml_id, {
-              nesting_level : this.nesting_level
+              nesting_level : token.nesting_level
             });
           }
-        });
+        }
       }
     },
 
@@ -23448,42 +24840,31 @@ Vex.Flow.TextDynamics = (function(){
      * @method processSyllables
      */
     processSyllables : function (note, element, stave_n) {
-      var me = this, vexSyllable;
-      $(element).find('syl').each(function () {
-        vexSyllable = new Syllable(this, me.cfg.lyricsFont);
+      var me = this, i, j, syllables, vexSyllable;
+      syllables = element.getElementsByTagName('syl');
+      for (i = 0, j = syllables.length; i < j; i++) {
+        vexSyllable = new Syllable(syllables[i], me.cfg.lyricsFont);
         note.addAnnotation(0, vexSyllable);
-        me.systems[me.currentSystem_n].verses.addSyllable(vexSyllable, this, stave_n);
-      });
-    },
-
-    /**
-     * @method drawSystems
-     */
-    drawSystems : function (ctx) {
-      var me = this, i = me.systems.length;
-      while (i--) {
-        if (me.systems[i]) {
-          me.systems[i].format(ctx).draw(ctx);
-        }
+        me.systems[me.currentSystem_n].verses.addSyllable(vexSyllable, syllables[i], stave_n);
       }
     },
 
-    /**
-     * @method drawVexBeams
-     */
-    drawVexBeams : function (beams, ctx) {
-      $.each(beams, function () {
-        this.setContext(ctx).draw();
-      });
+    setContextAndDraw : function (items, ctx) {
+      var i, j;
+      for (i = 0, j = items.length; i < j; i++) {
+        items[i].setContext(ctx).draw();
+      }
     },
-    /**
-     * @method drawVexBeams
-     */
-    drawVexTuplets : function (tuplets, ctx) {
-      $.each(tuplets, function () {
-        this.setContext(ctx).draw();
-      });
+
+    checkSetContextAndDraw : function (items, ctx) {
+      var i, j;
+      for (i = 0, j = items.length; i < j; i++) {
+        if (items[i]) {
+          items[i].format(ctx).draw(ctx);
+        }
+      }
     }
+
   };
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
@@ -23557,31 +24938,6 @@ Vex.Flow.TextDynamics = (function(){
         pageRightMar : convert(obj['page.rightmar'])
       };
     }
-  };
-
-  /**
-   * @exports core/RuntimeError
-   */
-
-  /**
-   * @class MSV.RuntimeError
-   * @private
-   *
-   * @constructor
-   * @param {String} error_code
-   * @param {String} message
-   */
-  var RuntimeError = function (error_code, message) {
-    this.error_code = error_code;
-    this.message = message;
-  };
-
-  /**
-   * @method
-   * @return {String} the string representation of the error
-   */
-  RuntimeError.prototype.toString = function () {
-    return 'MSV.RuntimeError, code "' + this.error_code + '": ' + this.message;
   };
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
@@ -23663,7 +25019,7 @@ Vex.Flow.TextDynamics = (function(){
           layers[i].setContext(ctx);
           layers[i].setScale(cfg.pageScale);
         } else {
-          throw new RuntimeError('Configuration Error', 'Layer type "' + layers[i].type + '" not valid.');
+          throw new RuntimeError('Layer type "' + layers[i].type + '" not valid.');
         }
         me.scaleContext(ctx, cfg);
       }
@@ -24930,18 +26286,18 @@ Vex.Flow.TextDynamics = (function(){
       var me = this, xmlDoc, firstScoreDef, cfg, canvas, ctx, meiDoc, layers;
 
       if (!config) {
-        throw new RuntimeError('NoConfig', 'No config passed to Viewer.');
+        throw new RuntimeError('No config passed to Viewer.');
       }
 
       if (!config.data) {
-        throw new RuntimeError('MissingData', 'No XML document passed to Viewer.');
+        throw new RuntimeError('No XML document passed to Viewer.');
       }
 
       xmlDoc = Document.initXmlDoc(config.data);
 
       firstScoreDef = xmlDoc.getElementsByTagName('scoreDef')[0];
       if (!firstScoreDef) {
-        throw new RuntimeError('BadMEIFile', 'No <scoreDef> found in config.data.');
+        throw new RuntimeError('No <scoreDef> found in config.data.');
       }
 
       me.cfg = $.extend(true, {}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
@@ -25064,35 +26420,35 @@ Vex.Flow.TextDynamics = (function(){
   AbstractAreaCollection.prototype = {
 
     setElement : function (element) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setElement() provided.');
+      throw new RuntimeError('No override for setElement() provided.');
     },
 
     setContext : function (ctx) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setContext() provided.');
+      throw new RuntimeError('No override for setContext() provided.');
     },
 
     setScale : function (scale) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setScale() provided.');
+      throw new RuntimeError('No override for setScale() provided.');
     },
 
     addAreas : function (areas) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for addAreas() provided.');
+      throw new RuntimeError('No override for addAreas() provided.');
     },
 
     initHighlights : function () {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for initHighlights() provided.');
+      throw new RuntimeError('No override for initHighlights() provided.');
     },
 
     removeHighlight : function () {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for removeHighlight() provided.');
+      throw new RuntimeError('No override for removeHighlight() provided.');
     },
 
     onClick : function (mousePos, topCanvas, e) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for onClick() provided.');
+      throw new RuntimeError('No override for onClick() provided.');
     },
 
     onMouseMove : function (mousePos, topCanvas, e) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for onMouseMove() provided.');
+      throw new RuntimeError('No override for onMouseMove() provided.');
     }
 
   };

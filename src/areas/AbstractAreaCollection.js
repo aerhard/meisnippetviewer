@@ -15,7 +15,7 @@
  *
  */
 define([
-  'msv/core/RuntimeError',
+  'common/RuntimeError',
 ], function (RuntimeError, undefined) {
   /**
    * @exports areas/AbstractAreaCollection
@@ -31,35 +31,35 @@ define([
   AbstractAreaCollection.prototype = {
 
     setElement : function (element) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setElement() provided.');
+      throw new RuntimeError('No override for setElement() provided.');
     },
 
     setContext : function (ctx) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setContext() provided.');
+      throw new RuntimeError('No override for setContext() provided.');
     },
 
     setScale : function (scale) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for setScale() provided.');
+      throw new RuntimeError('No override for setScale() provided.');
     },
 
     addAreas : function (areas) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for addAreas() provided.');
+      throw new RuntimeError('No override for addAreas() provided.');
     },
 
     initHighlights : function () {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for initHighlights() provided.');
+      throw new RuntimeError('No override for initHighlights() provided.');
     },
 
     removeHighlight : function () {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for removeHighlight() provided.');
+      throw new RuntimeError('No override for removeHighlight() provided.');
     },
 
     onClick : function (mousePos, topCanvas, e) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for onClick() provided.');
+      throw new RuntimeError('No override for onClick() provided.');
     },
 
     onMouseMove : function (mousePos, topCanvas, e) {
-      throw new RuntimeError('AbstractAreaCollection', 'No override for onMouseMove() provided.');
+      throw new RuntimeError('No override for onMouseMove() provided.');
     }
 
   };

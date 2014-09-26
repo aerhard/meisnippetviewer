@@ -1,11 +1,11 @@
 define([
   'mei2vf/vexflow-overrides',
-  'mei2vf/core/Logger',
+  'common/Logger',
   'msv/core/Viewer',
   'msv/areas/AbstractAreaCollection',
   'msv/areas/DefaultAreaCollection',
   'msv/core/overrides',
-  'mei2vf/core/Util'
+  'common/Util'
 ], function (vf_overrides, Logger, Viewer, AbstractAreaCollection, DefaultAreaCollection, overrides, Util) {
 
   window.MSV = {
