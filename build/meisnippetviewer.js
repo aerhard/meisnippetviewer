@@ -14632,6 +14632,43 @@ Vex.Flow.TextDynamics = (function(){
   return TextDynamics;
 })();;var VF = Vex.Flow;;
 
+  VF.Tremolo.prototype.draw = function () {
+    if (!this.context) throw new Vex.RERR("NoContext",
+      "Can't draw Tremolo without a context.");
+    if (!(this.note && (this.index != null))) throw new Vex.RERR("NoAttachedNote",
+      "Can't draw Tremolo without a note and index.");
+
+
+    var stem = this.note.getStem();
+
+    var start, x,y;
+
+    if (this.note.duration === 'w') {
+      x = (stem.x_end + stem.x_begin) / 2;
+      if (stem.stem_direction === 1) {
+        y = stem.getExtents().topY - (this.y_spacing * this.num / 2) + stem.stem_extension;
+      } else {
+        start = this.note.getModifierStartXY(this.position, this.index);
+        y = start.y;
+      }
+    } else if (stem.stem_direction === 1) {
+      x = stem.x_end;
+      y = stem.getExtents().topY - (this.y_spacing * this.num / 2);
+    } else {
+      start = this.note.getModifierStartXY(this.position, this.index);
+      x = start.x; // or stem.x_begin
+      y = start.y;
+    }
+
+    x += this.shift_right;
+    for (var i = 0; i < this.num; ++i) {
+      Vex.Flow.renderGlyph(this.context, x, y,
+        this.render_options.font_scale, this.code);
+      y += this.y_spacing;
+    }
+  };
+
+
   VF.Annotation.prototype.setMeiElement = function (element) {
     this.meiElement = element;
     return this;
@@ -16188,38 +16225,11 @@ Vex.Flow.TextDynamics = (function(){
     
   };
 
-  /*
-   * meilib.js
-   *
-   * Author: Zoltan Komives Created: 05.07.2013
-   *
-   * Copyright © 2012, 2013 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
-   * University of Maryland
-   *
-   * Licensed under the Apache License, Version 2.0 (the "License"); you may not
-   * use this file except in compliance with the License. You may obtain a copy of
-   * the License at
-   *
-   * http://www.apache.org/licenses/LICENSE-2.0
-   *
-   * Unless required by applicable law or agreed to in writing, software
-   * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-   * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-   * License for the specific language governing permissions and limitations under
-   * the License.
-   */
-  /**
-   * Contributor: Alexander Erhard
-   */
-  /**
-   * @class MeiLib
-   * MeiLib - General purpose JavaScript functions for processing MEI documents.
-   * @singleton
-   */
-  var MeiLib = {};
+
+  if (!window.MeiLib) window.MeiLib = {};
 
   /**
-   * @class MeiLib.RuntimeError
+   * @class RuntimeError
    *
    * @constructor
    * @param {String} errorcode
@@ -16239,16 +16249,13 @@ Vex.Flow.TextDynamics = (function(){
   /**
    * @class MeiLib
    * @singleton
-   */
+   */;
+
+
+  if (!window.MeiLib) window.MeiLib = {};
 
   /**
-   * @method createPseudoUUID
-   */
-  MeiLib.createPseudoUUID = function () {
-    return ("0000" + (Math.random() * Math.pow(36, 4) << 0).toString(36)).substr(-4)
-  };
-  /**
-   * @class MeiLib.EventEnumerator
+   * @class EventEnumerator
    * Enumerate over the children events of node (node is a layer, beam or tuplet).
    * @constructor
    * @param {Object} node an XML DOM object
@@ -16256,7 +16263,7 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.EventEnumerator = function (node, proportion) {
     this.init(node, proportion);
-  }
+  };
   /**
    * @method init
    * @param {} node
@@ -16268,9 +16275,9 @@ Vex.Flow.TextDynamics = (function(){
     }
     this.node = node;
     this.next_evnt = null;
-    this.EoI = true;
     // false if and only if next_evnt is valid.
-    this.children = $(this.node).children();
+    this.EoI = true;
+    this.children = this.node.childNodes;
     this.i_next = -1;
     this.proportion = proportion || {
       num : 1,
@@ -16281,9 +16288,10 @@ Vex.Flow.TextDynamics = (function(){
       numbase : 1
     };
     this.read_ahead();
-  }
+  };
   /**
    * @method nextEvent
+   * @public
    * @return
    */
   MeiLib.EventEnumerator.prototype.nextEvent = function () {
@@ -16293,9 +16301,11 @@ Vex.Flow.TextDynamics = (function(){
       return result;
     }
     throw new MeiLib.RuntimeError('MeiLib.LayerEnum:E01', 'End of Input.')
-  }
+  };
+
   /**
    * @method read_ahead
+   * @private
    * @return
    */
   MeiLib.EventEnumerator.prototype.read_ahead = function () {
@@ -16311,17 +16321,27 @@ Vex.Flow.TextDynamics = (function(){
     } else {
       this.step_ahead()
     }
-  }
+  };
+
   /**
    * @method step_ahead
+   * @private
    */
   MeiLib.EventEnumerator.prototype.step_ahead = function () {
-    ++this.i_next;
-    if (this.i_next < this.children.length) {
-      this.next_evnt = this.children[this.i_next];
-      var node_name = $(this.next_evnt).prop('localName');
+    var end = false, i_next = this.i_next, children = this.children;
+
+    while (!end) {
+      ++i_next;
+      if (i_next === children.length || children[i_next].nodeType === 1) {
+        end = true;
+      }
+    }
+
+    if (i_next < children.length) {
+      this.next_evnt = children[i_next];
+      var node_name = this.next_evnt.localName;
       if (node_name === 'note' || node_name === 'rest' || node_name === 'mRest' || node_name === 'chord') {
-        this.EoI = false
+        this.EoI = false;
       } else if (node_name === 'beam') {
         this.beam_enumerator = new MeiLib.EventEnumerator(this.next_evnt);
         if (!this.beam_enumerator.EoI) {
@@ -16350,11 +16370,875 @@ Vex.Flow.TextDynamics = (function(){
     } else {
       this.EoI = true;
     }
+    this.i_next = i_next;
+  };
+
+
+  if (!window.MeiLib) window.MeiLib = {};
+
+  /**
+   * @method SliceMEI
+   * Returns a slice of the MEI. The slice is specified by the number of the
+   * starting and ending measures.
+   *
+   * About the <code>staves</code> parameter: it specifies a list of staff
+   * numbers. If it is defined, only the listed staves will be kept in the
+   * resulting slice. The following elements will be removed from:
+   *
+   * 1. <b>staffDef</b> elements (@staff value is matched against the specified list)
+   * 2. <b>staff</b> elements (@n value is matched against the specified list)
+   * 3. any other child element of measures that has
+   *
+   * @staff specified AND it is not listed.
+   *
+   * Note that <b>staff</b> elements without @n will be removed.
+   *
+   * @param {Object} MEI
+   * @param {Object} params like { start_n:NUMBER, end_n:NUMBER, noKey:BOOLEAN,
+ *            noClef:BOOLEAN, noMeter:BOOLEAN, noConnectors, staves:[NUMBER] },
+   *            where <code>noKey</code>, <code>noClef</code> and
+   *            <code>noMeter</code> and <code>noConnectors</code> are
+   *            optional. taves is optional. If staves is set, it is an array of
+   *            staff numbers. Only the staves specified in the list will be
+   *            included in the resulting MEI.
+   * @return XML DOM object
+   */
+  MeiLib.SliceMEI = function (MEI, params) {
+
+    var i, j;
+
+    var setVisibles = function (elements, params) {
+      var i, j, elem;
+      for (i = 0, j = elements.length; i < j; i++) {
+        elem = elements[i];
+        if (params.noClef) {
+          elem.setAttribute('clef.visible', 'false');
+        }
+        if (params.noKey) {
+          elem.setAttribute('key.sig.show', 'false');
+        }
+        if (params.noMeter) {
+          elem.setAttribute('meter.rend', 'false');
+        }
+      }
+    };
+
+    /**
+     * Keep or remove child from section depending whether it's inside the section or not.
+     * If it's kept, remove unwanted staves
+     */
+    var keepOrRemove = function (elem, inside_slice, staffNSelector, params) {
+      var i, j, staffElements, staffElement, n, removed = false;
+      if (!inside_slice) {
+        if (elem.localName === 'measure' && Number(elem.getAttribute('n')) === params.start_n) {
+          inside_slice = true;
+        } else {
+          elem.parentNode.removeChild(elem);
+          removed = true;
+        }
+      }
+
+      if (inside_slice) {
+        // remove unwanted staff
+        if (params.staves && elem.nodeType === 1) {
+//          $(elem).find('[staff]').remove(':not(' + staffNSelector + ')');
+
+          var elementsToRemove = elem.querySelectorAll('[staff]' + staffNSelector);
+          for (i= 0, j=elementsToRemove.length;i<j;i++){
+            elementsToRemove[i].parentNode.removeChild(elementsToRemove[i]);
+          }
+
+          staffElements = elem.getElementsByTagName('staff');
+          for (i = 0, j = staffElements.length; i < j; i++) {
+            staffElement = staffElements[i];
+            n = Number(staffElement.getAttribute('n'));
+            if (params.staves.indexOf(n) === -1) {
+              staffElement.parentNode.removeChild(staffElement);
+              i--;
+              j--;
+            }
+          }
+        }
+
+        // finish inside_slice state if it's the end of slice.
+        if (elem.localName === 'measure' && Number(elem.getAttribute('n')) === params.end_n) {
+          inside_slice = false;
+        }
+      }
+      return {inside_slice: inside_slice, removed: removed};
+    };
+
+    var paramsStaves = params.staves;
+    if (paramsStaves) {
+      var staffDefSelector = '';
+      var staffNSelector = '';
+      for (i = 0, j = paramsStaves.length; i < j; i++) {
+        staffDefSelector += ':not([n="' + paramsStaves[i] + '"])';
+        staffNSelector += ':not([staff="' + paramsStaves[i] + '"])';
+      }
+    }
+
+    var slice = MEI.cloneNode(true);
+    if (paramsStaves) {
+      var staffDefsToRemove = slice.querySelectorAll('staffDef' + staffDefSelector);
+
+      for (i= 0, j=staffDefsToRemove.length;i<j;i++){
+        staffDefsToRemove[i].parentNode.removeChild(staffDefsToRemove[i]);
+      }
+      //$(slice.getElementsByTagName('staffDef')).remove(':not(' + staffDefSelector + ')');
+    }
+    if (params.noClef || params.noKey || params.noMeter) {
+      var scoreDef = slice.getElementsByTagName('scoreDef')[0];
+      var staffDefs = scoreDef.getElementsByTagName('staffDef');
+      setVisibles([scoreDef], params);
+      setVisibles(staffDefs, params);
+    }
+    if (params.noConnectors) {
+      var staffGrpElements = slice.getElementsByTagName('staffGrp');
+      for (i = 0, j = staffGrpElements.length; i < j; i++) {
+        staffGrpElements[i].removeAttribute('symbol');
+      }
+
+    }
+    var section = slice.getElementsByTagName('section')[0];
+    var inside_slice = false;
+
+    /*
+     * Iterate through each child of the section and remove everything outside
+     * the slice. Remove
+     */
+    var section_children = section.childNodes;
+    var sectionChild;
+
+//    $(section_children).each(function () {
+
+    var o, p, q, r, res;
+    for (o=0,p=section_children.length;o<p;o++) {
+
+      sectionChild = section_children[o];
+
+      if (sectionChild.localName === 'ending') {
+        var ending_children = sectionChild.childNodes;
+
+        for (q=0,r=ending_children.length;q<r;q++){
+          res = keepOrRemove(ending_children[q], inside_slice, staffNSelector, params);
+          inside_slice = res.inside_slice;
+          if (res.removed){
+            q--;
+            r--;
+          }
+        }
+        if (sectionChild.getElementsByTagName('measure').length === 0) {
+          sectionChild.parentNode.removeChild(sectionChild);
+          o--;
+          p--;
+        }
+      } else {
+        res = keepOrRemove(sectionChild, inside_slice, staffNSelector, params);
+        inside_slice = res.inside_slice;
+        if (res.removed){
+          o--;
+          p--;
+        }
+      }
+
+    }
+
+    return slice;
+  };
+
+
+  if (!window.MeiLib) window.MeiLib = {};
+
+  /**
+   * Represents an MEI <b>app</b> or <b>choice</b> element.
+   *
+   * @class MeiLib.Alt
+   * @constructor
+   * @param {Element} elem
+   * @param {String} xmlID the xml:id attribute value of the <b>app</b> or
+   * <b>choice</b> element.
+   * @param {String} parentID the xml:id attribute value of the direct parent
+   * element of the <b>app</b> or <b>choice</b> element.
+   * @param {String} tagname
+   */
+  MeiLib.Alt = function (elem, xmlID, parentID, tagname) {
+    this.elem = elem;
+    this.xmlID = xmlID;
+    this.altitems = [];
+    this.parentID = parentID;
+    this.tagname = tagname;
+  };
+
+  MeiLib.Alt.prototype.getDefaultItem = function () {
+
+    /* find the editors pick or the first alternative */
+    var findDefault = function (altitems, editorspick_tagname, other_tagname) {
+      var first_sic, alt;
+      for (alt in altitems) {
+        if (altitems[alt].tagname === editorspick_tagname) {
+          return altitems[alt];
+        } else if (!first_sic && (altitems[alt].tagname === other_tagname)) {
+          first_sic = altitems[alt];
+        }
+      }
+      return first_sic;
+    };
+    if (this.tagname === 'choice') {
+      return findDefault(this.altitems, 'corr', 'sic');
+    } else if (this.tagname === 'app') {
+      //      return findDefault(this.altitems, 'lem', 'rdg');
+      return findDefault(this.altitems, 'lem');
+    }
+  };
+
+
+  if (!window.MeiLib) window.MeiLib = {};
+
+  /**
+   * @class MeiLib.Variant
+   * Represents a <b>lem</b>, <b>rdg</b>, <b>sic</b> or <b>corr</b> element.
+   *
+   * @constructor
+   * @param elem {Element}
+   * @param xmlID {String} the xml:id attribute value of the element.
+   * @param tagname {String} 'lem' for <b>lem</b> and 'rdg for <b>rdg</b> elements.
+   * @param source {String} space-separated list of the source IDs what the given
+   *            item belongs to.
+   * @param resp {String} xmlID of the editor responsible for the given reading or
+   *            correction.
+   * @param n {String} @n attribute value of the element.
+   */
+  MeiLib.Variant = function (elem, xmlID, tagname, source, resp, n) {
+    this.elem = elem;
+    this.xmlID = xmlID;
+    this.tagname = tagname;
+    this.source = source;
+    this.resp = resp;
+    this.n = n;
+  };
+
+
+  if (!window.MeiLib) window.MeiLib = {};
+
+  /**
+   * @class MeiLib.MeiDoc
+   * A Rich MEI is an MEI that contain ambiguity represented by Critical Apparatus
+   * (<b>app</b>, <b>rdg</b>, etc.), or Editorial Transformation (<b>choice</b>,
+   * <b>corr</b>, etc.)
+   * elements.
+   *
+   * @constructor
+   * @param {XMLDocument} meiXmlDoc the MEI document.
+   */
+  MeiLib.MeiDoc = function (meiXmlDoc) {
+    if (meiXmlDoc) {
+      this.init(meiXmlDoc);
+    }
   }
   /**
+   * @method init
+   * Initializes a <code>MeiLib.MeiDoc</code> object.
+   *
+   * The constructor extracts information about alternative encodings and compiles
+   * them into a JS object (this.ALTs). The obejcts are exposed as per the
+   * following: 1. <code>sourceList</code> is the list of sources as defined in
+   * the MEI header (meiHead). 2. <code>editorList</code> is the list of editors
+   * listed in the MEI header. 3. <code>ALTs</code> is the object that contains
+   * information about the alternative encodings. It contains one entry per for
+   * each <b>app</b> or <b>choice</b> element. It is indexed by the xml:id
+   * attribute value of the elements. 4. <code>altgroups</code> is the obejct that
+   * contains how <b>app</b> and <b>choice</b> elements are grouped together to
+   * form a logical unit of alternative encoding.
+   *
+   * @param {XMLDocument} meiXmlDoc an XML document containing the rich MEI
+   */
+  MeiLib.MeiDoc.prototype.init = function (meiXmlDoc) {
+    this.xmlDoc = meiXmlDoc;
+    this.rich_head = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'meiHead')[0];
+    this.rich_music = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'music')[0];
+    this.rich_score = this.rich_music.getElementsByTagName('score')[0];
+    this.parseSourceList();
+    this.parseEditorList();
+    this.parseALTs();
+    this.initAltgroups();
+    this.initSectionView();
+  }
+  /**
+   * @method getRichScore
+   */
+  MeiLib.MeiDoc.prototype.getRichScore = function () {
+    return this.rich_score;
+  }
+  /**
+   * @method getPlainScore
+   */
+  MeiLib.MeiDoc.prototype.getPlainScore = function () {
+    return this.plain_score;
+  }
+  /**
+   * @method getALTs
+   */
+  MeiLib.MeiDoc.prototype.getALTs = function () {
+    return this.ALTs;
+  }
+  /**
+   * @method getSourceList
+   */
+  MeiLib.MeiDoc.prototype.getSourceList = function () {
+    return this.sourceList;
+  }
+  /**
+   * @method getEditorList
+   */
+  MeiLib.MeiDoc.prototype.getEditorList = function () {
+    return this.editorList;
+  }
+  /**
+   * @method parseSourceList
+   * Extracts information about the sources as defined in the MEI header.
+   *
+   * @return {Object} is a container indexed by the xml:id attribute value of the
+   *         <b>sourceDesc</b> element.
+   */
+  MeiLib.MeiDoc.prototype.parseSourceList = function () {
+    // var srcs = $(this.rich_head).find('sourceDesc').children();
+    // this.sourceList = {};
+    // var i
+    // for(i=0;i<srcs.length;++i) {
+    // var src = srcs[i];
+    // var xml_id = $(src).attr('xml:id');
+    // var serializer = new XMLSerializer();
+    // this.sourceList[xml_id] = serializer.serializeToString(src);
+    // }
+    // return this.sourceList;
+
+    //    this.sources = $(this.rich_head.getElementsByTagName('sourceDesc')).children();
+
+    var elementFilter = function (node) {
+      return node.nodeType === 1;
+    };
+
+    var sourceDesc = this.rich_head.getElementsByTagName('sourceDesc')[0];
+    if (sourceDesc){
+      this.sources = Array.prototype.filter.call(sourceDesc.childNodes, elementFilter);
+    } else {
+      this.sources = [];
+    }
+
+    return this.sources;
+  };
+  /**
+   * @method parseEditorList
+   */
+  MeiLib.MeiDoc.prototype.parseEditorList = function () {
+    // var edtrs = $(this.rich_head).find('titleStmt').children('editor');
+    // this.editorList = {};
+    // var i
+    // for(i=0;i<edtrs.length;++i) {
+    // var edtr = edtrs[i];
+    // var xml_id = $(edtr).attr('xml:id');
+    // this.editorList[xml_id] = edtr;
+    // }
+
+    //    this.editors = $(this.rich_head.getElementsByTagName('titleStmt')).children('editor');
+
+    var editorFilter = function (node) {
+      return node.localName === 'editor';
+    };
+
+    var titleStmt = this.rich_head.getElementsByTagName('titleStmt')[0];
+    if (titleStmt) {
+      this.editors = Array.prototype.filter.call(titleStmt.childNodes, editorFilter);
+    } else {
+      this.editors = [];
+    }
+
+    return this.editors;
+  };
+  /**
+   * @method parseALTs
+   * Extracts information about the elements encoding alternatives. The method
+   * stores its result in the <code>ALTs</code> property.
+   *
+   * <code>ALTs</code> is a container of MeiLib.Alt obejcts indexed by the
+   * xml:id attribute value of the <b>app</b> or <b>choice</b> elements.
+   */
+  MeiLib.MeiDoc.prototype.parseALTs = function () {
+    var i, j;
+    this.ALTs = {};
+    // console.log(this.rich_score);
+    var apps = this.rich_score.querySelectorAll('app, choice');
+    for (i = 0; i < apps.length; i++) {
+      var app = apps[i];
+      var parent = app.parentNode;
+      var altitems = app.querySelectorAll('rdg, lem, sic, corr');
+      var AppsItem = new MeiLib.Alt(app, MeiLib.XMLID(app), MeiLib.XMLID(parent), app.localName);
+      AppsItem.altitems = {};
+      for (j = 0; j < altitems.length; j++) {
+        var altitem = altitems[j];
+        var source = altitem.getAttribute('source');
+        var resp = altitem.getAttribute('resp');
+        var n = altitem.getAttribute('n');
+        var tagname = altitem.localName;
+        var varXMLID = MeiLib.XMLID(altitem);
+        AppsItem.altitems[varXMLID] = new MeiLib.Variant(altitem, varXMLID, tagname, source, resp, n);
+      }
+      this.ALTs[MeiLib.XMLID(app)] = AppsItem;
+    }
+  }
+  /**
+   * @method initAltgroups
+   */
+  MeiLib.MeiDoc.prototype.initAltgroups = function () {
+    var i, j, altgroup, token_list;
+    //var ALTs = this.ALTs;
+    var annots = this.rich_score.querySelectorAll('annot[type="appGrp"], annot[type="choiceGrp"]');
+    this.altgroups = {};
+    for (i = 0; i < annots.length; i++) {
+      altgroup = [];
+      token_list = annots[i].getAttribute('plist').split(' ');
+      for (j = 0; j < token_list.length; j++) {
+        altgroup.push(token_list[j].replace('#', ''));
+      }
+      for (j in altgroup) {
+        this.altgroups[altgroup[j]] = altgroup;
+      }
+    }
+  };
+  /**
+   * @method initSectionView
+   * The MeiLib.MeiDoc.initSectionView transforms the rich MEI (this.rich_score)
+   * into a plain MEI (this.sectionview_score)
+   *
+   * An MEI is called 'plain' MEI if it contains no <b>app</b> or <b>choice</b>
+   * elements.
+   * Such an MEI can also be referred after the analogy of 2D section views of a
+   * 3D object: the rich MEI is a higher-dimensional object, of which we would
+   * like to display a 'flat' section view. The term 'section plane' refers to a
+   * combination of alternatives at different locations in the score. The section
+   * plane defines the actual view of the higher-dimensional object. For instance,
+   * consider a score that has two different variants at measure #5 (let's call
+   * them (variant A and variant B), and it contains three different variants at
+   * measure #10 (let's call those ones variants C, D and E). In this case the
+   * section plane would contain two elements the first one is either A or B, the
+   * second one is C, D or E.
+   *
+   * The extracted information about all the <b>app</b> and <b>choice</b> elements
+   * are stored in an array. Using this array the application can access information
+   * such as what alternative encodings are present in the score, what source a
+   * variant comes from, etc. This array is exposed by te <code>ALTs</code>
+   * property.
+   *
+   */
+
+  MeiLib.MeiDoc.prototype.selectDefaultAlternative = function (alt) {
+    var result = {};
+
+    // TODO check: is it OK to query all descendant corr/sic etc elements? (or would children be better?) --
+    // (nested apps)
+
+    if (alt.localName === 'choice') {
+      // ...the default replacement is...
+      var corr = alt.getElementsByTagName('corr')[0];
+      if (corr) {
+        // ...the first corr...
+        result.alt_item_xml_id = MeiLib.XMLID(corr);
+        result.alt_item = corr;
+        //...or
+      } else {
+        // ...the first sic.
+        var sic = alt.getElementsByTagName('sic')[0];
+        if (sic) {
+          result.alt_item_xml_id = MeiLib.XMLID(sic);
+          result.alt_item = sic;
+        } else {
+          result = {};
+        }
+      }
+    } else {
+      var lem = alt.getElementsByTagName('lem')[0];
+      if (lem) {
+        // ...the first lem...
+        result.alt_item_xml_id = MeiLib.XMLID(lem);
+        result.alt_item = lem;
+        //...or nothing:
+      } else {
+        var rdg = alt.getElementsByTagName('rdg')[0];
+        if (rdg) {
+          // ...the first rdg...
+          result.alt_item_xml_id = MeiLib.XMLID(rdg);
+          result.alt_item = rdg;
+          //...or nothing:
+        } else {
+          result = {};
+        }
+      }
+    }
+    return result;
+  }
+
+  MeiLib.MeiDoc.prototype.initSectionView = function (altReplacements) {
+    altReplacements = altReplacements || {};
+    // Make a copy of the rich MEI. We don't want to remove nodes from the
+    // original object.
+    this.sectionview_score = this.rich_score.cloneNode(true);
+    this.sectionplane = {};
+
+    // Transform this.sectionview_score into a plain MEI:
+    //
+    // * itereate through all <app> and <choice> elements:
+    // o chose the appropriate rdg or lem defined by sectionplane
+    // (sectionplane[app.xmlID]).
+    // If nothing is defined, leave it empty.
+    // o chose the appropriate sic or corr defined by sectionplance
+    // (sectionplane[choice.xmlID])
+    // If nothing is defined, chose the first corr, if exists, otherwise chose
+    // sic, if exists.
+    // When replacing an item, mark the location of replacement with XML
+    // processing instructions.
+
+    var alts = this.sectionview_score.querySelectorAll('app, choice');
+
+    var alt_item_xml_id;
+    var this_sectionview_score = this.sectionview_score;
+    var this_sectionplane = this.sectionplane;
+    var this_ALTs = this.ALTs;
+    var xmlDoc = this.xmlDoc;
+    var me = this;
+
+    var i, j;
+    for (i = 0, j = alts.length; i < j; i++) {
+      alt = alts[i];
+
+
+      var alt_xml_id = MeiLib.XMLID(alt);
+      var replacement = altReplacements[alt_xml_id];
+      if (replacement) {
+        // apply replacement, or...
+        alt_item_xml_id = replacement.xmlID;
+
+//        var alt_item2insert = this_sectionview_score.querySelector(replacement.tagname + '[*|id="' + alt_item_xml_id +
+//                                                                   '"]');
+
+        var alt_item2insert = $(this_sectionview_score).find(replacement.tagname + '[xml\\:id="' + alt_item_xml_id +
+                                                             '"]')[0];
+
+        if (!alt_item2insert) {
+          throw new MeiLib.RuntimeError('MeiLib.MeiDoc.prototype.initSectionView():E01', "Cannot find <lem>, <rdg>, <sic>, or <corr> with @xml:id '" +
+                                                                                         alt_item_xml_id + "'.");
+        }
+      } else {
+        var defaultAlt = me.ALTs[alt_xml_id].getDefaultItem();
+        if (defaultAlt) {
+          alt_item_xml_id = defaultAlt.xmlID;
+          alt_item2insert = defaultAlt.elem;
+        }
+      }
+      var parent = alt.parentNode;
+      var PIStart = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgStart="' + alt_xml_id + '"');
+      parent.insertBefore(PIStart, alt);
+      if (alt_item2insert) {
+        var childNodes = alt_item2insert.childNodes;
+        var k;
+        for (k = 0; k < childNodes.length; ++k) {
+          parent.insertBefore(childNodes.item(k).cloneNode(true), alt);
+        }
+      }
+      var PIEnd = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgEnd="' + alt_xml_id + '"');
+      parent.insertBefore(PIEnd, alt);
+      parent.removeChild(alt);
+
+      this_sectionplane[alt_xml_id] = [];
+      if (this_ALTs[alt_xml_id].altitems[alt_item_xml_id]) {
+        this_sectionplane[alt_xml_id].push(this_ALTs[alt_xml_id].altitems[alt_item_xml_id]);
+      }
+    }
+
+    return this.sectionview_score;
+
+  };
+  /**
+   * @method updateSectionView
+   * Updates the sectionview score (plain MEI) by replacing one or more
+   * alternative instance with other alternatives.
+   *
+   * @param sectionplaneUpdate
+   *            {object} the list of changes. It is an container of xml:id
+   *            attribute values of <b>rdg</b>, <b>lem</b>, <b>sic</b> or
+   * <b>corr</b> elements,
+   *            indexed by the xml:id attribute values of the corresponding
+   * <b>app</b>
+   *            or <b>choice</b> elements. sectionplaneUpdate[altXmlID] =
+   * altInstXmlID
+   *            is the xml:id attribute value of the <b>rdg</b>, <b>lem</b>,
+   * <b>sic</b> or <b>corr</b>
+   *            element, which is to be inserted in place of the original <app
+   *            xml:id=altXmlID> or <b>choice xml:id=altXmlID</b> When replacing an
+   *            <b>app</b> or <b>choice</b> that is part of a group of such
+   * elements
+   *            (defined by this.altgroups), then those other elements needs to be
+   *            replaced as well.
+   */
+  MeiLib.MeiDoc.prototype.updateSectionView = function (sectionplaneUpdate) {
+
+    var altID, altID__;
+
+    var corresponding_alt_item = function (altitems, altitem) {
+      var vars_match = function (v1, v2) {
+        var res = 0;
+        for (var field in v1) {
+          if (v1[field] !== undefined && v1[field] === v2[field]) {
+            res++;
+          }
+        }
+        //      console.log('vars_match: ' + res);
+        return res;
+      };
+      var max = 0;
+      var corresponding_item, M;
+      for (var alt_item_id in altitems) {
+        M = vars_match(altitems[alt_item_id], altitem);
+        if (max < M) {
+          max = M;
+          corresponding_item = altitems[alt_item_id];
+        }
+      }
+      return corresponding_item;
+    };
+
+    for (altID in sectionplaneUpdate) {
+      var this_ALTs = this.ALTs;
+      var altitems2insert = [];
+      // preserving backward compatibility:
+      if (typeof sectionplaneUpdate[altID] === 'string') {
+        sectionplaneUpdate[altID] = [sectionplaneUpdate[altID]];
+      }
+      var i, j;
+      j = sectionplaneUpdate[altID].length;
+      if (j > 0) {
+        for (i = 0; i < j; i++) {
+          altitems2insert.push(this_ALTs[altID].altitems[sectionplaneUpdate[altID][i]]);
+        }
+        //        $(sectionplaneUpdate[altID]).each(function () {
+        //          altitems2insert.push(this_ALTs[altID].altitems[this]);
+        //        });
+
+      } else {
+        var defaultAltItem = this.ALTs[altID].getDefaultItem();
+        if (defaultAltItem) {
+          altitems2insert.push(defaultAltItem);
+        }
+      }
+      var altgroup = this.altgroups[altID];
+      if (altgroup) {
+        // if altID is present in altgroups, then replace all corresponding alts
+        // with the
+        // altitems that correspons to the any of the alt item that are being
+        // inserted.
+        for (i = 0; i < altgroup.length; i++) {
+          altID__ = altgroup[i];
+          var altitems2insert__ = [];
+
+          var k, l;
+          for (k = 0, l = altitems2insert.length; k < l; k++) {
+            altitems2insert__.push(corresponding_alt_item(this_ALTs[altID__].altitems, altitems2insert[k]));
+          }
+          //          $(altitems2insert).each(function () {
+          //            altitems2insert__.push(corresponding_alt_item(this_ALTs[altID__].altitems, this))
+          //          });
+
+          this.replaceAltInstance({
+            appXmlID : altID__,
+            replaceWith : altitems2insert__
+          });
+        }
+      } else {
+        // otherwise just replace alt[xml:id=altID] with the list of items
+        this.replaceAltInstance({
+          appXmlID : altID,
+          replaceWith : altitems2insert
+        });
+      }
+    }
+  };
+  /**
+   * @method replaceAltInstance
+   * Replace an alternative instance in the sectionview score and in the
+   * sectionplane
+   *
+   * @param {Object} alt_inst_update
+   * @return the updated score
+   */
+  MeiLib.MeiDoc.prototype.replaceAltInstance = function (alt_inst_update) {
+
+    var extendWithNodeList = function (nodeArray, nodeList) {
+      var res = nodeArray;
+      var i;
+      for (i = 0; i < nodeList.length; ++i) {
+        res.push(nodeList.item(i));
+      }
+      return res;
+    };
+    var app_xml_id = alt_inst_update.appXmlID;
+
+
+    var parent = $(this.sectionview_score).find('[xml\\:id=' + this.ALTs[app_xml_id].parentID + ']')[0];
+    if (typeof parent === 'undefined') {
+      return;
+    }
+
+//    var parent = this.sectionview_score.querySelector('[*|id=' + this.ALTs[app_xml_id].parentID + ']');
+//    if (parent === null) {
+//      return;
+//    }
+
+    var children = parent.childNodes;
+
+    var replaceWith = alt_inst_update.replaceWith;
+    var nodes2insert = [];
+    var this_rich_score = this.rich_score;
+    if (replaceWith) {
+      var i, j;
+      for (i = 0; i < replaceWith.length; ++i) {
+        var replaceWith_item = replaceWith[i];
+        var replaceWith_xmlID = replaceWith_item.xmlID;
+
+        var var_inst_elem = $(this_rich_score).find(replaceWith_item.tagname + '[xml\\:id="' + replaceWith_xmlID +
+                                                    '"]')[0];
+//        var var_inst_elem = this_rich_score.querySelector(replaceWith_item.tagname + '[*|id="' + replaceWith_xmlID +
+//                                                          '"]');
+        nodes2insert = extendWithNodeList(nodes2insert, var_inst_elem.childNodes);
+      }
+    }
+    //  console.log(nodes2insert)
+
+    var match_pseudo_attrValues = function (data1, data2) {
+      data1 = data1.replace("'", '"');
+      data2 = data2.replace("'", '"');
+      return data1 === data2;
+    };
+
+    var inside_inst = false;
+    var found = false;
+    var insert_before_this = null;
+
+    for (i = 0, j = children.length; i < j; i++) {
+      var child = children[i];
+      if (child.nodeType === 7) {
+        if (child.nodeName === 'MEI2VF' && match_pseudo_attrValues(child.nodeValue, 'rdgStart="' + app_xml_id + '"')) {
+          inside_inst = true;
+          found = true;
+        } else if (child.nodeName === 'MEI2VF' &&
+                   match_pseudo_attrValues(child.nodeValue, 'rdgEnd="' + app_xml_id + '"')) {
+          inside_inst = false;
+          insert_before_this = child;
+        }
+      } else if (inside_inst) {
+        parent.removeChild(child);
+        i--;
+        j--;
+      }
+    }
+
+    if (!found) {
+      throw "processing instruction not found";
+    }
+    if (inside_inst) {
+      throw "Unmatched <?MEI2VF rdgStart?>";
+    }
+
+    var insert_method;
+    if (insert_before_this) {
+      insert_method = function (elem) {
+        parent.insertBefore(elem, insert_before_this)
+      };
+    } else {
+      insert_method = function (elem) {
+        parent.appendChild(elem)
+      };
+    }
+
+    for (i = 0, j = nodes2insert.length; i < j; i++) {
+      insert_method(nodes2insert[i].cloneNode(true));
+    }
+
+    this.sectionplane[app_xml_id] = alt_inst_update.replaceWith;
+
+    return this.sectionview_score;
+  };
+
+  /**
+   * @method getSectionViewSlice
+   * Get a slice of the sectionview_score.
+   *
+   * @param params
+   *            {Obejct} contains the parameters for slicing. For more info see at
+   *            documentation of MeiLib.SliceMEI
+   * @return an XML DOM object containing the slice of the plain MEI
+   */
+  MeiLib.MeiDoc.prototype.getSectionViewSlice = function (params) {
+    return MeiLib.SliceMEI(this.sectionview_score, params);
+  };
+  /**
+   * @method getRichSlice
+   * Get a slice of the whole rich MEI document.
+   *
+   * @param params
+   *            {Obejct} contains the parameters for slicing. For more info see at
+   *            documentation of MeiLib.SliceMEI
+   * @return {MeiLib.MeiDoc} a MeiDoc object
+   */
+  MeiLib.MeiDoc.prototype.getRichSlice = function (params) {
+    var slice = new MeiLib.MeiDoc();
+    slice.xmlDoc = this.xmlDoc;
+    slice.rich_head = this.rich_head.cloneNode(true);
+    slice.rich_music = this.rich_music.cloneNode(true);
+    slice.rich_score = MeiLib.SliceMEI(this.rich_score, params);
+    slice.sourceList = this.sourceList;
+    slice.editorList = this.editorList;
+    slice.ALTs = this.ALTs;
+    slice.altgroups = this.altgroups;
+    return slice;
+  };
+
+  /*
+   * meilib.js
+   *
+   * Author: Zoltan Komives Created: 05.07.2013
+   *
+   * Copyright © 2012, 2013 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
+   * University of Maryland
+   *
+   * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+   * use this file except in compliance with the License. You may obtain a copy of
+   * the License at
+   *
+   * http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+   * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+   * License for the specific language governing permissions and limitations under
+   * the License.
+   */
+  /**
+   * Contributor: Alexander Erhard
+   */
+  /**
    * @class MeiLib
+   * MeiLib - General purpose JavaScript functions for processing MEI documents.
    * @singleton
    */
+
+  if (!window.MeiLib) window.MeiLib = {};
+
+  /**
+   * @method createPseudoUUID
+   */
+  MeiLib.createPseudoUUID = function () {
+    return ("0000" + (Math.random() * Math.pow(36, 4) << 0).toString(36)).substr(-4)
+  };
 
   /**
    * @method durationOf
@@ -16379,7 +17263,7 @@ Vex.Flow.TextDynamics = (function(){
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
     }
     var durationOf_SimpleEvent = function (simple_evnt, meter) {
-      var dur = $(simple_evnt).attr('dur');
+      var dur = simple_evnt.getAttribute('dur');
       if (!dur) {
         console.warn('@dur of <b>note</b>, <b>rest</b> or <b>space</b> must be specified. Proceeding with default @dur="4". Element:');
         console.log(simple_evnt);
@@ -16390,56 +17274,64 @@ Vex.Flow.TextDynamics = (function(){
       return MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter);
     };
     var durationOf_Chord = function (chord, meter, layer_no) {
+      var i, j, childNodes, note;
       if (!layer_no) {
         layer_no = "1";
       }
-      var dur = $(chord).attr('dur');
+      var dur = chord.getAttribute('dur');
       var dotsMult = MeiLib.dotsMult(chord);
       if (dur) {
         return dotsMult * MeiLib.dur2beats(Number(dur), meter);
       }
-      $(chord).find('note').each(function () {
-        var lyr_n = $(this).attr('layer');
-        if (!lyr_n || lyr_n === layer_no) {
-          var dur_note = $(this).attr('dur');
-          var dotsMult_note = MeiLib.dotsMult(chord);
-          if (!dur && dur_note) {
-            dur = dur_note;
-            dotsMult = dotsMult_note;
-          } else if (dur && dur != dur_note) {
-            throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', 'duration of <chord> is ambiguous.');
+      childNodes = chord.childNodes;
+      for (i = 0, j = childNodes.length; i < j; i++) {
+        if (childNodes[i].localName === 'note') {
+          note = childNodes[i];
+          var lyr_n = note.getAttribute('layer');
+          if (!lyr_n || lyr_n === layer_no) {
+            var dur_note = note.getAttribute('dur');
+            var dotsMult_note = MeiLib.dotsMult(chord);
+            if (!dur && dur_note) {
+              dur = dur_note;
+              dotsMult = dotsMult_note;
+            } else if (dur && dur != dur_note) {
+              throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', 'duration of <chord> is ambiguous. Element: ' +
+                                                                     Util.serializeElement(chord));
+            }
           }
         }
-      });
+      }
+
       if (!dur) {
-        console.warn('@dur of chord must be specified either in <chord> or in at least one of its <note> elements. Proceeding with default @dur="4". Element:');
-        console.log(chord);
-        dur = "4";
+        throw new MeiLib.RuntimeError('MeiLib.durationOf:E06', '@dur of chord must be specified either in <chord> or in at least one of its <note> elements. Proceeding with default @dur="4". Element:' +
+                                                               Util.serializeElement(chord));
       }
       return dotsMult * MeiLib.dur2beats(Number(dur), meter);
     }
 
     var durationOf_Beam = function (beam, meter) {
-      var acc = 0;
-      $(beam).children().each(function () {
+      var acc = 0, i, j, childNodes, childNode;
+      childNodes = beam.childNodes;
+      for (i = 0, j = childNodes.length; i < j; i++) {
+        childNode = childNodes[i];
         var dur_b;
-        var tagName = this.localName;
-        if (IsZeroDurEvent(this, tagName)) {
+        var tagName = childNode.localName;
+        if (IsZeroDurEvent(childNode, tagName)) {
           dur_b = 0;
         } else if (IsSimpleEvent(tagName)) {
-          dur_b = durationOf_SimpleEvent(this, meter);
+          dur_b = durationOf_SimpleEvent(childNode, meter);
         } else if (tagName === 'chord') {
-          dur_b = durationOf_Chord(this, meter);
+          dur_b = durationOf_Chord(childNode, meter);
         } else if (tagName === 'beam') {
-          dur_b = durationOf_Beam(this, meter);
+          dur_b = durationOf_Beam(childNode, meter);
         } else if (tagName === 'tuplet') {
-          dur_b = durationOf_Tuplet(this, meter);
+          dur_b = durationOf_Tuplet(childNode, meter);
         } else {
           dur_b = 0;
           //throw new MeiLib.RuntimeError('MeiLib.durationOf:E03', "Not supported element '" + tagName + "'");
         }
         acc += dur_b;
-      });
+      }
       return acc;
     }
     var durationOf_Tuplet = function (tuplet, meter) {
@@ -16452,7 +17344,7 @@ Vex.Flow.TextDynamics = (function(){
       });
       return acc;
     }
-    var evnt_name = $(evnt).prop('localName');
+    var evnt_name = evnt.localName;
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
     }
@@ -16543,10 +17435,10 @@ Vex.Flow.TextDynamics = (function(){
     winner = getFullNote(winner);
 
     var xml_id;
-    xml_id = $(winner).attr('xml:id');
+    xml_id = winner.getAttribute('xml:id');
     if (!xml_id) {
       xml_id = MeiLib.createPseudoUUID();
-      $(winner).attr('xml:id', xml_id);
+      winner.setAttribute('xml:id', xml_id);
     }
     return xml_id;
   }
@@ -16558,10 +17450,10 @@ Vex.Flow.TextDynamics = (function(){
    * @return {String} the xml:id of the element
    */
   MeiLib.XMLID = function (elem) {
-    var xml_id = $(elem).attr('xml:id');
+    var xml_id = elem.getAttribute('xml:id');
     if (!xml_id) {
       xml_id = MeiLib.createPseudoUUID();
-      $(elem).attr('xml:id', xml_id);
+      elem.setAttribute('xml:id', xml_id);
     }
     return xml_id;
   }
@@ -16639,14 +17531,14 @@ Vex.Flow.TextDynamics = (function(){
    * result is 1.75, etc.
    */
   MeiLib.dotsMult = function (node) {
-    var dots = $(node).attr('dots');
+    var dots = node.getAttribute('dots');
     dots = Number(dots || "0");
     var mult = 1;
     for (; dots > 0; --dots) {
       mult += (1 / Math.pow(2, dots))
     }
     return mult;
-  }
+  };
   /**
    * @method sumUpUntil
    * For a given event (such as note, rest chord or space) calculates the combined
@@ -16664,28 +17556,27 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.sumUpUntil = function (eventid, layer, meter) {
 
-    var sumUpUntil_inNode = function (node_elem) {
+    var sumUpUntil_inNode = function (node) {
       var beats, children, found = null, dur, dots, subtotal, chord_dur, i;
-      var node = $(node_elem);
-      var node_name = node.prop('localName');
-      if (node_elem.hasAttribute('grace') || node_name === 'clef') {
+      var node_name = node.localName;
+      if (node.hasAttribute('grace') || node_name === 'clef') {
         return {
           beats : 0,
-          found : (node.attr('xml:id') === eventid)
+          found : (node.getAttribute('xml:id') === eventid)
         };
       }
       if (node_name === 'note' || node_name === 'rest') {
-        if (node.attr('xml:id') === eventid) {
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
           };
         } else {
-          dur = Number(node.attr('dur'));
+          dur = Number(node.getAttribute('dur'));
           if (!dur) {
             throw new MeiLib.RuntimeError('MeiLib.sumUpUntil:E001', "Duration is not a number ('breve' and 'long' are not supported).");
           }
-          dots = node.attr('dots');
+          dots = node.getAttribute('dots');
           dots = Number(dots || "0");
           beats = MeiLib.dotsMult(node) * MeiLib.dur2beats(dur, meter);
 
@@ -16695,7 +17586,7 @@ Vex.Flow.TextDynamics = (function(){
           };
         }
       } else if (node_name === 'mRest') {
-        if (node.attr('xml:id') === eventid) {
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
@@ -16711,29 +17602,32 @@ Vex.Flow.TextDynamics = (function(){
 
         // sum up childrens' duration
         beats = 0;
-        children = node.children();
+        children = node.childNodes;
         found = false;
         for (i = 0; i < children.length && !found; ++i) {
-          subtotal = sumUpUntil_inNode(children[i]);
-          beats += subtotal.beats;
-          found = subtotal.found;
+          if (children[i].nodeType === 1) {
+            subtotal = sumUpUntil_inNode(children[i]);
+            beats += subtotal.beats;
+            found = subtotal.found;
+          }
         }
         return {
           beats : beats,
           found : found
         };
       } else if (node_name === 'chord') {
-        chord_dur = node.attr('dur');
-        if (node.attr('xml:id') === eventid) {
+        chord_dur = node.getAttribute('dur');
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
           };
         } else {
           // ... or find the longest note in the chord ????
-          chord_dur = node.attr('dur');
+          chord_dur = node.getAttribute('dur');
           if (chord_dur) {
-            if (node.find("[xml\\:id='" + eventid + "']").length) {
+//            if (node.querySelector("[*|id='" + eventid + "']")) {
+              if ($(node).find("[xml\\:id='" + eventid + "']").length) {
               return {
                 beats : 0,
                 found : true
@@ -16745,12 +17639,14 @@ Vex.Flow.TextDynamics = (function(){
               };
             }
           } else {
-            children = node.children();
+            children = node.childNodes;
             found = false;
             for (i = 0; i < children.length && !found; ++i) {
-              subtotal = sumUpUntil_inNode(children[i]);
-              beats = subtotal.beats;
-              found = subtotal.found;
+              if (children[i].nodeType === 1) {
+                subtotal = sumUpUntil_inNode(children[i]);
+                beats = subtotal.beats;
+                found = subtotal.found;
+              }
             }
             return {
               beats : beats,
@@ -16766,714 +17662,6 @@ Vex.Flow.TextDynamics = (function(){
     };
 
     return sumUpUntil_inNode(layer);
-  };
-
-  /**
-   * @method SliceMEI
-   * Returns a slice of the MEI. The slice is specified by the number of the
-   * starting and ending measures.
-   *
-   * About the <code>staves</code> parameter: it specifies a list of staff
-   * numbers. If it is defined, only the listed staves will be kept in the
-   * resulting slice. The following elements will be removed from:
-   *
-   * 1. <b>staffDef</b> elements (@staff value is matched against the specified list)
-   * 2. <b>staff</b> elements (@n value is matched against the specified list)
-   * 3. any other child element of measures that has
-   *
-   * @staff specified AND it is not listed.
-   *
-   * Note that <b>staff</b> elements without @n will be removed.
-   *
-   * @param {Object} MEI
-   * @param {Object} params like { start_n:NUMBER, end_n:NUMBER, noKey:BOOLEAN,
- *            noClef:BOOLEAN, noMeter:BOOLEAN, noConnectors, staves:[NUMBER] },
-   *            where <code>noKey</code>, <code>noClef</code> and
-   *            <code>noMeter</code> and <code>noConnectors</code> are
-   *            optional. taves is optional. If staves is set, it is an array of
-   *            staff numbers. Only the staves specified in the list will be
-   *            included in the resulting MEI.
-   * @return XML DOM object
-   */
-  MeiLib.SliceMEI = function (MEI, params) {
-
-    var setVisibles = function (elements, params) {
-      $.each(elements, function (i, elem) {
-        if (params.noClef) {
-          $(elem).attr('clef.visible', 'false');
-        }
-        if (params.noKey) {
-          $(elem).attr('key.sig.show', 'false');
-        }
-        if (params.noMeter) {
-          $(elem).attr('meter.rend', 'false');
-        }
-      });
-    }
-    var paramsStaves = params.staves;
-    if (paramsStaves) {
-      var staffDefSelector = '';
-      var staffNSelector = '';
-      var commaspace = '';
-      for (var i = 0; i < paramsStaves.length; i++) {
-        staffDefSelector += commaspace + '[n="' + paramsStaves[i] + '"]';
-        staffNSelector += commaspace + '[staff="' + paramsStaves[i] + '"]'
-        if (i === 0) {
-          commaspace = ', ';
-        }
-      }
-    }
-
-    var slice = MEI.cloneNode(true);
-    if (paramsStaves) {
-      $(slice).find('staffDef').remove(':not(' + staffDefSelector + ')');
-    }
-    if (params.noClef || params.noKey || params.noMeter) {
-      var scoreDef = $(slice).find('scoreDef')[0];
-      var staffDefs = $(scoreDef).find('staffDef');
-      setVisibles($(scoreDef), params);
-      setVisibles(staffDefs, params);
-    }
-    if (params.noConnectors) {
-      $(slice).find('staffGrp').removeAttr('symbol');
-    }
-    var section = $(slice).find('section')[0];
-    var inside_slice = false;
-
-    /**
-     * Keep or remove child from section depending whether it's inside the section or not.
-     * If it's kept, remove unwanted staves
-     */
-    var keepOrRemove = function (elem, inside_slice, staffNSelector, params) {
-      if (!inside_slice) {
-        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.start_n) {
-          inside_slice = true;
-        } else {
-          elem.parentNode.removeChild(elem);
-        }
-      }
-
-      if (inside_slice) {
-        // remove unwanted staff
-        if (params.staves) {
-          $(elem).find('[staff]').remove(':not(' + staffNSelector + ')');
-          var staves = $(elem).find('staff');
-          $(staves).each(function () {
-            var staff = this;
-            if ($.inArray(Number($(staff).attr('n')), params.staves) === -1) {
-              var parent = this.parentNode;
-              parent.removeChild(this);
-            }
-          })
-        }
-
-        // finish inside_slice state if it's the end of slice.
-        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.end_n) {
-          inside_slice = false;
-        }
-      }
-      return inside_slice;
-    }
-
-    /*
-     * Iterate through each child of the section and remove everything outside
-     * the slice. Remove
-     */
-    var section_children = section.childNodes;
-
-    $(section_children).each(function () {
-
-      if (this.localName === 'ending') {
-        var ending_children = this.childNodes;
-        $(ending_children).each(function () {
-          inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
-        });
-        if ($(this).find('measure').length === 0) {
-          this.parentNode.removeChild(this);
-        }
-      } else {
-        inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
-      }
-
-    });
-
-    return slice;
-  }
-  /**
-   * Represents an MEI <b>app</b> or <b>choice</b> element.
-   *
-   * @class MeiLib.Alt
-   * @constructor
-   * @param {Element} elem
-   * @param {String} xmlID the xml:id attribute value of the <b>app</b> or
-   * <b>choice</b> element.
-   * @param {String} parentID the xml:id attribute value of the direct parent
-   * element of the <b>app</b> or <b>choice</b> element.
-   * @param {String} tagname
-   */
-  MeiLib.Alt = function (elem, xmlID, parentID, tagname) {
-    this.elem = elem;
-    this.xmlID = xmlID;
-    this.altitems = [];
-    this.parentID = parentID;
-    this.tagname = tagname;
-  }
-
-  MeiLib.Alt.prototype.getDefaultItem = function () {
-
-    /* find the editors pick or the first alternative */
-    var findDefault = function (altitems, editorspick_tagname, other_tagname) {
-      var first_sic, alt;
-      for (alt in altitems) {
-        if (altitems[alt].tagname === editorspick_tagname) {
-          return altitems[alt];
-        } else if (!first_sic && (altitems[alt].tagname === other_tagname)) {
-          first_sic = altitems[alt];
-        }
-      }
-      return first_sic;
-    };
-    if (this.tagname === 'choice') {
-      return findDefault(this.altitems, 'corr', 'sic');
-    } else if (this.tagname === 'app') {
-//      return findDefault(this.altitems, 'lem', 'rdg');
-      return findDefault(this.altitems, 'lem');
-    }
-  };
-  /**
-   * @class MeiLib.Variant
-   * Represents a <b>lem</b>, <b>rdg</b>, <b>sic</b> or <b>corr</b> element.
-   *
-   * @constructor
-   * @param elem {Element}
-   * @param xmlID {String} the xml:id attribute value of the element.
-   * @param tagname {String} 'lem' for <b>lem</b> and 'rdg for <b>rdg</b> elements.
-   * @param source {String} space-separated list of the source IDs what the given
-   *            item belongs to.
-   * @param resp {String} xmlID of the editor responsible for the given reading or
-   *            correction.
-   * @param n {String} @n attribute value of the element.
-   */
-  MeiLib.Variant = function (elem, xmlID, tagname, source, resp, n) {
-    this.elem = elem;
-    this.xmlID = xmlID;
-    this.tagname = tagname;
-    this.source = source;
-    this.resp = resp;
-    this.n = n;
-  }
-  /**
-   * @class MeiLib.MeiDoc
-   * A Rich MEI is an MEI that contain ambiguity represented by Critical Apparatus
-   * (<b>app</b>, <b>rdg</b>, etc.), or Editorial Transformation (<b>choice</b>,
-   * <b>corr</b>, etc.)
-   * elements.
-   *
-   * @constructor
-   * @param {XMLDocument} meiXmlDoc the MEI document.
-   */
-  MeiLib.MeiDoc = function (meiXmlDoc) {
-    if (meiXmlDoc) {
-      this.init(meiXmlDoc);
-    }
-  }
-  /**
-   * @method init
-   * Initializes a <code>MeiLib.MeiDoc</code> object.
-   *
-   * The constructor extracts information about alternative encodings and compiles
-   * them into a JS object (this.ALTs). The obejcts are exposed as per the
-   * following: 1. <code>sourceList</code> is the list of sources as defined in
-   * the MEI header (meiHead). 2. <code>editorList</code> is the list of editors
-   * listed in the MEI header. 3. <code>ALTs</code> is the object that contains
-   * information about the alternative encodings. It contains one entry per for
-   * each <b>app</b> or <b>choice</b> element. It is indexed by the xml:id
-   * attribute value of the elements. 4. <code>altgroups</code> is the obejct that
-   * contains how <b>app</b> and <b>choice</b> elements are grouped together to
-   * form a logical unit of alternative encoding.
-   *
-   * @param {XMLDocument} meiXmlDoc an XML document containing the rich MEI
-   */
-  MeiLib.MeiDoc.prototype.init = function (meiXmlDoc) {
-    this.xmlDoc = meiXmlDoc;
-    this.rich_head = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'meiHead')[0];
-    this.rich_music = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'music')[0];
-    this.rich_score = $(this.rich_music).find('score')[0];
-    this.parseSourceList();
-    this.parseEditorList();
-    this.parseALTs();
-    this.initAltgroups();
-    this.initSectionView();
-  }
-  /**
-   * @method getRichScore
-   */
-  MeiLib.MeiDoc.prototype.getRichScore = function () {
-    return this.rich_score;
-  }
-  /**
-   * @method getPlainScore
-   */
-  MeiLib.MeiDoc.prototype.getPlainScore = function () {
-    return this.plain_score;
-  }
-  /**
-   * @method getALTs
-   */
-  MeiLib.MeiDoc.prototype.getALTs = function () {
-    return this.ALTs;
-  }
-  /**
-   * @method getSourceList
-   */
-  MeiLib.MeiDoc.prototype.getSourceList = function () {
-    return this.sourceList;
-  }
-  /**
-   * @method getEditorList
-   */
-  MeiLib.MeiDoc.prototype.getEditorList = function () {
-    return this.editorList;
-  }
-  /**
-   * @method parseSourceList
-   * Extracts information about the sources as defined in the MEI header.
-   *
-   * @return {Object} is a container indexed by the xml:id attribute value of the
-   *         <b>sourceDesc</b> element.
-   */
-  MeiLib.MeiDoc.prototype.parseSourceList = function () {
-    // var srcs = $(this.rich_head).find('sourceDesc').children();
-    // this.sourceList = {};
-    // var i
-    // for(i=0;i<srcs.length;++i) {
-    // var src = srcs[i];
-    // var xml_id = $(src).attr('xml:id');
-    // var serializer = new XMLSerializer();
-    // this.sourceList[xml_id] = serializer.serializeToString(src);
-    // }
-    // return this.sourceList;
-    this.sources = $(this.rich_head).find('sourceDesc').children();
-    return this.sources;
-  }
-  /**
-   * @method parseEditorList
-   */
-  MeiLib.MeiDoc.prototype.parseEditorList = function () {
-    // var edtrs = $(this.rich_head).find('titleStmt').children('editor');
-    // this.editorList = {};
-    // var i
-    // for(i=0;i<edtrs.length;++i) {
-    // var edtr = edtrs[i];
-    // var xml_id = $(edtr).attr('xml:id');
-    // this.editorList[xml_id] = edtr;
-    // }
-    this.editors = $(this.rich_head).find('titleStmt').children('editor');
-    return this.editors;
-  }
-  /**
-   * @method parseALTs
-   * Extracts information about the elements encoding alternatives. The method
-   * stores its result in the <code>ALTs</code> property.
-   *
-   * <code>ALTs</code> is a container of MeiLib.Alt obejcts indexed by the
-   * xml:id attribute value of the <b>app</b> or <b>choice</b> elements.
-   */
-  MeiLib.MeiDoc.prototype.parseALTs = function () {
-    var i, j;
-    this.ALTs = {};
-    // console.log(this.rich_score);
-    var apps = $(this.rich_score).find('app, choice');
-    for (i = 0; i < apps.length; i++) {
-      var app = apps[i];
-      var parent = app.parentNode;
-      var altitems = $(app).find('rdg, lem, sic, corr');
-      var AppsItem = new MeiLib.Alt(app, MeiLib.XMLID(app), MeiLib.XMLID(parent), app.localName);
-      AppsItem.altitems = {};
-      for (j = 0; j < altitems.length; j++) {
-        var altitem = altitems[j];
-        var source = $(altitem).attr('source');
-        var resp = $(altitem).attr('resp');
-        var n = $(altitem).attr('n');
-        var tagname = $(altitem).prop('localName');
-        var varXMLID = MeiLib.XMLID(altitem);
-        AppsItem.altitems[varXMLID] = new MeiLib.Variant(altitem, varXMLID, tagname, source, resp, n);
-      }
-      this.ALTs[MeiLib.XMLID(app)] = AppsItem;
-    }
-  }
-  /**
-   * @method initAltgroups
-   */
-  MeiLib.MeiDoc.prototype.initAltgroups = function () {
-    var i, j, altgroup, token_list;
-    //var ALTs = this.ALTs;
-    var annots = $(this.rich_score).find('annot[type="appGrp"], annot[type="choiceGrp"]');
-    this.altgroups = {};
-    for (i = 0; i < annots.length; i++) {
-      altgroup = [];
-      token_list = $(annots[i]).attr('plist').split(' ');
-      for (j = 0; j < token_list.length; j++) {
-        altgroup.push(token_list[j].replace('#', ''));
-      }
-      for (j in altgroup) {
-        this.altgroups[altgroup[j]] = altgroup;
-      }
-    }
-  };
-  /**
-   * @method initSectionView
-   * The MeiLib.MeiDoc.initSectionView transforms the rich MEI (this.rich_score)
-   * into a plain MEI (this.sectionview_score)
-   *
-   * An MEI is called 'plain' MEI if it contains no <b>app</b> or <b>choice</b>
-   * elements.
-   * Such an MEI can also be referred after the analogy of 2D section views of a
-   * 3D object: the rich MEI is a higher-dimensional object, of which we would
-   * like to display a 'flat' section view. The term 'section plane' refers to a
-   * combination of alternatives at different locations in the score. The section
-   * plane defines the actual view of the higher-dimensional object. For instance,
-   * consider a score that has two different variants at measure #5 (let's call
-   * them (variant A and variant B), and it contains three different variants at
-   * measure #10 (let's call those ones variants C, D and E). In this case the
-   * section plane would contain two elements the first one is either A or B, the
-   * second one is C, D or E.
-   *
-   * The extracted information about all the <b>app</b> and <b>choice</b> elements
-   * are stored in an array. Using this array the application can access information
-   * such as what alternative encodings are present in the score, what source a
-   * variant comes from, etc. This array is exposed by te <code>ALTs</code>
-   * property.
-   *
-   */
-
-  MeiLib.MeiDoc.prototype.selectDefaultAlternative = function (alt) {
-    var result = {};
-    if (alt.localName === 'choice') {
-      // ...the default replacement is...
-      var corr = $(alt).find('corr')[0];
-      if (corr) {
-        // ...the first corr...
-        result.alt_item_xml_id = MeiLib.XMLID(corr);
-        result.alt_item = corr;
-        //...or
-      } else {
-        // ...the first sic.
-        var sic = $(alt).find('sic')[0];
-        if (sic) {
-          result.alt_item_xml_id = MeiLib.XMLID(sic);
-          result.alt_item = sic;
-        } else {
-          result = {};
-        }
-      }
-    } else {
-      var lem = $(alt).find('lem')[0];
-      if (lem) {
-        // ...the first lem...
-        result.alt_item_xml_id = MeiLib.XMLID(lem);
-        result.alt_item = lem;
-        //...or nothing:
-      } else {
-        var rdg = $(alt).find('rdg')[0];
-        if (rdg) {
-          // ...the first rdg...
-          result.alt_item_xml_id = MeiLib.XMLID(rdg);
-          result.alt_item = rdg;
-          //...or nothing:
-        } else {
-          result = {};
-        }
-      }
-    }
-    return result;
-  }
-
-  MeiLib.MeiDoc.prototype.initSectionView = function (altReplacements) {
-    altReplacements = altReplacements || {};
-    // Make a copy of the rich MEI. We don't want to remove nodes from the
-    // original object.
-    this.sectionview_score = this.rich_score.cloneNode(true);
-    this.sectionplane = {};
-
-    // Transform this.sectionview_score into a plain MEI:
-    //
-    // * itereate through all <app> and <choice> elements:
-    // o chose the appropriate rdg or lem defined by sectionplane
-    // (sectionplane[app.xmlID]).
-    // If nothing is defined, leave it empty.
-    // o chose the appropriate sic or corr defined by sectionplance
-    // (sectionplane[choice.xmlID])
-    // If nothing is defined, chose the first corr, if exists, otherwise chose
-    // sic, if exists.
-    // When replacing an item, mark the location of replacement with XML
-    // processing instructions.
-
-    var alts = $(this.sectionview_score).find('app, choice');
-
-    var alt_item_xml_id;
-    var this_sectionview_score = this.sectionview_score;
-    var this_sectionplane = this.sectionplane;
-    var this_ALTs = this.ALTs;
-    var xmlDoc = this.xmlDoc;
-    var me = this;
-    $(alts).each(function (i, alt) {
-      var alt_xml_id = MeiLib.XMLID(alt);
-      var replacement = altReplacements[alt_xml_id];
-      if (replacement) {
-        // apply replacement, or...
-        alt_item_xml_id = replacement.xmlID;
-        var alt_item2insert = $(this_sectionview_score).find(replacement.tagname + '[xml\\:id="' + alt_item_xml_id +
-                                                             '"]')[0];
-        if (!alt_item2insert) {
-          throw new MeiLib.RuntimeError('MeiLib.MeiDoc.prototype.initSectionView():E01', "Cannot find <lem>, <rdg>, <sic>, or <corr> with @xml:id '" +
-                                                                                         alt_item_xml_id + "'.");
-        }
-      } else {
-        var defaultAlt = me.ALTs[alt_xml_id].getDefaultItem();
-        if (defaultAlt) {
-          alt_item_xml_id = defaultAlt.xmlID;
-          alt_item2insert = defaultAlt.elem;
-        }
-      }
-      var parent = alt.parentNode;
-      var PIStart = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgStart="' + alt_xml_id + '"');
-      parent.insertBefore(PIStart, alt);
-      if (alt_item2insert) {
-        var childNodes = alt_item2insert.childNodes;
-        var j;
-        for (j = 0; j < childNodes.length; ++j) {
-          parent.insertBefore(childNodes.item(j).cloneNode(true), alt);
-        }
-      }
-      var PIEnd = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgEnd="' + alt_xml_id + '"');
-      parent.insertBefore(PIEnd, alt);
-      parent.removeChild(alt);
-
-      this_sectionplane[alt_xml_id] = [];
-      if (this_ALTs[alt_xml_id].altitems[alt_item_xml_id]) {
-        this_sectionplane[alt_xml_id].push(this_ALTs[alt_xml_id].altitems[alt_item_xml_id]);
-      }
-    });
-
-    return this.sectionview_score;
-
-  }
-  /**
-   * @method updateSectionView
-   * Updates the sectionview score (plain MEI) by replacing one or more
-   * alternative instance with other alternatives.
-   *
-   * @param sectionplaneUpdate
-   *            {object} the list of changes. It is an container of xml:id
-   *            attribute values of <b>rdg</b>, <b>lem</b>, <b>sic</b> or
-   * <b>corr</b> elements,
-   *            indexed by the xml:id attribute values of the corresponding
-   * <b>app</b>
-   *            or <b>choice</b> elements. sectionplaneUpdate[altXmlID] =
-   * altInstXmlID
-   *            is the xml:id attribute value of the <b>rdg</b>, <b>lem</b>,
-   * <b>sic</b> or <b>corr</b>
-   *            element, which is to be inserted in place of the original <app
-   *            xml:id=altXmlID> or <b>choice xml:id=altXmlID</b> When replacing an
-   *            <b>app</b> or <b>choice</b> that is part of a group of such
-   * elements
-   *            (defined by this.altgroups), then those other elements needs to be
-   *            replaced as well.
-   */
-  MeiLib.MeiDoc.prototype.updateSectionView = function (sectionplaneUpdate) {
-
-    var altID, altID__;
-
-    var corresponding_alt_item = function (altitems, altitem) {
-      var vars_match = function (v1, v2) {
-        var res = 0;
-        for (var field in v1) {
-          if (v1[field] !== undefined && v1[field] === v2[field]) {
-            res++;
-          }
-        }
-        //      console.log('vars_match: ' + res);
-        return res;
-      }
-      var max = 0;
-      var corresponding_item, M;
-      for (var alt_item_id in altitems) {
-        M = vars_match(altitems[alt_item_id], altitem);
-        if (max < M) {
-          max = M;
-          corresponding_item = altitems[alt_item_id];
-        }
-      }
-      return corresponding_item;
-    };
-
-    for (altID in sectionplaneUpdate) {
-      var this_ALTs = this.ALTs;
-      var altitems2insert = [];
-      // preserving backward compatibility:
-      if (typeof sectionplaneUpdate[altID] === 'string') {
-        sectionplaneUpdate[altID] = [sectionplaneUpdate[altID]];
-      }
-      if (sectionplaneUpdate[altID].length > 0) {
-        $(sectionplaneUpdate[altID]).each(function () {
-          altitems2insert.push(this_ALTs[altID].altitems[this]);
-        });
-      } else {
-        var defaultAltItem = this.ALTs[altID].getDefaultItem();
-        if (defaultAltItem) {
-          altitems2insert.push(defaultAltItem);
-        }
-      }
-      var altgroup = this.altgroups[altID];
-      if (altgroup) {
-        // if altID is present in altgroups, then replace all corresponding alts
-        // with the
-        // altitems that correspons to the any of the alt item that are being
-        // inserted.
-        var i;
-        for (i = 0; i < altgroup.length; i++) {
-          altID__ = altgroup[i];
-          var altitems2insert__ = [];
-          $(altitems2insert).each(function () {
-            altitems2insert__.push(corresponding_alt_item(this_ALTs[altID__].altitems, this))
-          });
-          this.replaceAltInstance({
-            appXmlID : altID__,
-            replaceWith : altitems2insert__
-          });
-        }
-      } else {
-        // otherwise just replace alt[xml:id=altID] with the list of items
-        this.replaceAltInstance({
-          appXmlID : altID,
-          replaceWith : altitems2insert
-        });
-      }
-    }
-  };
-  /**
-   * @method replaceAltInstance
-   * Replace an alternative instance in the sectionview score and in the
-   * sectionplane
-   *
-   * @param {Object} alt_inst_update
-   * @return the updated score
-   */
-  MeiLib.MeiDoc.prototype.replaceAltInstance = function (alt_inst_update) {
-
-    var extendWithNodeList = function (nodeArray, nodeList) {
-      var res = nodeArray;
-      var i;
-      for (i = 0; i < nodeList.length; ++i) {
-        res.push(nodeList.item(i));
-      }
-      return res;
-    };
-    var app_xml_id = alt_inst_update.appXmlID;
-    var parent = $(this.sectionview_score).find('[xml\\:id=' + this.ALTs[app_xml_id].parentID + ']')[0];
-    if (typeof parent === 'undefined') {
-      return;
-    }
-    var children = parent.childNodes;
-
-    var replaceWith = alt_inst_update.replaceWith;
-    var nodes2insert = [];
-    var this_rich_score = this.rich_score;
-    if (replaceWith) {
-      var i;
-      for (i = 0; i < replaceWith.length; ++i) {
-        var replaceWith_item = replaceWith[i];
-        var replaceWith_xmlID = replaceWith_item.xmlID;
-        var var_inst_elem = $(this_rich_score).find(replaceWith_item.tagname + '[xml\\:id="' + replaceWith_xmlID +
-                                                    '"]')[0];
-        nodes2insert = extendWithNodeList(nodes2insert, var_inst_elem.childNodes);
-      }
-    }
-    //  console.log(nodes2insert)
-
-    var match_pseudo_attrValues = function (data1, data2) {
-      data1 = data1.replace("'", '"');
-      data2 = data2.replace("'", '"');
-      return data1 === data2;
-    }
-    var inside_inst = false;
-    var found = false;
-    var insert_before_this = null;
-    $(children).each(function () {
-      var child = this;
-      if (child.nodeType === 7) {
-        if (child.nodeName === 'MEI2VF' && match_pseudo_attrValues(child.nodeValue, 'rdgStart="' + app_xml_id + '"')) {
-          inside_inst = true;
-          found = true;
-        } else if (child.nodeName === 'MEI2VF' &&
-                   match_pseudo_attrValues(child.nodeValue, 'rdgEnd="' + app_xml_id + '"')) {
-          inside_inst = false;
-          insert_before_this = child;
-        }
-      } else if (inside_inst) {
-        parent.removeChild(child);
-      }
-    });
-
-    if (!found) {
-      throw "processing instruction not found";
-    }
-    if (inside_inst) {
-      throw "Unmatched <?MEI2VF rdgStart?>";
-    }
-
-    var insert_method;
-    if (insert_before_this) {
-      insert_method = function (elem) {
-        parent.insertBefore(elem, insert_before_this)
-      };
-    } else {
-      insert_method = function (elem) {
-        parent.appendChild(elem)
-      };
-    }
-
-    $.each(nodes2insert, function () {
-      insert_method(this.cloneNode(true));
-    });
-
-    this.sectionplane[app_xml_id] = alt_inst_update.replaceWith;
-
-    return this.sectionview_score;
-  }
-  /**
-   * @method getSectionViewSlice
-   * Get a slice of the sectionview_score.
-   *
-   * @param params
-   *            {Obejct} contains the parameters for slicing. For more info see at
-   *            documentation of MeiLib.SliceMEI
-   * @return an XML DOM object containing the slice of the plain MEI
-   */
-  MeiLib.MeiDoc.prototype.getSectionViewSlice = function (params) {
-    return MeiLib.SliceMEI(this.sectionview_score, params);
-  }
-  /**
-   * @method getRichSlice
-   * Get a slice of the whole rich MEI document.
-   *
-   * @param params
-   *            {Obejct} contains the parameters for slicing. For more info see at
-   *            documentation of MeiLib.SliceMEI
-   * @return {MeiLib.MeiDoc} a MeiDoc object
-   */
-  MeiLib.MeiDoc.prototype.getRichSlice = function (params) {
-    var slice = new MeiLib.MeiDoc();
-    slice.xmlDoc = this.xmlDoc;
-    slice.rich_head = this.rich_head.cloneNode(true);
-    slice.rich_music = this.rich_music.cloneNode(true);
-    slice.rich_score = MeiLib.SliceMEI(this.rich_score, params);
-    slice.sourceList = this.sourceList;
-    slice.editorList = this.editorList;
-    slice.ALTs = this.ALTs;
-    slice.altgroups = this.altgroups;
-    return slice;
   };
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
@@ -17617,11 +17805,11 @@ Vex.Flow.TextDynamics = (function(){
       }
       // Do not include comment or processing instruction nodes
       return ret;
-    }
+    },
 
-//    getNormalizedText : function (elem) {
-//      return Util.getText(elem).replace(/\s+/g, ' ')
-//    }
+    getNormalizedText : function (elem) {
+      return Util.getText(elem).replace(/\s+/g, ' ')
+    }
 
   };
 /*
@@ -17666,7 +17854,8 @@ Vex.Flow.TextDynamics = (function(){
       'f' : 'b',
       's' : '#',
       'ff' : 'bb',
-      'ss' : '##'
+      'ss' : '##',
+      'x' : '##'
     },
 
     durations : {
@@ -17870,7 +18059,8 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    addFermataAtt : function() {},
+    addFermataAtt : function () {
+    },
 
     /**
      * adds a fermata to a note-like object
@@ -17886,6 +18076,19 @@ Vex.Flow.TextDynamics = (function(){
       vexArtic.setMeiElement(element);
       note.addArticulation(index || 0, vexArtic);
     },
+
+    addStemModifier : function (note, element, stemMod) {
+      var n = parseInt(stemMod, 10);
+      if (n) {
+        note.addArticulation(0, new VF.Tremolo(n));
+      } else {
+        Logger.info('Not supported', 'The value of @stem.mod="' + stemMod + '" specified in ' +
+                                     Util.serializeElement(element) + ' is not supported. Ignoring attribute');
+      }
+
+
+    },
+
 
     addClefModifier : function (vexNote, prop) {
       var clef = new VF.ClefNote(prop.type, 'small', prop.shift === -1 ? '8vb' : undefined);
@@ -17958,20 +18161,33 @@ Vex.Flow.TextDynamics = (function(){
     this.setStave(options.stave);
 
 
+    // TODO artic attribute
+
+    var childNodes = element.childNodes;
+    for (i = 0, j = childNodes.length; i < j; i++) {
+      switch (childNodes[i].localName) {
+        case 'accid':
+          atts.accid = childNodes[i].getAttribute('accid');
+          break;
+        case 'artic':
+          EventUtil.addArticulation(me, childNodes[i]);
+          break;
+        default:
+          break;
+      }
+    }
+
     if (atts.accid) {
       EventUtil.processAttrAccid(atts.accid, this, 0);
     }
     if (atts.ho) {
       EventUtil.processAttrHo(atts.ho, this, options.stave);
     }
-
-    var articElements = element.getElementsByTagName('artic');
-    for (i=0,j=articElements.length;i<j;i++) {
-      EventUtil.addArticulation(me, articElements[i]);
-    }
-
     if (atts.fermata) {
       EventUtil.addFermataAtt(this, element, atts.fermata);
+    }
+    if (atts['stem.mod']) {
+      EventUtil.addStemModifier(this, element, atts['stem.mod']);
     }
 
 
@@ -18024,18 +18240,26 @@ Vex.Flow.TextDynamics = (function(){
 
     this.setStave(options.stave);
 
+    var childNodes = element.childNodes;
+    for (i = 0, j = childNodes.length; i < j; i++) {
+      switch (childNodes[i].localName) {
+        case 'accid':
+          atts.accid = childNodes[i].getAttribute('accid');
+          break;
+        case 'artic':
+          EventUtil.addArticulation(me, childNodes[i]);
+          break;
+        default:
+          break;
+      }
+    }
+
     if (atts.accid) {
       EventUtil.processAttrAccid(atts.accid, this, 0);
     }
     if (atts.ho) {
       EventUtil.processAttrHo(atts.ho, this, options.stave);
     }
-
-    var articElements = element.getElementsByTagName('artic');
-    for (i=0,j=articElements.length;i<j;i++) {
-      EventUtil.addArticulation(me, articElements[i]);
-    }
-
     if (atts.fermata) {
       EventUtil.addFermataAtt(this, element, atts.fermata);
     }
@@ -18045,7 +18269,7 @@ Vex.Flow.TextDynamics = (function(){
 
   GraceNote.prototype = Object.create(VF.GraceNote.prototype);
 
-  GraceNote.prototype.label = 'gracenote';
+  GraceNote.prototype.grace = true;
   //GraceNote.prototype.beamable = false;
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
@@ -18124,6 +18348,9 @@ Vex.Flow.TextDynamics = (function(){
           if (atts.fermata) {
             EventUtil.addFermataAtt(me, element, atts.fermata);
           }
+      if (atts['stem.mod']) {
+        EventUtil.addStemModifier(this, element, atts['stem.mod']);
+      }
 
         };
 
@@ -18216,7 +18443,8 @@ Vex.Flow.TextDynamics = (function(){
 
   GraceChord.prototype = Object.create(VF.GraceNote.prototype);
 
-  GraceChord.prototype.beamable = true;
+  GraceChord.prototype.grace = true;
+//  GraceChord.prototype.beamable = true;
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
  *
@@ -18435,30 +18663,8 @@ Vex.Flow.TextDynamics = (function(){
    * MeiLib - General purpose JavaScript functions for processing MEI documents.
    * @singleton
    */
-  var MeiLib = {};
 
-  /**
-   * @class MeiLib.RuntimeError
-   *
-   * @constructor
-   * @param {String} errorcode
-   * @param {String} message
-   */
-  MeiLib.RuntimeError = function (errorcode, message) {
-    this.errorcode = errorcode;
-    this.message = message;
-  };
-  /**
-   * @method toString
-   * @return {String} the string representation of the error
-   */
-  MeiLib.RuntimeError.prototype.toString = function () {
-    return 'MeiLib.RuntimeError: ' + this.errorcode + ': ' + this.message ? this.message : "";
-  };
-  /**
-   * @class MeiLib
-   * @singleton
-   */
+  if (!window.MeiLib) window.MeiLib = {};
 
   /**
    * @method createPseudoUUID
@@ -18466,114 +18672,6 @@ Vex.Flow.TextDynamics = (function(){
   MeiLib.createPseudoUUID = function () {
     return ("0000" + (Math.random() * Math.pow(36, 4) << 0).toString(36)).substr(-4)
   };
-  /**
-   * @class MeiLib.EventEnumerator
-   * Enumerate over the children events of node (node is a layer, beam or tuplet).
-   * @constructor
-   * @param {Object} node an XML DOM object
-   * @param {} proportion
-   */
-  MeiLib.EventEnumerator = function (node, proportion) {
-    this.init(node, proportion);
-  }
-  /**
-   * @method init
-   * @param {} node
-   * @param {} proportion
-   */
-  MeiLib.EventEnumerator.prototype.init = function (node, proportion) {
-    if (!node) {
-      throw new MeiLib.RuntimeError('MeiLib.EventEnumerator.init():E01', 'node is null or undefined');
-    }
-    this.node = node;
-    this.next_evnt = null;
-    this.EoI = true;
-    // false if and only if next_evnt is valid.
-    this.children = $(this.node).children();
-    this.i_next = -1;
-    this.proportion = proportion || {
-      num : 1,
-      numbase : 1
-    };
-    this.outputProportion = proportion || {
-      num : 1,
-      numbase : 1
-    };
-    this.read_ahead();
-  }
-  /**
-   * @method nextEvent
-   * @return
-   */
-  MeiLib.EventEnumerator.prototype.nextEvent = function () {
-    if (!this.EoI) {
-      var result = this.next_evnt;
-      this.read_ahead();
-      return result;
-    }
-    throw new MeiLib.RuntimeError('MeiLib.LayerEnum:E01', 'End of Input.')
-  }
-  /**
-   * @method read_ahead
-   * @return
-   */
-  MeiLib.EventEnumerator.prototype.read_ahead = function () {
-    if (this.beam_enumerator) {
-      if (!this.beam_enumerator.EoI) {
-        this.next_evnt = this.beam_enumerator.nextEvent();
-        this.EoI = false;
-      } else {
-        this.EoI = true;
-        this.beam_enumerator = null;
-        this.step_ahead()
-      }
-    } else {
-      this.step_ahead()
-    }
-  }
-  /**
-   * @method step_ahead
-   */
-  MeiLib.EventEnumerator.prototype.step_ahead = function () {
-    ++this.i_next;
-    if (this.i_next < this.children.length) {
-      this.next_evnt = this.children[this.i_next];
-      var node_name = $(this.next_evnt).prop('localName');
-      if (node_name === 'note' || node_name === 'rest' || node_name === 'mRest' || node_name === 'chord') {
-        this.EoI = false
-      } else if (node_name === 'beam') {
-        this.beam_enumerator = new MeiLib.EventEnumerator(this.next_evnt);
-        if (!this.beam_enumerator.EoI) {
-          this.next_evnt = this.beam_enumerator.nextEvent();
-          this.EoI = false;
-        } else {
-          this.EoI = true;
-        }
-      } else if (node_name === 'tuplet') {
-
-        var proportion = {
-          num : this.proportion.num * +this.next_evnt.getAttribute('num') || 3,
-          numbase : this.proportion.numbase * +this.next_evnt.getAttribute('numbase') || 2
-        };
-
-        this.beam_enumerator = new MeiLib.EventEnumerator(this.next_evnt, proportion);
-        if (!this.beam_enumerator.EoI) {
-          this.outputProportion = this.beam_enumerator.outputProportion;
-          this.next_evnt = this.beam_enumerator.nextEvent();
-          this.EoI = false;
-        } else {
-          this.outputProportion = this.proportion;
-          this.EoI = true;
-        }
-      }
-    } else {
-      this.EoI = true;
-    }
-  }
-  /**
-   * @class MeiLib
-   * @singleton
-   */
 
   /**
    * @method durationOf
@@ -18598,7 +18696,7 @@ Vex.Flow.TextDynamics = (function(){
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
     }
     var durationOf_SimpleEvent = function (simple_evnt, meter) {
-      var dur = $(simple_evnt).attr('dur');
+      var dur = simple_evnt.getAttribute('dur');
       if (!dur) {
         console.warn('@dur of <b>note</b>, <b>rest</b> or <b>space</b> must be specified. Proceeding with default @dur="4". Element:');
         console.log(simple_evnt);
@@ -18609,56 +18707,64 @@ Vex.Flow.TextDynamics = (function(){
       return MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter);
     };
     var durationOf_Chord = function (chord, meter, layer_no) {
+      var i, j, childNodes, note;
       if (!layer_no) {
         layer_no = "1";
       }
-      var dur = $(chord).attr('dur');
+      var dur = chord.getAttribute('dur');
       var dotsMult = MeiLib.dotsMult(chord);
       if (dur) {
         return dotsMult * MeiLib.dur2beats(Number(dur), meter);
       }
-      $(chord).find('note').each(function () {
-        var lyr_n = $(this).attr('layer');
-        if (!lyr_n || lyr_n === layer_no) {
-          var dur_note = $(this).attr('dur');
-          var dotsMult_note = MeiLib.dotsMult(chord);
-          if (!dur && dur_note) {
-            dur = dur_note;
-            dotsMult = dotsMult_note;
-          } else if (dur && dur != dur_note) {
-            throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', 'duration of <chord> is ambiguous.');
+      childNodes = chord.childNodes;
+      for (i = 0, j = childNodes.length; i < j; i++) {
+        if (childNodes[i].localName === 'note') {
+          note = childNodes[i];
+          var lyr_n = note.getAttribute('layer');
+          if (!lyr_n || lyr_n === layer_no) {
+            var dur_note = note.getAttribute('dur');
+            var dotsMult_note = MeiLib.dotsMult(chord);
+            if (!dur && dur_note) {
+              dur = dur_note;
+              dotsMult = dotsMult_note;
+            } else if (dur && dur != dur_note) {
+              throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', 'duration of <chord> is ambiguous. Element: ' +
+                                                                     Util.serializeElement(chord));
+            }
           }
         }
-      });
+      }
+
       if (!dur) {
-        console.warn('@dur of chord must be specified either in <chord> or in at least one of its <note> elements. Proceeding with default @dur="4". Element:');
-        console.log(chord);
-        dur = "4";
+        throw new MeiLib.RuntimeError('MeiLib.durationOf:E06', '@dur of chord must be specified either in <chord> or in at least one of its <note> elements. Proceeding with default @dur="4". Element:' +
+                                                               Util.serializeElement(chord));
       }
       return dotsMult * MeiLib.dur2beats(Number(dur), meter);
     }
 
     var durationOf_Beam = function (beam, meter) {
-      var acc = 0;
-      $(beam).children().each(function () {
+      var acc = 0, i, j, childNodes, childNode;
+      childNodes = beam.childNodes;
+      for (i = 0, j = childNodes.length; i < j; i++) {
+        childNode = childNodes[i];
         var dur_b;
-        var tagName = this.localName;
-        if (IsZeroDurEvent(this, tagName)) {
+        var tagName = childNode.localName;
+        if (IsZeroDurEvent(childNode, tagName)) {
           dur_b = 0;
         } else if (IsSimpleEvent(tagName)) {
-          dur_b = durationOf_SimpleEvent(this, meter);
+          dur_b = durationOf_SimpleEvent(childNode, meter);
         } else if (tagName === 'chord') {
-          dur_b = durationOf_Chord(this, meter);
+          dur_b = durationOf_Chord(childNode, meter);
         } else if (tagName === 'beam') {
-          dur_b = durationOf_Beam(this, meter);
+          dur_b = durationOf_Beam(childNode, meter);
         } else if (tagName === 'tuplet') {
-          dur_b = durationOf_Tuplet(this, meter);
+          dur_b = durationOf_Tuplet(childNode, meter);
         } else {
           dur_b = 0;
           //throw new MeiLib.RuntimeError('MeiLib.durationOf:E03', "Not supported element '" + tagName + "'");
         }
         acc += dur_b;
-      });
+      }
       return acc;
     }
     var durationOf_Tuplet = function (tuplet, meter) {
@@ -18671,7 +18777,7 @@ Vex.Flow.TextDynamics = (function(){
       });
       return acc;
     }
-    var evnt_name = $(evnt).prop('localName');
+    var evnt_name = evnt.localName;
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
     }
@@ -18762,10 +18868,10 @@ Vex.Flow.TextDynamics = (function(){
     winner = getFullNote(winner);
 
     var xml_id;
-    xml_id = $(winner).attr('xml:id');
+    xml_id = winner.getAttribute('xml:id');
     if (!xml_id) {
       xml_id = MeiLib.createPseudoUUID();
-      $(winner).attr('xml:id', xml_id);
+      winner.setAttribute('xml:id', xml_id);
     }
     return xml_id;
   }
@@ -18777,10 +18883,10 @@ Vex.Flow.TextDynamics = (function(){
    * @return {String} the xml:id of the element
    */
   MeiLib.XMLID = function (elem) {
-    var xml_id = $(elem).attr('xml:id');
+    var xml_id = elem.getAttribute('xml:id');
     if (!xml_id) {
       xml_id = MeiLib.createPseudoUUID();
-      $(elem).attr('xml:id', xml_id);
+      elem.setAttribute('xml:id', xml_id);
     }
     return xml_id;
   }
@@ -18858,14 +18964,14 @@ Vex.Flow.TextDynamics = (function(){
    * result is 1.75, etc.
    */
   MeiLib.dotsMult = function (node) {
-    var dots = $(node).attr('dots');
+    var dots = node.getAttribute('dots');
     dots = Number(dots || "0");
     var mult = 1;
     for (; dots > 0; --dots) {
       mult += (1 / Math.pow(2, dots))
     }
     return mult;
-  }
+  };
   /**
    * @method sumUpUntil
    * For a given event (such as note, rest chord or space) calculates the combined
@@ -18883,28 +18989,27 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.sumUpUntil = function (eventid, layer, meter) {
 
-    var sumUpUntil_inNode = function (node_elem) {
+    var sumUpUntil_inNode = function (node) {
       var beats, children, found = null, dur, dots, subtotal, chord_dur, i;
-      var node = $(node_elem);
-      var node_name = node.prop('localName');
-      if (node_elem.hasAttribute('grace') || node_name === 'clef') {
+      var node_name = node.localName;
+      if (node.hasAttribute('grace') || node_name === 'clef') {
         return {
           beats : 0,
-          found : (node.attr('xml:id') === eventid)
+          found : (node.getAttribute('xml:id') === eventid)
         };
       }
       if (node_name === 'note' || node_name === 'rest') {
-        if (node.attr('xml:id') === eventid) {
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
           };
         } else {
-          dur = Number(node.attr('dur'));
+          dur = Number(node.getAttribute('dur'));
           if (!dur) {
             throw new MeiLib.RuntimeError('MeiLib.sumUpUntil:E001', "Duration is not a number ('breve' and 'long' are not supported).");
           }
-          dots = node.attr('dots');
+          dots = node.getAttribute('dots');
           dots = Number(dots || "0");
           beats = MeiLib.dotsMult(node) * MeiLib.dur2beats(dur, meter);
 
@@ -18914,7 +19019,7 @@ Vex.Flow.TextDynamics = (function(){
           };
         }
       } else if (node_name === 'mRest') {
-        if (node.attr('xml:id') === eventid) {
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
@@ -18930,29 +19035,32 @@ Vex.Flow.TextDynamics = (function(){
 
         // sum up childrens' duration
         beats = 0;
-        children = node.children();
+        children = node.childNodes;
         found = false;
         for (i = 0; i < children.length && !found; ++i) {
-          subtotal = sumUpUntil_inNode(children[i]);
-          beats += subtotal.beats;
-          found = subtotal.found;
+          if (children[i].nodeType === 1) {
+            subtotal = sumUpUntil_inNode(children[i]);
+            beats += subtotal.beats;
+            found = subtotal.found;
+          }
         }
         return {
           beats : beats,
           found : found
         };
       } else if (node_name === 'chord') {
-        chord_dur = node.attr('dur');
-        if (node.attr('xml:id') === eventid) {
+        chord_dur = node.getAttribute('dur');
+        if (node.getAttribute('xml:id') === eventid) {
           return {
             beats : 0,
             found : true
           };
         } else {
           // ... or find the longest note in the chord ????
-          chord_dur = node.attr('dur');
+          chord_dur = node.getAttribute('dur');
           if (chord_dur) {
-            if (node.find("[xml\\:id='" + eventid + "']").length) {
+//            if (node.querySelector("[*|id='" + eventid + "']")) {
+              if ($(node).find("[xml\\:id='" + eventid + "']").length) {
               return {
                 beats : 0,
                 found : true
@@ -18964,12 +19072,14 @@ Vex.Flow.TextDynamics = (function(){
               };
             }
           } else {
-            children = node.children();
+            children = node.childNodes;
             found = false;
             for (i = 0; i < children.length && !found; ++i) {
-              subtotal = sumUpUntil_inNode(children[i]);
-              beats = subtotal.beats;
-              found = subtotal.found;
+              if (children[i].nodeType === 1) {
+                subtotal = sumUpUntil_inNode(children[i]);
+                beats = subtotal.beats;
+                found = subtotal.found;
+              }
             }
             return {
               beats : beats,
@@ -18985,714 +19095,6 @@ Vex.Flow.TextDynamics = (function(){
     };
 
     return sumUpUntil_inNode(layer);
-  };
-
-  /**
-   * @method SliceMEI
-   * Returns a slice of the MEI. The slice is specified by the number of the
-   * starting and ending measures.
-   *
-   * About the <code>staves</code> parameter: it specifies a list of staff
-   * numbers. If it is defined, only the listed staves will be kept in the
-   * resulting slice. The following elements will be removed from:
-   *
-   * 1. <b>staffDef</b> elements (@staff value is matched against the specified list)
-   * 2. <b>staff</b> elements (@n value is matched against the specified list)
-   * 3. any other child element of measures that has
-   *
-   * @staff specified AND it is not listed.
-   *
-   * Note that <b>staff</b> elements without @n will be removed.
-   *
-   * @param {Object} MEI
-   * @param {Object} params like { start_n:NUMBER, end_n:NUMBER, noKey:BOOLEAN,
- *            noClef:BOOLEAN, noMeter:BOOLEAN, noConnectors, staves:[NUMBER] },
-   *            where <code>noKey</code>, <code>noClef</code> and
-   *            <code>noMeter</code> and <code>noConnectors</code> are
-   *            optional. taves is optional. If staves is set, it is an array of
-   *            staff numbers. Only the staves specified in the list will be
-   *            included in the resulting MEI.
-   * @return XML DOM object
-   */
-  MeiLib.SliceMEI = function (MEI, params) {
-
-    var setVisibles = function (elements, params) {
-      $.each(elements, function (i, elem) {
-        if (params.noClef) {
-          $(elem).attr('clef.visible', 'false');
-        }
-        if (params.noKey) {
-          $(elem).attr('key.sig.show', 'false');
-        }
-        if (params.noMeter) {
-          $(elem).attr('meter.rend', 'false');
-        }
-      });
-    }
-    var paramsStaves = params.staves;
-    if (paramsStaves) {
-      var staffDefSelector = '';
-      var staffNSelector = '';
-      var commaspace = '';
-      for (var i = 0; i < paramsStaves.length; i++) {
-        staffDefSelector += commaspace + '[n="' + paramsStaves[i] + '"]';
-        staffNSelector += commaspace + '[staff="' + paramsStaves[i] + '"]'
-        if (i === 0) {
-          commaspace = ', ';
-        }
-      }
-    }
-
-    var slice = MEI.cloneNode(true);
-    if (paramsStaves) {
-      $(slice).find('staffDef').remove(':not(' + staffDefSelector + ')');
-    }
-    if (params.noClef || params.noKey || params.noMeter) {
-      var scoreDef = $(slice).find('scoreDef')[0];
-      var staffDefs = $(scoreDef).find('staffDef');
-      setVisibles($(scoreDef), params);
-      setVisibles(staffDefs, params);
-    }
-    if (params.noConnectors) {
-      $(slice).find('staffGrp').removeAttr('symbol');
-    }
-    var section = $(slice).find('section')[0];
-    var inside_slice = false;
-
-    /**
-     * Keep or remove child from section depending whether it's inside the section or not.
-     * If it's kept, remove unwanted staves
-     */
-    var keepOrRemove = function (elem, inside_slice, staffNSelector, params) {
-      if (!inside_slice) {
-        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.start_n) {
-          inside_slice = true;
-        } else {
-          elem.parentNode.removeChild(elem);
-        }
-      }
-
-      if (inside_slice) {
-        // remove unwanted staff
-        if (params.staves) {
-          $(elem).find('[staff]').remove(':not(' + staffNSelector + ')');
-          var staves = $(elem).find('staff');
-          $(staves).each(function () {
-            var staff = this;
-            if ($.inArray(Number($(staff).attr('n')), params.staves) === -1) {
-              var parent = this.parentNode;
-              parent.removeChild(this);
-            }
-          })
-        }
-
-        // finish inside_slice state if it's the end of slice.
-        if (elem.localName === 'measure' && Number($(elem).attr('n')) === params.end_n) {
-          inside_slice = false;
-        }
-      }
-      return inside_slice;
-    }
-
-    /*
-     * Iterate through each child of the section and remove everything outside
-     * the slice. Remove
-     */
-    var section_children = section.childNodes;
-
-    $(section_children).each(function () {
-
-      if (this.localName === 'ending') {
-        var ending_children = this.childNodes;
-        $(ending_children).each(function () {
-          inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
-        });
-        if ($(this).find('measure').length === 0) {
-          this.parentNode.removeChild(this);
-        }
-      } else {
-        inside_slice = keepOrRemove(this, inside_slice, staffNSelector, params);
-      }
-
-    });
-
-    return slice;
-  }
-  /**
-   * Represents an MEI <b>app</b> or <b>choice</b> element.
-   *
-   * @class MeiLib.Alt
-   * @constructor
-   * @param {Element} elem
-   * @param {String} xmlID the xml:id attribute value of the <b>app</b> or
-   * <b>choice</b> element.
-   * @param {String} parentID the xml:id attribute value of the direct parent
-   * element of the <b>app</b> or <b>choice</b> element.
-   * @param {String} tagname
-   */
-  MeiLib.Alt = function (elem, xmlID, parentID, tagname) {
-    this.elem = elem;
-    this.xmlID = xmlID;
-    this.altitems = [];
-    this.parentID = parentID;
-    this.tagname = tagname;
-  }
-
-  MeiLib.Alt.prototype.getDefaultItem = function () {
-
-    /* find the editors pick or the first alternative */
-    var findDefault = function (altitems, editorspick_tagname, other_tagname) {
-      var first_sic, alt;
-      for (alt in altitems) {
-        if (altitems[alt].tagname === editorspick_tagname) {
-          return altitems[alt];
-        } else if (!first_sic && (altitems[alt].tagname === other_tagname)) {
-          first_sic = altitems[alt];
-        }
-      }
-      return first_sic;
-    };
-    if (this.tagname === 'choice') {
-      return findDefault(this.altitems, 'corr', 'sic');
-    } else if (this.tagname === 'app') {
-//      return findDefault(this.altitems, 'lem', 'rdg');
-      return findDefault(this.altitems, 'lem');
-    }
-  };
-  /**
-   * @class MeiLib.Variant
-   * Represents a <b>lem</b>, <b>rdg</b>, <b>sic</b> or <b>corr</b> element.
-   *
-   * @constructor
-   * @param elem {Element}
-   * @param xmlID {String} the xml:id attribute value of the element.
-   * @param tagname {String} 'lem' for <b>lem</b> and 'rdg for <b>rdg</b> elements.
-   * @param source {String} space-separated list of the source IDs what the given
-   *            item belongs to.
-   * @param resp {String} xmlID of the editor responsible for the given reading or
-   *            correction.
-   * @param n {String} @n attribute value of the element.
-   */
-  MeiLib.Variant = function (elem, xmlID, tagname, source, resp, n) {
-    this.elem = elem;
-    this.xmlID = xmlID;
-    this.tagname = tagname;
-    this.source = source;
-    this.resp = resp;
-    this.n = n;
-  }
-  /**
-   * @class MeiLib.MeiDoc
-   * A Rich MEI is an MEI that contain ambiguity represented by Critical Apparatus
-   * (<b>app</b>, <b>rdg</b>, etc.), or Editorial Transformation (<b>choice</b>,
-   * <b>corr</b>, etc.)
-   * elements.
-   *
-   * @constructor
-   * @param {XMLDocument} meiXmlDoc the MEI document.
-   */
-  MeiLib.MeiDoc = function (meiXmlDoc) {
-    if (meiXmlDoc) {
-      this.init(meiXmlDoc);
-    }
-  }
-  /**
-   * @method init
-   * Initializes a <code>MeiLib.MeiDoc</code> object.
-   *
-   * The constructor extracts information about alternative encodings and compiles
-   * them into a JS object (this.ALTs). The obejcts are exposed as per the
-   * following: 1. <code>sourceList</code> is the list of sources as defined in
-   * the MEI header (meiHead). 2. <code>editorList</code> is the list of editors
-   * listed in the MEI header. 3. <code>ALTs</code> is the object that contains
-   * information about the alternative encodings. It contains one entry per for
-   * each <b>app</b> or <b>choice</b> element. It is indexed by the xml:id
-   * attribute value of the elements. 4. <code>altgroups</code> is the obejct that
-   * contains how <b>app</b> and <b>choice</b> elements are grouped together to
-   * form a logical unit of alternative encoding.
-   *
-   * @param {XMLDocument} meiXmlDoc an XML document containing the rich MEI
-   */
-  MeiLib.MeiDoc.prototype.init = function (meiXmlDoc) {
-    this.xmlDoc = meiXmlDoc;
-    this.rich_head = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'meiHead')[0];
-    this.rich_music = meiXmlDoc.getElementsByTagNameNS("http://www.music-encoding.org/ns/mei", 'music')[0];
-    this.rich_score = $(this.rich_music).find('score')[0];
-    this.parseSourceList();
-    this.parseEditorList();
-    this.parseALTs();
-    this.initAltgroups();
-    this.initSectionView();
-  }
-  /**
-   * @method getRichScore
-   */
-  MeiLib.MeiDoc.prototype.getRichScore = function () {
-    return this.rich_score;
-  }
-  /**
-   * @method getPlainScore
-   */
-  MeiLib.MeiDoc.prototype.getPlainScore = function () {
-    return this.plain_score;
-  }
-  /**
-   * @method getALTs
-   */
-  MeiLib.MeiDoc.prototype.getALTs = function () {
-    return this.ALTs;
-  }
-  /**
-   * @method getSourceList
-   */
-  MeiLib.MeiDoc.prototype.getSourceList = function () {
-    return this.sourceList;
-  }
-  /**
-   * @method getEditorList
-   */
-  MeiLib.MeiDoc.prototype.getEditorList = function () {
-    return this.editorList;
-  }
-  /**
-   * @method parseSourceList
-   * Extracts information about the sources as defined in the MEI header.
-   *
-   * @return {Object} is a container indexed by the xml:id attribute value of the
-   *         <b>sourceDesc</b> element.
-   */
-  MeiLib.MeiDoc.prototype.parseSourceList = function () {
-    // var srcs = $(this.rich_head).find('sourceDesc').children();
-    // this.sourceList = {};
-    // var i
-    // for(i=0;i<srcs.length;++i) {
-    // var src = srcs[i];
-    // var xml_id = $(src).attr('xml:id');
-    // var serializer = new XMLSerializer();
-    // this.sourceList[xml_id] = serializer.serializeToString(src);
-    // }
-    // return this.sourceList;
-    this.sources = $(this.rich_head).find('sourceDesc').children();
-    return this.sources;
-  }
-  /**
-   * @method parseEditorList
-   */
-  MeiLib.MeiDoc.prototype.parseEditorList = function () {
-    // var edtrs = $(this.rich_head).find('titleStmt').children('editor');
-    // this.editorList = {};
-    // var i
-    // for(i=0;i<edtrs.length;++i) {
-    // var edtr = edtrs[i];
-    // var xml_id = $(edtr).attr('xml:id');
-    // this.editorList[xml_id] = edtr;
-    // }
-    this.editors = $(this.rich_head).find('titleStmt').children('editor');
-    return this.editors;
-  }
-  /**
-   * @method parseALTs
-   * Extracts information about the elements encoding alternatives. The method
-   * stores its result in the <code>ALTs</code> property.
-   *
-   * <code>ALTs</code> is a container of MeiLib.Alt obejcts indexed by the
-   * xml:id attribute value of the <b>app</b> or <b>choice</b> elements.
-   */
-  MeiLib.MeiDoc.prototype.parseALTs = function () {
-    var i, j;
-    this.ALTs = {};
-    // console.log(this.rich_score);
-    var apps = $(this.rich_score).find('app, choice');
-    for (i = 0; i < apps.length; i++) {
-      var app = apps[i];
-      var parent = app.parentNode;
-      var altitems = $(app).find('rdg, lem, sic, corr');
-      var AppsItem = new MeiLib.Alt(app, MeiLib.XMLID(app), MeiLib.XMLID(parent), app.localName);
-      AppsItem.altitems = {};
-      for (j = 0; j < altitems.length; j++) {
-        var altitem = altitems[j];
-        var source = $(altitem).attr('source');
-        var resp = $(altitem).attr('resp');
-        var n = $(altitem).attr('n');
-        var tagname = $(altitem).prop('localName');
-        var varXMLID = MeiLib.XMLID(altitem);
-        AppsItem.altitems[varXMLID] = new MeiLib.Variant(altitem, varXMLID, tagname, source, resp, n);
-      }
-      this.ALTs[MeiLib.XMLID(app)] = AppsItem;
-    }
-  }
-  /**
-   * @method initAltgroups
-   */
-  MeiLib.MeiDoc.prototype.initAltgroups = function () {
-    var i, j, altgroup, token_list;
-    //var ALTs = this.ALTs;
-    var annots = $(this.rich_score).find('annot[type="appGrp"], annot[type="choiceGrp"]');
-    this.altgroups = {};
-    for (i = 0; i < annots.length; i++) {
-      altgroup = [];
-      token_list = $(annots[i]).attr('plist').split(' ');
-      for (j = 0; j < token_list.length; j++) {
-        altgroup.push(token_list[j].replace('#', ''));
-      }
-      for (j in altgroup) {
-        this.altgroups[altgroup[j]] = altgroup;
-      }
-    }
-  };
-  /**
-   * @method initSectionView
-   * The MeiLib.MeiDoc.initSectionView transforms the rich MEI (this.rich_score)
-   * into a plain MEI (this.sectionview_score)
-   *
-   * An MEI is called 'plain' MEI if it contains no <b>app</b> or <b>choice</b>
-   * elements.
-   * Such an MEI can also be referred after the analogy of 2D section views of a
-   * 3D object: the rich MEI is a higher-dimensional object, of which we would
-   * like to display a 'flat' section view. The term 'section plane' refers to a
-   * combination of alternatives at different locations in the score. The section
-   * plane defines the actual view of the higher-dimensional object. For instance,
-   * consider a score that has two different variants at measure #5 (let's call
-   * them (variant A and variant B), and it contains three different variants at
-   * measure #10 (let's call those ones variants C, D and E). In this case the
-   * section plane would contain two elements the first one is either A or B, the
-   * second one is C, D or E.
-   *
-   * The extracted information about all the <b>app</b> and <b>choice</b> elements
-   * are stored in an array. Using this array the application can access information
-   * such as what alternative encodings are present in the score, what source a
-   * variant comes from, etc. This array is exposed by te <code>ALTs</code>
-   * property.
-   *
-   */
-
-  MeiLib.MeiDoc.prototype.selectDefaultAlternative = function (alt) {
-    var result = {};
-    if (alt.localName === 'choice') {
-      // ...the default replacement is...
-      var corr = $(alt).find('corr')[0];
-      if (corr) {
-        // ...the first corr...
-        result.alt_item_xml_id = MeiLib.XMLID(corr);
-        result.alt_item = corr;
-        //...or
-      } else {
-        // ...the first sic.
-        var sic = $(alt).find('sic')[0];
-        if (sic) {
-          result.alt_item_xml_id = MeiLib.XMLID(sic);
-          result.alt_item = sic;
-        } else {
-          result = {};
-        }
-      }
-    } else {
-      var lem = $(alt).find('lem')[0];
-      if (lem) {
-        // ...the first lem...
-        result.alt_item_xml_id = MeiLib.XMLID(lem);
-        result.alt_item = lem;
-        //...or nothing:
-      } else {
-        var rdg = $(alt).find('rdg')[0];
-        if (rdg) {
-          // ...the first rdg...
-          result.alt_item_xml_id = MeiLib.XMLID(rdg);
-          result.alt_item = rdg;
-          //...or nothing:
-        } else {
-          result = {};
-        }
-      }
-    }
-    return result;
-  }
-
-  MeiLib.MeiDoc.prototype.initSectionView = function (altReplacements) {
-    altReplacements = altReplacements || {};
-    // Make a copy of the rich MEI. We don't want to remove nodes from the
-    // original object.
-    this.sectionview_score = this.rich_score.cloneNode(true);
-    this.sectionplane = {};
-
-    // Transform this.sectionview_score into a plain MEI:
-    //
-    // * itereate through all <app> and <choice> elements:
-    // o chose the appropriate rdg or lem defined by sectionplane
-    // (sectionplane[app.xmlID]).
-    // If nothing is defined, leave it empty.
-    // o chose the appropriate sic or corr defined by sectionplance
-    // (sectionplane[choice.xmlID])
-    // If nothing is defined, chose the first corr, if exists, otherwise chose
-    // sic, if exists.
-    // When replacing an item, mark the location of replacement with XML
-    // processing instructions.
-
-    var alts = $(this.sectionview_score).find('app, choice');
-
-    var alt_item_xml_id;
-    var this_sectionview_score = this.sectionview_score;
-    var this_sectionplane = this.sectionplane;
-    var this_ALTs = this.ALTs;
-    var xmlDoc = this.xmlDoc;
-    var me = this;
-    $(alts).each(function (i, alt) {
-      var alt_xml_id = MeiLib.XMLID(alt);
-      var replacement = altReplacements[alt_xml_id];
-      if (replacement) {
-        // apply replacement, or...
-        alt_item_xml_id = replacement.xmlID;
-        var alt_item2insert = $(this_sectionview_score).find(replacement.tagname + '[xml\\:id="' + alt_item_xml_id +
-                                                             '"]')[0];
-        if (!alt_item2insert) {
-          throw new MeiLib.RuntimeError('MeiLib.MeiDoc.prototype.initSectionView():E01', "Cannot find <lem>, <rdg>, <sic>, or <corr> with @xml:id '" +
-                                                                                         alt_item_xml_id + "'.");
-        }
-      } else {
-        var defaultAlt = me.ALTs[alt_xml_id].getDefaultItem();
-        if (defaultAlt) {
-          alt_item_xml_id = defaultAlt.xmlID;
-          alt_item2insert = defaultAlt.elem;
-        }
-      }
-      var parent = alt.parentNode;
-      var PIStart = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgStart="' + alt_xml_id + '"');
-      parent.insertBefore(PIStart, alt);
-      if (alt_item2insert) {
-        var childNodes = alt_item2insert.childNodes;
-        var j;
-        for (j = 0; j < childNodes.length; ++j) {
-          parent.insertBefore(childNodes.item(j).cloneNode(true), alt);
-        }
-      }
-      var PIEnd = xmlDoc.createProcessingInstruction('MEI2VF', 'rdgEnd="' + alt_xml_id + '"');
-      parent.insertBefore(PIEnd, alt);
-      parent.removeChild(alt);
-
-      this_sectionplane[alt_xml_id] = [];
-      if (this_ALTs[alt_xml_id].altitems[alt_item_xml_id]) {
-        this_sectionplane[alt_xml_id].push(this_ALTs[alt_xml_id].altitems[alt_item_xml_id]);
-      }
-    });
-
-    return this.sectionview_score;
-
-  }
-  /**
-   * @method updateSectionView
-   * Updates the sectionview score (plain MEI) by replacing one or more
-   * alternative instance with other alternatives.
-   *
-   * @param sectionplaneUpdate
-   *            {object} the list of changes. It is an container of xml:id
-   *            attribute values of <b>rdg</b>, <b>lem</b>, <b>sic</b> or
-   * <b>corr</b> elements,
-   *            indexed by the xml:id attribute values of the corresponding
-   * <b>app</b>
-   *            or <b>choice</b> elements. sectionplaneUpdate[altXmlID] =
-   * altInstXmlID
-   *            is the xml:id attribute value of the <b>rdg</b>, <b>lem</b>,
-   * <b>sic</b> or <b>corr</b>
-   *            element, which is to be inserted in place of the original <app
-   *            xml:id=altXmlID> or <b>choice xml:id=altXmlID</b> When replacing an
-   *            <b>app</b> or <b>choice</b> that is part of a group of such
-   * elements
-   *            (defined by this.altgroups), then those other elements needs to be
-   *            replaced as well.
-   */
-  MeiLib.MeiDoc.prototype.updateSectionView = function (sectionplaneUpdate) {
-
-    var altID, altID__;
-
-    var corresponding_alt_item = function (altitems, altitem) {
-      var vars_match = function (v1, v2) {
-        var res = 0;
-        for (var field in v1) {
-          if (v1[field] !== undefined && v1[field] === v2[field]) {
-            res++;
-          }
-        }
-        //      console.log('vars_match: ' + res);
-        return res;
-      }
-      var max = 0;
-      var corresponding_item, M;
-      for (var alt_item_id in altitems) {
-        M = vars_match(altitems[alt_item_id], altitem);
-        if (max < M) {
-          max = M;
-          corresponding_item = altitems[alt_item_id];
-        }
-      }
-      return corresponding_item;
-    };
-
-    for (altID in sectionplaneUpdate) {
-      var this_ALTs = this.ALTs;
-      var altitems2insert = [];
-      // preserving backward compatibility:
-      if (typeof sectionplaneUpdate[altID] === 'string') {
-        sectionplaneUpdate[altID] = [sectionplaneUpdate[altID]];
-      }
-      if (sectionplaneUpdate[altID].length > 0) {
-        $(sectionplaneUpdate[altID]).each(function () {
-          altitems2insert.push(this_ALTs[altID].altitems[this]);
-        });
-      } else {
-        var defaultAltItem = this.ALTs[altID].getDefaultItem();
-        if (defaultAltItem) {
-          altitems2insert.push(defaultAltItem);
-        }
-      }
-      var altgroup = this.altgroups[altID];
-      if (altgroup) {
-        // if altID is present in altgroups, then replace all corresponding alts
-        // with the
-        // altitems that correspons to the any of the alt item that are being
-        // inserted.
-        var i;
-        for (i = 0; i < altgroup.length; i++) {
-          altID__ = altgroup[i];
-          var altitems2insert__ = [];
-          $(altitems2insert).each(function () {
-            altitems2insert__.push(corresponding_alt_item(this_ALTs[altID__].altitems, this))
-          });
-          this.replaceAltInstance({
-            appXmlID : altID__,
-            replaceWith : altitems2insert__
-          });
-        }
-      } else {
-        // otherwise just replace alt[xml:id=altID] with the list of items
-        this.replaceAltInstance({
-          appXmlID : altID,
-          replaceWith : altitems2insert
-        });
-      }
-    }
-  };
-  /**
-   * @method replaceAltInstance
-   * Replace an alternative instance in the sectionview score and in the
-   * sectionplane
-   *
-   * @param {Object} alt_inst_update
-   * @return the updated score
-   */
-  MeiLib.MeiDoc.prototype.replaceAltInstance = function (alt_inst_update) {
-
-    var extendWithNodeList = function (nodeArray, nodeList) {
-      var res = nodeArray;
-      var i;
-      for (i = 0; i < nodeList.length; ++i) {
-        res.push(nodeList.item(i));
-      }
-      return res;
-    };
-    var app_xml_id = alt_inst_update.appXmlID;
-    var parent = $(this.sectionview_score).find('[xml\\:id=' + this.ALTs[app_xml_id].parentID + ']')[0];
-    if (typeof parent === 'undefined') {
-      return;
-    }
-    var children = parent.childNodes;
-
-    var replaceWith = alt_inst_update.replaceWith;
-    var nodes2insert = [];
-    var this_rich_score = this.rich_score;
-    if (replaceWith) {
-      var i;
-      for (i = 0; i < replaceWith.length; ++i) {
-        var replaceWith_item = replaceWith[i];
-        var replaceWith_xmlID = replaceWith_item.xmlID;
-        var var_inst_elem = $(this_rich_score).find(replaceWith_item.tagname + '[xml\\:id="' + replaceWith_xmlID +
-                                                    '"]')[0];
-        nodes2insert = extendWithNodeList(nodes2insert, var_inst_elem.childNodes);
-      }
-    }
-    //  console.log(nodes2insert)
-
-    var match_pseudo_attrValues = function (data1, data2) {
-      data1 = data1.replace("'", '"');
-      data2 = data2.replace("'", '"');
-      return data1 === data2;
-    }
-    var inside_inst = false;
-    var found = false;
-    var insert_before_this = null;
-    $(children).each(function () {
-      var child = this;
-      if (child.nodeType === 7) {
-        if (child.nodeName === 'MEI2VF' && match_pseudo_attrValues(child.nodeValue, 'rdgStart="' + app_xml_id + '"')) {
-          inside_inst = true;
-          found = true;
-        } else if (child.nodeName === 'MEI2VF' &&
-                   match_pseudo_attrValues(child.nodeValue, 'rdgEnd="' + app_xml_id + '"')) {
-          inside_inst = false;
-          insert_before_this = child;
-        }
-      } else if (inside_inst) {
-        parent.removeChild(child);
-      }
-    });
-
-    if (!found) {
-      throw "processing instruction not found";
-    }
-    if (inside_inst) {
-      throw "Unmatched <?MEI2VF rdgStart?>";
-    }
-
-    var insert_method;
-    if (insert_before_this) {
-      insert_method = function (elem) {
-        parent.insertBefore(elem, insert_before_this)
-      };
-    } else {
-      insert_method = function (elem) {
-        parent.appendChild(elem)
-      };
-    }
-
-    $.each(nodes2insert, function () {
-      insert_method(this.cloneNode(true));
-    });
-
-    this.sectionplane[app_xml_id] = alt_inst_update.replaceWith;
-
-    return this.sectionview_score;
-  }
-  /**
-   * @method getSectionViewSlice
-   * Get a slice of the sectionview_score.
-   *
-   * @param params
-   *            {Obejct} contains the parameters for slicing. For more info see at
-   *            documentation of MeiLib.SliceMEI
-   * @return an XML DOM object containing the slice of the plain MEI
-   */
-  MeiLib.MeiDoc.prototype.getSectionViewSlice = function (params) {
-    return MeiLib.SliceMEI(this.sectionview_score, params);
-  }
-  /**
-   * @method getRichSlice
-   * Get a slice of the whole rich MEI document.
-   *
-   * @param params
-   *            {Obejct} contains the parameters for slicing. For more info see at
-   *            documentation of MeiLib.SliceMEI
-   * @return {MeiLib.MeiDoc} a MeiDoc object
-   */
-  MeiLib.MeiDoc.prototype.getRichSlice = function (params) {
-    var slice = new MeiLib.MeiDoc();
-    slice.xmlDoc = this.xmlDoc;
-    slice.rich_head = this.rich_head.cloneNode(true);
-    slice.rich_music = this.rich_music.cloneNode(true);
-    slice.rich_score = MeiLib.SliceMEI(this.rich_score, params);
-    slice.sourceList = this.sourceList;
-    slice.editorList = this.editorList;
-    slice.ALTs = this.ALTs;
-    slice.altgroups = this.altgroups;
-    return slice;
   };
 /*
  * EventReference.js Author: Zoltan Komives (zolaemil@gmail.com) Created:
@@ -20194,8 +19596,13 @@ Vex.Flow.TextDynamics = (function(){
 
         me.allVexObjects.push(hairpin);
       } else {
-        Logger.warn('Missing targets', 'Target elements of hairpin could not be found: ');
-        console.log(arguments);
+        if (f_note.vexNote) {
+          Logger.warn('Missing target', 'Hairpin could not be rendered because second note could not be identified.');
+        } else if (l_note.vexNote) {
+          Logger.warn('Missing target', 'Hairpin could not be rendered because first note could not be identified.');
+        } else {
+          Logger.warn('Missing targets', 'Hairpin could not be rendered because first and second note could not be identified.');
+        }
       }
 
     }
@@ -20306,7 +19713,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
         if (!f_note.vexNote && !l_note.vexNote) {
-          Logger.warn('Tie could not be rendered', 'Neither xml:id could be found: "' + model.getFirstId() +
+          Logger.warn('Tie could not be processed', 'Neither xml:id could be found: "' + model.getFirstId() +
                                                           '" / "' + model.getLastId() + '"');
           return true;
         }
@@ -20357,7 +19764,7 @@ Vex.Flow.TextDynamics = (function(){
         last_indices : l_note.index
       });
       vexTie.setDir(params.curvedir);
-      if (f_note.vexNote && f_note.vexNote.label === 'gracenote') {
+      if (f_note.vexNote && f_note.vexNote.grace === true) {
         vexTie.render_options.first_x_shift = -5;
       }
       me.allVexObjects.push(vexTie);
@@ -20452,8 +19859,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
         if (!f_note.vexNote && !l_note.vexNote) {
-          Logger.warn('Slur could not be rendered', 'Neither xml:id could be found: "' + model.getFirstId() +
-                                                           '" / "' + model.getLastId() + '"');
+          Logger.warn('Slur could not be processed', 'Neither xml:id could be found: "' + model.getFirstId() +
+                                                     '" / "' + model.getLastId() + '"');
           return true;
         }
 
@@ -20526,11 +19933,21 @@ Vex.Flow.TextDynamics = (function(){
             }
 
           }
+
         } else {
           if (f_note.vexNote && l_note.vexNote &&
               f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
+
+            //            console.log(f_note.vexNote.getLineNumber());
+            //            console.log(l_note.vexNote.getLineNumber());
             slurOptions.invert = true;
-            slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            if (Math.abs(f_note.vexNote.getLineNumber() - l_note.vexNote.getLineNumber()) > 2.5 ) {
+
+              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            }
+
+
+
           }
         }
 
@@ -20630,8 +20047,29 @@ Vex.Flow.TextDynamics = (function(){
       this.font = font;
     },
 
-    createVexFromInfos : function () {
-      throw new RuntimeError('You have to provide a createVexFromInfos method when inheriting MEI2VF.EventPointerCollection.');
+    createVexFromInfos : function (notes_by_id) {
+      var me = this, i, model, note;
+      i = me.allModels.length;
+      while (i--) {
+        model = me.allModels[i];
+        note = notes_by_id[model.startid];
+        if (note) {
+          me.addToNote(model, note);
+        } else {
+          if (model.startid) {
+            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
+                                             ' could not be processed because the reference "' + model.startid +
+                                             '" could not be resolved.');
+          } else {
+            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
+                                             ' could not be processed because it could not be assigned to an element.');
+          }
+        }
+      }
+    },
+
+    addToNote : function () {
+      throw new RuntimeError('You have to provide a addToNote() method when inheriting MEI2VF.EventPointerCollection.');
     },
 
     createInfos : function (elements, measureElement) {
@@ -20751,34 +20189,23 @@ Vex.Flow.TextDynamics = (function(){
       Directives.superclass.init.call(this, systemInfo, font);
     },
 
-    createVexFromInfos : function (notes_by_id) {
-      var me = this, i, model, note, annot;
-      i = me.allModels.length;
-      while (i--) {
-        model = me.allModels[i];
-        note = notes_by_id[model.startid];
-        if (note) {
-          annot =
-          (new VF.Annotation(Util.getText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+    addToNote : function (model, note) {
+      var me = this, annot =
+      (new VF.Annotation(Util.getNormalizedText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
 
-          // TEMPORARY: set width of modifier to zero so voices with modifiers
-          // don't get too much width; remove when the width calculation in
-          // VexFlow does distinguish between different y values when
-          // calculating the width of tickables
-          annot.setWidth(0);
-          annot.setJustification(1); // left by default
-          if (model.atts.place === 'below') {
-            note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
-          } else {
-            note.vexNote.addAnnotation(0, annot);
-          }
-        } else {
-          Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                            ' could not be rendered because the reference "' + model.startid +
-                                            '" could not be resolved.');
-        }
+      // TEMPORARY: set width of modifier to zero so voices with modifiers
+      // don't get too much width; remove when the width calculation in
+      // VexFlow does distinguish between different y values when
+      // calculating the width of tickables
+      annot.setWidth(0);
+      annot.setJustification(1); // left by default
+      if (model.atts.place === 'below') {
+        note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
+      } else {
+        note.vexNote.addAnnotation(0, annot);
       }
     }
+
   });
 /*
  * MEItoVexFlow, Dynamics class
@@ -20819,35 +20246,22 @@ Vex.Flow.TextDynamics = (function(){
       Dynamics.superclass.init.call(this, systemInfo, font);
     },
 
-    // TODO use Vex.Flow.Textnote instead of VF.Annotation!?
-    createVexFromInfos : function (notes_by_id) {
-      var me = this, i, model, note, annot;
-      i = me.allModels.length;
-      while (i--) {
-        model = me.allModels[i];
-        note = notes_by_id[model.startid];
-        if (note) {
-          annot =
-          (new VF.Annotation(Util.getText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+    addToNote : function(model, note) {
+      var me = this, annot =
+      (new VF.Annotation(Util.getText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
 
-          // TEMPORARY: set width of modifier to zero so voices with modifiers
-          // don't get too much width; remove when the width calculation in
-          // VexFlow does distinguish between different y values when
-          // calculating the width of tickables
-          annot.setWidth(0);
-          if (model.atts.place === 'above') {
-            note.vexNote.addAnnotation(0, annot);
-          } else {
-            note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
-          }
-        } else {
-          Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                            ' could not be rendered because the reference "' + model.startid +
-                                            '" could not be resolved.');
-        }
+      // TEMPORARY: set width of modifier to zero so voices with modifiers
+      // don't get too much width; remove when the width calculation in
+      // VexFlow does distinguish between different y values when
+      // calculating the width of tickables
+      annot.setWidth(0);
+      if (model.atts.place === 'above') {
+        note.vexNote.addAnnotation(0, annot);
+      } else {
+        note.vexNote.addAnnotation(0, annot.setVerticalJustification(me.BOTTOM));
       }
-
     }
+
   });
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
@@ -20885,22 +20299,8 @@ Vex.Flow.TextDynamics = (function(){
       Fermatas.superclass.init.call(this, systemInfo, font);
     },
 
-    createVexFromInfos : function (notes_by_id) {
-      var me = this, i, model, note;
-      i = me.allModels.length;
-      while (i--) {
-        model = me.allModels[i];
-        note = notes_by_id[model.startid];
-        if (note) {
-          EventUtil.addFermata(note.vexNote, model.element, model.atts.place);
-        } else {
-          console.log(model);
-          Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                            ' could not be rendered because the reference "' + model.startid +
-                                            '" could not be resolved.');
-        }
-      }
-
+    addToNote : function (model, note) {
+      EventUtil.addFermata(note.vexNote, model.element, model.atts.place);
     }
 
   });
@@ -20939,21 +20339,8 @@ Vex.Flow.TextDynamics = (function(){
       Ornaments.superclass.init.call(this, systemInfo, font);
     },
 
-    createVexFromInfos : function (notes_by_id) {
-      var me = this, i, model, note;
-      i = me.allModels.length;
-      while (i--) {
-        model = me.allModels[i];
-        note = notes_by_id[model.startid];
-        if (note) {
-          me.addOrnamentToNote(note.vexNote, model);
-        } else {
-          console.log(model);
-          Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                            ' could not be rendered because the reference "' + model.startid +
-                                            '" could not be resolved.');
-        }
-      }
+    addToNote : function (model, note) {
+      this.addOrnamentToNote(note.vexNote, model);
     },
 
     /**
@@ -23403,6 +22790,18 @@ Vex.Flow.TextDynamics = (function(){
       f.preFormat(justifyWidth, stave.getContext(), me.vexVoices, null);
     },
 
+//    getStaveLowestY : function (stave_n) {
+//      var me=this, i, j, voices, lowestY = 0;
+//      voices = me.vexVoicesStaffWise[stave_n];
+//      if (voices) {
+//        console.log(voices);
+//        for (i=0,j=voices.length;i<j;i++) {
+//          lowestY = Math.max(lowestY, voices[i].boundingBox.y + voices[i].boundingBox.h);
+//        }
+//        return lowestY;
+//      }
+//    },
+
     draw : function (context, staves) {
       var i, staveVoice, all_voices = this.all_voices;
       for (i = 0; i < all_voices.length; ++i) {
@@ -23536,6 +22935,8 @@ Vex.Flow.TextDynamics = (function(){
        * - null or undefined: renders no labels
        */
       labelMode : null, // 'full',
+      processSb : 'sb', // sb / ignore
+      processPb : 'sb', // pb / sb / ignore
       /**
        * @cfg {Number} maxHyphenDistance The maximum distance (in pixels)
        * between two hyphens in the lyrics lines
@@ -23629,8 +23030,31 @@ Vex.Flow.TextDynamics = (function(){
       if (me.cfg.renderFermataAttributes === true) {
         EventUtil.addFermataAtt = EventUtil.addFermata;
       }
+      switch (me.cfg.processSb) {
+        case 'pb' :
+          me.onSb = me.setPendingPageBreak;
+          break;
+        case 'sb' :
+          me.onSb = me.setPendingSystemBreak;
+          break;
+        default :
+          me.onSb = me.emptyFn;
+      }
+      switch (me.cfg.processPb) {
+        case 'pb' :
+          me.onPb = me.setPendingPageBreak;
+          break;
+        case 'sb' :
+          me.onPb = me.setPendingSystemBreak;
+          break;
+        default :
+          me.onPb = me.emptyFn;
+      }
       return me;
 
+    },
+
+    emptyFn : function () {
     },
 
     /**
@@ -23641,7 +23065,6 @@ Vex.Flow.TextDynamics = (function(){
      */
     reset : function () {
       var me = this;
-      console.debug('Converter.reset()');
       me.systemInfo.init(me.cfg, me.printSpace);
       /**
        * @property {MEI2VF.EventLink[][]} unresolvedTStamp2
@@ -23774,14 +23197,21 @@ Vex.Flow.TextDynamics = (function(){
      * be processed further or drawn immediately to a canvas via {@link #draw}.
      * @method process
      * @chainable
-     * @param {XMLDocument} xmlDoc the XML document
+     * @param {XMLDocument} xmlDoc an XML document or element containing the MEI music to render 
      * @return {Converter} this
      */
     process : function (xmlDoc) {
       var me = this;
       me.reset();
-      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
-      me.processSections(xmlDoc);
+
+		if (xmlDoc.localName === 'score') {
+			me.processScoreChildren(xmlDoc);	
+		} else {
+			me.processScoreChildren(xmlDoc.querySelector('score'));
+		}
+
+      //      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
+      //      me.processSections(xmlDoc);
       me.directives.createVexFromInfos(me.notes_by_id);
       me.dynamics.createVexFromInfos(me.notes_by_id);
       me.fermatas.createVexFromInfos(me.notes_by_id);
@@ -23922,45 +23352,98 @@ Vex.Flow.TextDynamics = (function(){
       return system;
     },
 
-    /**
-     * @method processSections
-     */
-    processSections : function (xmlDoc) {
-      var me = this, i, j, sections;
-      sections = xmlDoc.getElementsByTagName('section');
-      for (i = 0, j = sections.length; i < j; i++) {
-        me.processSection(sections[i]);
+    processScoreChildren : function (score) {
+      var me = this, i, j, childNodes;
+      if (score) {
+        childNodes = score.childNodes;
+        for (i = 0, j = childNodes.length; i < j; i++) {
+          if (childNodes[i].nodeType === 1) {
+            me.processScoreChild(childNodes[i]);
+          }
+        }
+      } else {
+        throw new RuntimeError('No score element found in the document.')
       }
     },
+
+    processScoreChild : function (element) {
+      var me = this;
+      switch (element.localName) {
+        case 'scoreDef' :
+          me.systemInfo.processScoreDef(element);
+          break;
+        case 'staffDef' :
+          me.systemInfo.processStaffDef(element);
+          break;
+        case 'pb' :
+          me.onPb(element);
+          break;
+        case 'ending' :
+          me.processEnding(element);
+          break;
+        case 'section' :
+          me.processSection(element);
+          break;
+        default :
+          Logger.info('Not supported', 'Element ' + Util.serializeElement(element) +
+                                       ' is not supported in <score>. Ignoring element.');
+      }
+    },
+
+    //    /**
+    //     * @method processSections
+    //     */
+    //    processSections : function (xmlDoc) {
+    //      var me = this, i, j, sections;
+    //      sections = xmlDoc.getElementsByTagName('section');
+    //      for (i = 0, j = sections.length; i < j; i++) {
+    //        me.processSection(sections[i]);
+    //      }
+    //    },
 
     /**
      *@method processSection
      */
     processSection : function (element) {
       var me = this, i, j, sectionChildren = element.childNodes;
-        for (i = 0, j = sectionChildren.length; i < j; i += 1) {
-          if (sectionChildren[i].nodeType === 1) {
-            me.processSectionChild(sectionChildren[i]);
-          }
+      for (i = 0, j = sectionChildren.length; i < j; i += 1) {
+        if (sectionChildren[i].nodeType === 1) {
+          me.processSectionChild(sectionChildren[i]);
         }
+      }
     },
 
     /**
      * @method processEnding
      */
     processEnding : function (element) {
-      var me = this, i, j, sectionChildren = element.childNodes;
-      for (i = 0, j = sectionChildren.length; i < j; i += 1) {
-        if (sectionChildren[i].nodeType === 1) {
-          me.currentVoltaType = {};
-          if (i === 0) {
-            me.currentVoltaType.start = element.getAttribute('n');
-          }
-          if (i === j - 1) {
-            me.currentVoltaType.end = true;
-          }
-          me.processSectionChild(sectionChildren[i]);
+      var me = this, isFirst = true, next, childNode;
+
+      var getNext = function (node) {
+        var nextSibling = node.nextSibling;
+        while (nextSibling && nextSibling.nodeType !== 1) {
+          nextSibling = nextSibling.nextSibling;
         }
+        return nextSibling;
+      };
+
+      childNode = element.firstChild;
+      if (childNode.nodeType !== 1) {
+        childNode = getNext(childNode);
+      }
+
+      while (childNode) {
+        next = getNext(childNode);
+        if (isFirst) {
+          me.currentVoltaType = {start : element.getAttribute('n')};
+          isFirst = false;
+        }
+        if (!next) {
+          me.currentVoltaType.end = true;
+        }
+        me.processSectionChild(childNode);
+
+        childNode=next;
       }
       me.currentVoltaType = null;
     },
@@ -23972,7 +23455,7 @@ Vex.Flow.TextDynamics = (function(){
      * annot ending expansion pb sb scoreDef section staff staffDef
      * MEI.text: div MEI.usersymbols: anchoredText curve line symbol
      *
-     * Supported elements: <b>measure</b> <b>scoreDef</b> <b>staffDef</b>
+     * Supported elements: <b>ending</b> <b>measure</b> <b>scoreDef</b> <b>section</b> <b>staffDef</b>
      * <b>sb</b>
      * @method processSectionChild
      */
@@ -23988,16 +23471,26 @@ Vex.Flow.TextDynamics = (function(){
         case 'staffDef' :
           me.systemInfo.processStaffDef(element);
           break;
+        case 'pb' :
+          me.onPb(element);
+          break;
         case 'sb' :
-          me.setPendingSystemBreak(element);
+          me.onSb(element);
           break;
         case 'ending' :
           me.processEnding(element);
+          break;
+        case 'section' :
+          me.processSection(element);
           break;
         default :
           Logger.info('Not supported', 'Element ' + Util.serializeElement(element) +
                                        ' is not supported in <section>. Ignoring element.');
       }
+    },
+
+    setPendingPageBreak : function () {
+      Logger.info('setPendingPageBreak() not implemented.')
     },
 
     /**
@@ -24141,7 +23634,8 @@ Vex.Flow.TextDynamics = (function(){
       for (i = 0, j = staveElements.length; i < j; i++) {
         stave_n = parseInt(staveElements[i].getAttribute('n'), 10);
         if (isNaN(stave_n)) {
-          throw new RuntimeError(Util.serializeElement(element) + ' must have an @n attribute of type integer.');
+          throw new RuntimeError(Util.serializeElement(staveElements[i]) +
+                                 ' must have an @n attribute of type integer.');
         }
 
         stave = new Stave({
@@ -24364,7 +23858,7 @@ Vex.Flow.TextDynamics = (function(){
         case 'rest' :
           return me.processRest(element, stave, stave_n, layerDir, staveInfo);
         case 'mRest' :
-          return me.processmRest(element, stave, stave_n, layerDir, staveInfo);
+          return me.processMRest(element, stave, stave_n, layerDir, staveInfo);
         case 'space' :
           return me.processSpace(element, stave);
         case 'note' :
@@ -24377,6 +23871,8 @@ Vex.Flow.TextDynamics = (function(){
           return me.processChord(element, stave, stave_n, layerDir, staveInfo);
         case 'clef' :
           return me.processClef(element, stave, stave_n, layerDir, staveInfo);
+        case 'bTrem' :
+          return me.processBTrem(element, stave, stave_n, layerDir, staveInfo);
         case 'anchoredText' :
           me.processAnchoredText(element, stave, stave_n, layerDir, staveInfo);
           return;
@@ -24440,10 +23936,10 @@ Vex.Flow.TextDynamics = (function(){
         me.processSyllables(note, element, stave_n);
 
 
-        // FIXME For now, we'll remove any child nodes of <note>
-        while (element.firstChild) {
-          element.removeChild(element.firstChild);
-        }
+        //        // FIXME For now, we'll remove any child nodes of <note>
+        //        while (element.firstChild) {
+        //          element.removeChild(element.firstChild);
+        //        }
 
         if (mei_tie) {
           me.processAttrTie(mei_tie, xml_id, vexPitch, stave_n);
@@ -24552,8 +24048,8 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processNoteInChord
      */
-    processNoteInChord : function (i, element, chordElement, chord, stave_n, layerDir) {
-      var me = this, atts, xml_id;
+    processNoteInChord : function (chordIndex, element, chordElement, chord, stave_n, layerDir) {
+      var me = this, i, j, atts, xml_id;
 
       atts = Util.attsToObj(element);
 
@@ -24571,16 +24067,30 @@ Vex.Flow.TextDynamics = (function(){
       me.notes_by_id[xml_id] = {
         meiNote : chordElement,
         vexNote : chord,
-        index : [i],
+        index : [chordIndex],
         system : me.currentSystem_n,
         layerDir : layerDir
       };
 
+      var childNodes = element.childNodes;
+      for (i = 0, j = childNodes.length; i < j; i++) {
+        switch (childNodes[i].localName) {
+          case 'accid':
+            atts.accid = childNodes[i].getAttribute('accid');
+            break;
+          case 'artic':
+            EventUtil.addArticulation(chord, childNodes[i]);
+            break;
+          default:
+            break;
+        }
+      }
+
       if (atts.accid) {
-        EventUtil.processAttrAccid(atts.accid, chord, i);
+        EventUtil.processAttrAccid(atts.accid, chord, chordIndex);
       }
       if (atts.fermata) {
-        EventUtil.addFermata(chord, element, atts.fermata, i);
+        EventUtil.addFermata(chord, element, atts.fermata, chordIndex);
       }
     },
 
@@ -24617,9 +24127,9 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     /**
-     * @method processmRest
+     * @method processMRest
      */
-    processmRest : function (element, stave, stave_n, layerDir, staveInfo) {
+    processMRest : function (element, stave, stave_n, layerDir, staveInfo) {
       var me = this, mRest, xml_id;
 
       try {
@@ -24674,6 +24184,23 @@ Vex.Flow.TextDynamics = (function(){
      */
     processClef : function (element, stave, stave_n, layerDir, staveInfo) {
       this.currentClefChangeProperty = staveInfo.clefChangeInMeasure(element);
+    },
+
+    /**
+     * @method processBTrem
+     * @param {Element} element the element
+     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Number} stave_n the number of the containing stave
+     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
+     * @param {MEI2VF.StaveInfo} staveInfo
+     */
+    processBTrem : function (element, stave, stave_n, layerDir, staveInfo) {
+      var me = this;
+
+      Logger.info('Not implemented', 'Element <bTrem> not implemented. Processing child nodes.');
+
+      return me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
+
     },
 
     /**
@@ -26079,6 +25606,39 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
+    resolveSameAs : function (element) {
+      this.copyElements(element, 'sameas');
+    },
+
+    resolveCopyOf : function (element) {
+      this.copyElements(element, 'copyof');
+    },
+
+
+    copyElements : function (element, attName) {
+      var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;
+      for (i = items.length; i--;) {
+        item = items[i];
+        id = item.getAttribute(attName).substring(1);
+        target = element.querySelector('[*|id=' + id + ']');
+        if (target) {
+          clone = target.cloneNode(true);
+          clone.setAttribute(attName, '#' + id);
+          clone.removeAttribute('xml:id');
+
+          cloneDescendants = clone.querySelectorAll('[*|id]');
+          for (j = cloneDescendants.length; j--;) {
+            cloneDescendants[j].removeAttribute('xml:id');
+          }
+
+          item.parentNode.insertBefore(clone, item.nextSibling);
+          item.parentNode.removeChild(item);
+        } else {
+          Logger.warn('Reference error', 'Target "'+id+'" specified in ' + Util.serializeElement(item) + ' could not be found.');
+        }
+      }
+    },
+
     /**
      * checks if descendants of the provided element have xml:ids; adds xml:ids
      * if they are missing
@@ -26263,6 +25823,8 @@ Vex.Flow.TextDynamics = (function(){
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
+        'resolveSameAs',
+        'resolveCopyOf',
         [
           'addXmlIdPrefix',
           'M2V'
@@ -26685,127 +26247,6 @@ Vex.Flow.TextDynamics = (function(){
       return !(point.x < rect.x || point.x > rect.x1 || point.y < rect.y || point.y > rect.y1);
     }
   });
-/*
- * Component of MEItoVexFlow Author: Raffaele Viglianti, 2012
- *
- * Copyright © 2012, 2013 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
- * University of Maryland
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not
- * use this file except in compliance with the License. You may obtain a copy
- * of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
- */
-/**
- * Contributor: Alexander Erhard
- */
-
-/**
- * @class MEI2VF
- * @singleton
- * Tables for MEI <-> VexFlow values
- */
-
-
-
-  /**
-   * @private
-   * @namespace Tables
-   */
-  var Tables = {
-
-    accidentals : {
-      'n' : 'n',
-      'f' : 'b',
-      's' : '#',
-      'ff' : 'bb',
-      'ss' : '##'
-    },
-
-    durations : {
-      'long' : '1/4',
-      'breve' : '1/2',
-      '1' : 'w',
-      '2' : 'h',
-      '4' : 'q',
-      '8' : '8',
-      '16' : '16',
-      '32' : '32',
-      '64' : '64'
-      // '128': '',
-      // '256': '',
-      // '512': '',
-      // '1024': '',
-      // '2048': '',
-      // 'maxima': '',
-      // 'longa': '',
-      // 'brevis': '',
-      // 'semibrevis': '',
-      // 'minima': '',
-      // 'semiminima': '',
-      // 'fusa': '',
-      // 'semifusa': ''
-    },
-
-    positions : {
-      'above' : VF.Modifier.Position.ABOVE,
-      'below' : VF.Modifier.Position.BELOW
-    },
-
-    hairpins : {
-      'cres' : VF.StaveHairpin.type.CRESC,
-      'dim' : VF.StaveHairpin.type.DECRESC
-    },
-
-    articulations : {
-      'acc' : 'a>',
-      'stacc' : 'a.',
-      'ten' : 'a-',
-      'stacciss' : 'av',
-      'marc' : 'a^',
-      // 'marc-stacc':
-      // 'spicc':
-      // 'doit':
-      // 'rip':
-      // 'plop':
-      // 'fall':
-      // 'bend':
-      // 'flip':
-      // 'smear':
-      'dnbow' : 'am',
-      'upbow' : 'a|',
-      // 'harm':
-      'snap' : 'ao',
-      // 'fingernail':
-      // 'ten-stacc':
-      // 'damp':
-      // 'dampall':
-      // 'open':
-      // 'stop':
-      // 'dbltongue':
-      // 'trpltongue':
-      // 'heel':
-      // 'toe':
-      // 'tap':
-      'lhpizz' : 'a+',
-      'dot' : 'a.',
-      'stroke' : 'a|'
-    },
-
-    fermata : {
-      'above' : 'a@a',
-      'below' : 'a@u'
-    }
-
-  };
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
  *

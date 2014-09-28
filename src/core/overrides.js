@@ -21,10 +21,10 @@ define([
   'mei2vf/eventpointer/Directives',
   'mei2vf/eventpointer/Dynamics',
   'mei2vf/eventpointer/Fermatas',
-  'mei2vf/core/Converter',
+  'mei2vf/Converter',
   'common/Logger',
   'common/Util',
-  'mei2vf/core/tables',
+  'mei2vf/Tables',
   'mei2vf/stave/Stave'
 ], function ($, VF, overrides, Directives, Dynamics, Fermatas, Converter, Logger, Util, Tables, Stave, undefined) {
 

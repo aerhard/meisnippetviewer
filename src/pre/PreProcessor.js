@@ -15,8 +15,9 @@
  *
  */
 define([
-  'common/Logger'
-], function (Logger, undefined) {
+  'common/Logger',
+  'common/Util'
+], function (Logger, Util, undefined) {
   /**
    * @exports mei2text/PreProcessor
    */
@@ -31,6 +32,39 @@ define([
           me[fnName](element, options[i]);
         } else {
           Logger.warn('Config error', 'Pre-processing option "' + fnName + '" doesn\'t exist.');
+        }
+      }
+    },
+
+    resolveSameAs : function (element) {
+      this.copyElements(element, 'sameas');
+    },
+
+    resolveCopyOf : function (element) {
+      this.copyElements(element, 'copyof');
+    },
+
+
+    copyElements : function (element, attName) {
+      var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;
+      for (i = items.length; i--;) {
+        item = items[i];
+        id = item.getAttribute(attName).substring(1);
+        target = element.querySelector('[*|id=' + id + ']');
+        if (target) {
+          clone = target.cloneNode(true);
+          clone.setAttribute(attName, '#' + id);
+          clone.removeAttribute('xml:id');
+
+          cloneDescendants = clone.querySelectorAll('[*|id]');
+          for (j = cloneDescendants.length; j--;) {
+            cloneDescendants[j].removeAttribute('xml:id');
+          }
+
+          item.parentNode.insertBefore(clone, item.nextSibling);
+          item.parentNode.removeChild(item);
+        } else {
+          Logger.warn('Reference error', 'Target "'+id+'" specified in ' + Util.serializeElement(item) + ' could not be found.');
         }
       }
     },

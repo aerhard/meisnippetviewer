@@ -18,7 +18,7 @@ define([
   'jquery',
   'vexflow',
   'meilib/MeiLib',
-  'mei2vf/core/Converter',
+  'mei2vf/Converter',
   'msv/core/Document',
   'common/RuntimeError',
   'msv/core/UI',
@@ -99,6 +99,8 @@ define([
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
+        'resolveSameAs',
+        'resolveCopyOf',
         [
           'addXmlIdPrefix',
           'M2V'
