@@ -45,13 +45,13 @@
                                     <beam>
                                         <note pname="e" oct="4" dur="16" dots="1" tie="t"/>
                                         <note pname="e" oct="4" dur="32"/>
-                                        <note pname="d" oct="4" dur="16" dots="1"/>
+                                        <note pname="d" oct="4" dur="16" dots="1" xml:id="n01"/>
                                         <note pname="c" oct="4" dur="32"/>
                                     </beam>
                                     <beam>
                                         <note pname="a" oct="4" dur="16" dots="1"/>
                                         <note pname="c" oct="4" dur="32"/>
-                                        <note pname="b" oct="3" dur="16" dots="1"/>
+                                        <note pname="b" oct="3" dur="16" dots="1" xml:id="n02"/>
                                         <note pname="a" oct="3" dur="32"/>
                                     </beam>
                                 </layer>
@@ -73,6 +73,8 @@
                                 </layer>
                             </staff>
                             <tempo staff="1">Largo</tempo>
+                            <mordent form="inv" startid="#n01"/>
+                            <mordent form="inv" startid="#n02"/>
                         </measure>
                         <measure n="2">
                             <staff n="1">
@@ -88,13 +90,13 @@
                                     <beam>
                                         <note pname="b" oct="4" dur="16" dots="1" tie="t"/>
                                         <note pname="b" oct="4" dur="32"/>
-                                        <note pname="a" oct="4" dur="16" dots="1"/>
+                                        <note pname="a" oct="4" dur="16" dots="1" xml:id="n03"/>
                                         <note pname="g" oct="4" dur="32"/>
                                     </beam>
                                     <beam>
                                         <note pname="e" oct="5" dur="16" dots="1" accid="n"/>
                                         <note pname="g" oct="4" dur="32"/>
-                                        <note pname="f" oct="4" dur="16" dots="1" accid="s"/>
+                                        <note pname="f" oct="4" dur="16" dots="1" accid="s" xml:id="n04"/>
                                         <note pname="e" oct="4" dur="32" accid="n"/>
                                     </beam>
                                 </layer>
@@ -117,6 +119,8 @@
                                     <note pname="g" oct="3" dur="1"/>
                                 </layer>
                             </staff>
+                            <mordent form="inv" startid="#n03"/>
+                            <mordent form="inv" startid="#n04"/>
                         </measure>
                         <sb/>
                         <measure n="3">
@@ -142,7 +146,10 @@
                                     </beam>
                                 </layer>
                                 <layer n="2">
-                                    <space dur="4"></space>
+                                    <beam>
+                                        <note pname="d" oct="4" dur="8" dots="1" staff="1"/>
+                                        <space dur="16"></space>
+                                    </beam>
                                     <space dur="8"></space>
                                     <note pname="g" oct="4" dur="8" tie="i"/>
                                     <beam>
@@ -157,7 +164,7 @@
                             <staff n="2">
                                 <layer n="1">
                                     <beam>
-                                        <note pname="d" oct="4" dur="8" dots="1" staff="1"/>
+                                        <space dur="8" dots="1"></space>
                                         <note pname="c" oct="4" dur="16"/>
                                     </beam>
                                     <note pname="b" oct="3" dur="4"/>
