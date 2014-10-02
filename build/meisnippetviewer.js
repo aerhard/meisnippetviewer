@@ -17259,9 +17259,11 @@ Vex.Flow.TextDynamics = (function(){
     } : function (evnt, tagName) {
       return tagName === 'clef';
     };
+
     var IsSimpleEvent = function (tagName) {
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
-    }
+    };
+
     var durationOf_SimpleEvent = function (simple_evnt, meter) {
       var dur = simple_evnt.getAttribute('dur');
       if (!dur) {
@@ -17273,6 +17275,7 @@ Vex.Flow.TextDynamics = (function(){
       //    console.log(MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter));
       return MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter);
     };
+
     var durationOf_Chord = function (chord, meter, layer_no) {
       var i, j, childNodes, note;
       if (!layer_no) {
@@ -17333,7 +17336,8 @@ Vex.Flow.TextDynamics = (function(){
         acc += dur_b;
       }
       return acc;
-    }
+    };
+
     var durationOf_Tuplet = function (tuplet, meter) {
       // change the meter unit according to the ratio in the tuplet, the get the duration as if the tuplet were a beam
       var num = +tuplet.getAttribute('num') || 3;
@@ -17343,7 +17347,8 @@ Vex.Flow.TextDynamics = (function(){
         unit : meter.unit * numbase / num
       });
       return acc;
-    }
+    };
+
     var evnt_name = evnt.localName;
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
@@ -17389,7 +17394,7 @@ Vex.Flow.TextDynamics = (function(){
     };// tstamp of current event
     var distF = function () {
       return ts - c_ts();
-    }// signed distance between tstamp and tstamp of current event;
+    };// signed distance between tstamp and tstamp of current event;
     var eventList = new MeiLib.EventEnumerator(layer);
     var evnt;
     var dist;
@@ -18692,9 +18697,11 @@ Vex.Flow.TextDynamics = (function(){
     } : function (evnt, tagName) {
       return tagName === 'clef';
     };
+
     var IsSimpleEvent = function (tagName) {
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
-    }
+    };
+
     var durationOf_SimpleEvent = function (simple_evnt, meter) {
       var dur = simple_evnt.getAttribute('dur');
       if (!dur) {
@@ -18706,6 +18713,7 @@ Vex.Flow.TextDynamics = (function(){
       //    console.log(MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter));
       return MeiLib.dotsMult(simple_evnt) * MeiLib.dur2beats(Number(dur), meter);
     };
+
     var durationOf_Chord = function (chord, meter, layer_no) {
       var i, j, childNodes, note;
       if (!layer_no) {
@@ -18766,7 +18774,8 @@ Vex.Flow.TextDynamics = (function(){
         acc += dur_b;
       }
       return acc;
-    }
+    };
+
     var durationOf_Tuplet = function (tuplet, meter) {
       // change the meter unit according to the ratio in the tuplet, the get the duration as if the tuplet were a beam
       var num = +tuplet.getAttribute('num') || 3;
@@ -18776,7 +18785,8 @@ Vex.Flow.TextDynamics = (function(){
         unit : meter.unit * numbase / num
       });
       return acc;
-    }
+    };
+
     var evnt_name = evnt.localName;
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
@@ -18822,7 +18832,7 @@ Vex.Flow.TextDynamics = (function(){
     };// tstamp of current event
     var distF = function () {
       return ts - c_ts();
-    }// signed distance between tstamp and tstamp of current event;
+    };// signed distance between tstamp and tstamp of current event;
     var eventList = new MeiLib.EventEnumerator(layer);
     var evnt;
     var dist;
@@ -20190,8 +20200,24 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     addToNote : function (model, note) {
-      var me = this, annot =
-      (new VF.Annotation(Util.getNormalizedText(model.element).trim())).setFont(me.font.family, me.font.size, me.font.weight).setMeiElement(model.element);
+      var me = this, annot, rend, font, rendAtts;
+
+      font = {
+        family: me.font.family,
+        size: me.font.size,
+        weight: ''
+      };
+
+      rend = model.element.getElementsByTagName('rend')[0];
+      if (rend) {
+        rendAtts = Util.attsToObj(rend);
+        if (rendAtts.fontfamily) font.family = rendAtts.fontfamily;
+        if (rendAtts.fontweight) font.weight += rendAtts.fontweight + ' ';
+        if (rendAtts.fontstyle) font.weight += rendAtts.fontstyle;
+        if (rendAtts.fontsize) font.size = +rendAtts.fontsize * 1.5;
+      }
+
+      annot = (new VF.Annotation(Util.getNormalizedText(model.element).trim())).setFont(font.family, font.size, font.weight).setMeiElement(model.element);
 
       // TEMPORARY: set width of modifier to zero so voices with modifiers
       // don't get too much width; remove when the width calculation in
@@ -22963,12 +22989,10 @@ Vex.Flow.TextDynamics = (function(){
        * 'pizz.')
        * @cfg {String} annotFont.family the font family
        * @cfg {Number} annotFont.size the font size
-       * @cfg {String} annotFont.weight the font weight
        */
       annotFont : {
         family : 'Times',
-        size : 15,
-        weight : 'Italic'
+        size : 15
       },
       /**
        * @cfg {Object} dynamFont the font used for dynamics
@@ -23148,18 +23172,10 @@ Vex.Flow.TextDynamics = (function(){
        */
       me.notes_by_id = {};
       /**
-       * @property {Number} inBeamNo specifies the number of beams the current events are under
+       * an array of Beams across staves
+       * @property {Object} interStaveBeamInfos
        */
-      me.inBeamNo = 0;
-      /**
-       * @property {Boolean} hasStemDirInBeam specifies if a stem.dir has been specified in the current beam
-       */
-      me.hasStemDirInBeam = false;
-      /**
-       * Grace note or grace chord objects to be added to the next non-grace note or chord
-       * @property {Vex.Flow.StaveNote[]} currentGraceNotes
-       */
-      me.currentGraceNotes = [];
+      me.beamInfosToResolve = [];
       /**
        * the number of the current system
        * @property {Number} currentSystem_n
@@ -23197,18 +23213,18 @@ Vex.Flow.TextDynamics = (function(){
      * be processed further or drawn immediately to a canvas via {@link #draw}.
      * @method process
      * @chainable
-     * @param {XMLDocument} xmlDoc an XML document or element containing the MEI music to render 
+     * @param {XMLDocument} xmlDoc an XML document or element containing the MEI music to render
      * @return {Converter} this
      */
     process : function (xmlDoc) {
       var me = this;
       me.reset();
 
-		if (xmlDoc.localName === 'score') {
-			me.processScoreChildren(xmlDoc);	
-		} else {
-			me.processScoreChildren(xmlDoc.querySelector('score'));
-		}
+      if (xmlDoc.localName === 'score') {
+        me.processScoreChildren(xmlDoc);
+      } else {
+        me.processScoreChildren(xmlDoc.querySelector('score'));
+      }
 
       //      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
       //      me.processSections(xmlDoc);
@@ -23443,7 +23459,7 @@ Vex.Flow.TextDynamics = (function(){
         }
         me.processSectionChild(childNode);
 
-        childNode=next;
+        childNode = next;
       }
       me.currentVoltaType = null;
     },
@@ -23747,7 +23763,7 @@ Vex.Flow.TextDynamics = (function(){
      * object
      */
     processStaveEvents : function (staves, staveElement, measureIndex, currentStaveVoices) {
-      var me = this, stave, stave_n, readEvents, layerElements, i, j, k, l, childElements, vexNotes, layerDir, staveInfo, event;
+      var me = this, stave, stave_n, readEvents, layerElements, i, j, k, l, childElements, vexNotes, staveInfo, event;
 
       stave_n = parseInt(staveElement.getAttribute('n'), 10) || 1;
       stave = staves[stave_n];
@@ -23757,35 +23773,60 @@ Vex.Flow.TextDynamics = (function(){
 
       layerElements = staveElement.getElementsByTagName('layer');
 
+      var context = {
+        /**
+         * inBeamNo specifies the number of beams the current events are under
+         */
+        inBeamNo : 0,
+        /**
+         * hasStemDirInBeam specifies if a stem.dir has been specified in the current beam
+         */
+        hasStemDirInBeam : false,
+        /**
+         * Grace note or grace chord objects to be added to the next non-grace note or chord
+         * @property {Vex.Flow.StaveNote[]} graceNoteQueue
+         */
+        graceNoteQueue : [],
+        currentClefChangeProperty : null,
+        notes_by_id : me.notes_by_id,
+        currentSystem_n : me.currentSystem_n,
+        stave : stave,
+        stave_n : stave_n,
+        beamInfosToResolve : me.beamInfosToResolve,
+        newBeamInfosToResolve : []
+      };
+
       for (i = 0, j = layerElements.length; i < j; i++) {
-        layerDir = (j > 1) ? (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null;
+        context.layerDir =
+        (j > 1) ? (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null;
         me.resolveUnresolvedTimestamps(layerElements[i], stave_n, measureIndex, meter);
         staveInfo.checkInitialClef();
 
-        vexNotes = me.processNoteLikeChildren(layerElements[i], stave, stave_n, layerDir, staveInfo);
+        vexNotes = me.processNoteLikeChildren(context, layerElements[i], staveInfo);
         currentStaveVoices.addVoice(me.createVexVoice(vexNotes, meter), stave_n);
       }
 
       // if there is a clef not yet attached to a note (i.e. the last clef), add it to the last voice
-      if (me.currentClefChangeProperty) {
-        stave.addEndClefFromInfo(me.currentClefChangeProperty);
-        me.currentClefChangeProperty = null;
+      if (context.currentClefChangeProperty) {
+        stave.addEndClefFromInfo(context.currentClefChangeProperty);
+        context.currentClefChangeProperty = null;
       }
 
+      me.beamInfosToResolve = context.newBeamInfosToResolve;
       staveInfo.removeStartClefCopy();
     },
 
     /**
      * Creates a new Vex.Flow.Voice
      * @method createVexVoice
-     * @param {Array} voice_contents The contents of the voice, an array of
+     * @param {Array} voiceContents The contents of the voice, an array of
      * tickables
      * @param {Object} meter The meter of the enclosing staff element
      * return {Vex.Flow.Voice}
      */
-    createVexVoice : function (voice_contents, meter) {
+    createVexVoice : function (voiceContents, meter) {
       var me = this, voice;
-      if (!Array.isArray(voice_contents)) {
+      if (!Array.isArray(voiceContents)) {
         throw new RuntimeError('me.createVexVoice() voice_contents argument must be an array.');
       }
       voice = new VF.Voice({
@@ -23794,7 +23835,7 @@ Vex.Flow.TextDynamics = (function(){
         resolution : VF.RESOLUTION
       });
       voice.setStrict(false);
-      voice.addTickables(voice_contents);
+      voice.addTickables(voiceContents);
       return voice;
     },
 
@@ -23822,12 +23863,13 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    processNoteLikeChildren : function (element, stave, stave_n, layerDir, staveInfo) {
+    processNoteLikeChildren : function (context, element, staveInfo) {
       var me = this, vexNotes = [], k, l, processingResults;
+
       var childElements = element.childNodes;
       for (k = 0, l = childElements.length; k < l; k++) {
         if (childElements[k].nodeType === 1) {
-          processingResults = me.processNoteLikeElement(childElements[k], stave, stave_n, layerDir, staveInfo);
+          processingResults = me.processNoteLikeElement(context, childElements[k], staveInfo);
           if (processingResults) {
             if (Array.isArray(processingResults)) {
               vexNotes = vexNotes.concat(processingResults);
@@ -23852,49 +23894,48 @@ Vex.Flow.TextDynamics = (function(){
      * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
      */
-    processNoteLikeElement : function (element, stave, stave_n, layerDir, staveInfo) {
+    processNoteLikeElement : function (context, element, staveInfo) {
       var me = this;
       switch (element.localName) {
         case 'rest' :
-          return me.processRest(element, stave, stave_n, layerDir, staveInfo);
+          return me.processRest(context, element, staveInfo);
         case 'mRest' :
-          return me.processMRest(element, stave, stave_n, layerDir, staveInfo);
+          return me.processMRest(context, element, staveInfo);
         case 'space' :
-          return me.processSpace(element, stave);
+          return me.processSpace(context, element);
         case 'note' :
-          return me.processNote(element, stave, stave_n, layerDir, staveInfo);
+          return me.processNote(context, element, staveInfo);
         case 'beam' :
-          return me.processBeam(element, stave, stave_n, layerDir, staveInfo);
+          return me.processBeam(context, element, staveInfo);
         case 'tuplet' :
-          return me.processTuplet(element, stave, stave_n, layerDir, staveInfo);
+          return me.processTuplet(context, element, staveInfo);
         case 'chord' :
-          return me.processChord(element, stave, stave_n, layerDir, staveInfo);
+          return me.processChord(context, element, staveInfo);
         case 'clef' :
-          return me.processClef(element, stave, stave_n, layerDir, staveInfo);
+          return me.processClef(context, element, staveInfo);
         case 'bTrem' :
-          return me.processBTrem(element, stave, stave_n, layerDir, staveInfo);
+          return me.processBTrem(context, element, staveInfo);
         case 'anchoredText' :
-          me.processAnchoredText(element, stave, stave_n, layerDir, staveInfo);
+          me.processAnchoredText(context, element, staveInfo);
           return;
         default :
           Logger.info('Not supported', 'Element "' + element.localName + '" is not supported. Ignoring element.');
       }
     },
 
-    processAnchoredText : function (element, stave, stave_n, layerDir, staveInfo) {
+    processAnchoredText : function (context, element, staveInfo) {
     },
 
     /**
      * @method processNote
      */
-    processNote : function (element, stave, stave_n, layerDir, staveInfo) {
+    processNote : function (context, element, staveInfo) {
       var me = this, xml_id, mei_tie, mei_slur, mei_stave_n, atts, note_opts, note, clef, vexPitch;
 
       atts = Util.attsToObj(element);
 
       mei_tie = atts.tie;
       mei_slur = atts.slur;
-      mei_stave_n = +atts.staff || stave_n;
 
       xml_id = MeiLib.XMLID(element);
 
@@ -23902,17 +23943,18 @@ Vex.Flow.TextDynamics = (function(){
 
         vexPitch = EventUtil.getVexPitch(element);
 
-        if (mei_stave_n !== stave_n) {
-          var otherStave = me.allVexMeasureStaves[me.allVexMeasureStaves.length - 1][mei_stave_n];
-          if (otherStave) {
-            stave = otherStave;
-            clef = me.systemInfo.getClef(stave_n);
-          } else {
-            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + mei_stave_n +
-                                           '" specified in ' + Util.serializeElement(element) +
-                                           '". Adding note to current stave.');
-          }
-        }
+        //        mei_stave_n = +atts.staff || stave_n;
+        //        if (mei_stave_n !== stave_n) {
+        //          var otherStave = me.allVexMeasureStaves[me.allVexMeasureStaves.length - 1][mei_stave_n];
+        //          if (otherStave) {
+        //            stave = otherStave;
+        //            clef = me.systemInfo.getClef(stave_n);
+        //          } else {
+        //            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + mei_stave_n +
+        //                                           '" specified in ' + Util.serializeElement(element) +
+        //                                           '". Adding note to current stave.');
+        //          }
+        //        }
 
         if (!clef) {
           clef = staveInfo.getClef();
@@ -23923,17 +23965,17 @@ Vex.Flow.TextDynamics = (function(){
           clef : clef,
           element : element,
           atts : atts,
-          stave : stave,
-          layerDir : layerDir
+          stave : context.stave,
+          layerDir : context.layerDir
         };
 
         note = (atts.grace) ? new GraceNote(note_opts) : new Note(note_opts);
 
-        if (note.hasMeiStemDir && me.inBeamNo > 0) {
-          me.hasStemDirInBeam = true;
+        if (note.hasMeiStemDir && context.inBeamNo > 0) {
+          context.hasStemDirInBeam = true;
         }
 
-        me.processSyllables(note, element, stave_n);
+        me.processSyllables(note, element, context.stave_n);
 
 
         //        // FIXME For now, we'll remove any child nodes of <note>
@@ -23942,31 +23984,31 @@ Vex.Flow.TextDynamics = (function(){
         //        }
 
         if (mei_tie) {
-          me.processAttrTie(mei_tie, xml_id, vexPitch, stave_n);
+          me.processAttrTie(mei_tie, xml_id, vexPitch, context.stave_n);
         }
         if (mei_slur) {
           me.processSlurAttribute(mei_slur, xml_id);
         }
 
-        me.notes_by_id[xml_id] = {
+        context.notes_by_id[xml_id] = {
           meiNote : element,
           vexNote : note,
-          system : me.currentSystem_n,
-          layerDir : layerDir
+          system : context.currentSystem_n,
+          layerDir : context.layerDir
         };
 
-        if (me.currentClefChangeProperty) {
-          EventUtil.addClefModifier(note, me.currentClefChangeProperty);
-          me.currentClefChangeProperty = null;
+        if (context.currentClefChangeProperty) {
+          EventUtil.addClefModifier(note, context.currentClefChangeProperty);
+          context.currentClefChangeProperty = null;
         }
 
         if (atts.grace) {
-          me.currentGraceNotes.push(note);
+          context.graceNoteQueue.push(note);
           return;
         } else {
-          if (me.currentGraceNotes.length > 0) {
-            note.addModifier(0, new VF.GraceNoteGroup(me.currentGraceNotes, false).beamNotes());
-            me.currentGraceNotes = [];
+          if (context.graceNoteQueue.length > 0) {
+            note.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
+            context.graceNoteQueue = [];
           }
         }
         return note;
@@ -23980,12 +24022,15 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processChord
      */
-    processChord : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j;
+    processChord : function (context, element, staveInfo) {
+      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j, mei_tie, mei_slur;
 
       noteElements = element.getElementsByTagName('note');
 
       atts = Util.attsToObj(element);
+
+      mei_tie = atts.tie;
+      mei_slur = atts.slur;
 
       xml_id = MeiLib.XMLID(element);
 
@@ -23994,50 +24039,58 @@ Vex.Flow.TextDynamics = (function(){
         chord_opts = {
           noteElements : noteElements,
           clef : staveInfo.getClef(),
-          stave : stave,
+          stave : context.stave,
           element : element,
           atts : atts,
-          layerDir : layerDir
+          layerDir : context.layerDir
         };
 
         chord = (atts.grace) ? new GraceChord(chord_opts) : new Chord(chord_opts);
 
-        if (chord.hasMeiStemDir && me.inBeamNo > 0) {
-          me.hasStemDirInBeam = true;
+        if (chord.hasMeiStemDir && context.inBeamNo > 0) {
+          context.hasStemDirInBeam = true;
         }
 
         var allNoteIndices = [];
 
         for (i = 0, j = noteElements.length; i < j; i++) {
-          me.processNoteInChord(i, noteElements[i], element, chord, stave_n, layerDir);
+          me.processNoteInChord(context, i, noteElements[i], element, chord);
           allNoteIndices.push(i);
         }
 
-        me.notes_by_id[xml_id] = {
+        // TODO tie attribute on chord should render a tie on each note
+        //        if (mei_tie) {
+        //          me.processAttrTie(mei_tie, xml_id, vexPitch, context.stave_n);
+        //        }
+        if (mei_slur) {
+          me.processSlurAttribute(mei_slur, xml_id);
+        }
+
+        context.notes_by_id[xml_id] = {
           meiNote : element,
           vexNote : chord,
           index : allNoteIndices,
-          system : me.currentSystem_n,
-          layerDir : layerDir
+          system : context.currentSystem_n,
+          layerDir : context.layerDir
         };
 
-        if (me.currentClefChangeProperty) {
-          EventUtil.addClefModifier(chord, me.currentClefChangeProperty);
-          me.currentClefChangeProperty = null;
+        if (context.currentClefChangeProperty) {
+          EventUtil.addClefModifier(chord, context.currentClefChangeProperty);
+          context.currentClefChangeProperty = null;
         }
 
         if (atts.grace) {
-          me.currentGraceNotes.push(chord);
+          context.graceNoteQueue.push(chord);
           return;
         } else {
-          if (me.currentGraceNotes.length > 0) {
-            chord.addModifier(0, new VF.GraceNoteGroup(me.currentGraceNotes, false).beamNotes());
-            me.currentGraceNotes = [];
+          if (context.graceNoteQueue.length > 0) {
+            chord.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
+            context.graceNoteQueue = [];
           }
         }
         return chord;
       } catch (e) {
-        var xmlString = Util.serializeElement(element), i;
+        var xmlString = Util.serializeElement(element);
         for (i = 0, j = noteElements.length; i < j; i++) {
           xmlString += '\n    ' + Util.serializeElement(noteElements[i]);
         }
@@ -24048,7 +24101,7 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processNoteInChord
      */
-    processNoteInChord : function (chordIndex, element, chordElement, chord, stave_n, layerDir) {
+    processNoteInChord : function (context, chordIndex, element, chordElement, chord) {
       var me = this, i, j, atts, xml_id;
 
       atts = Util.attsToObj(element);
@@ -24058,18 +24111,18 @@ Vex.Flow.TextDynamics = (function(){
       xml_id = MeiLib.XMLID(element);
 
       if (atts.tie) {
-        me.processAttrTie(atts.tie, xml_id, vexPitch, stave_n);
+        me.processAttrTie(atts.tie, xml_id, vexPitch, context.stave_n);
       }
       if (atts.slur) {
         me.processSlurAttribute(atts.slur, xml_id);
       }
 
-      me.notes_by_id[xml_id] = {
+      context.notes_by_id[xml_id] = {
         meiNote : chordElement,
         vexNote : chord,
         index : [chordIndex],
-        system : me.currentSystem_n,
-        layerDir : layerDir
+        system : context.currentSystem_n,
+        layerDir : context.layerDir
       };
 
       var childNodes = element.childNodes;
@@ -24097,27 +24150,33 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processRest
      */
-    processRest : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, rest, xml_id;
+    processRest : function (context, element, staveInfo) {
+      var rest, xml_id;
       try {
 
         rest = new Rest({
           element : element,
-          stave : stave,
+          stave : context.stave,
           clef : (element.hasAttribute('ploc') && element.hasAttribute('oloc')) ? staveInfo.getClef() : null
         });
 
         xml_id = MeiLib.XMLID(element);
 
-        if (me.currentClefChangeProperty) {
-          EventUtil.addClefModifier(rest, me.currentClefChangeProperty);
-          me.currentClefChangeProperty = null;
+        if (context.currentClefChangeProperty) {
+          EventUtil.addClefModifier(rest, context.currentClefChangeProperty);
+          context.currentClefChangeProperty = null;
         }
 
-        me.notes_by_id[xml_id] = {
+        if (context.graceNoteQueue.length > 0) {
+          rest.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
+          context.graceNoteQueue = [];
+        }
+
+
+        context.notes_by_id[xml_id] = {
           meiNote : element,
           vexNote : rest,
-          system : me.currentSystem_n
+          system : context.currentSystem_n
         };
         return rest;
       } catch (e) {
@@ -24129,14 +24188,14 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processMRest
      */
-    processMRest : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, mRest, xml_id;
+    processMRest : function (context, element, staveInfo) {
+      var mRest, xml_id;
 
       try {
         var mRestOpts = {
           meter : staveInfo.getTimeSpec(),
           element : element,
-          stave : stave,
+          stave : context.stave,
           clef : (element.hasAttribute('ploc') && element.hasAttribute('oloc')) ? staveInfo.getClef() : null
         };
 
@@ -24144,10 +24203,15 @@ Vex.Flow.TextDynamics = (function(){
 
         xml_id = MeiLib.XMLID(element);
 
-        me.notes_by_id[xml_id] = {
+        if (context.graceNoteQueue.length > 0) {
+          mRest.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
+          context.graceNoteQueue = [];
+        }
+
+        context.notes_by_id[xml_id] = {
           meiNote : element,
           vexNote : mRest,
-          system : me.currentSystem_n
+          system : context.currentSystem_n
         };
         return mRest;
       } catch (e) {
@@ -24158,11 +24222,21 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processSpace
      */
-    processSpace : function (element, stave) {
+    processSpace : function (context, element) {
       var space = null;
       if (element.hasAttribute('dur')) {
         try {
-          space = new Space({ element : element, stave : stave });
+          space = new Space({ element : element, stave : context.stave });
+
+          if (context.inBeamNo > 0) {
+            context.hasSpaceInBeam = true;
+          }
+
+          if (context.graceNoteQueue.length > 0) {
+            space.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
+            context.graceNoteQueue = [];
+          }
+
         } catch (e) {
           throw new RuntimeError('A problem occurred processing ' + Util.serializeElement(element));
         }
@@ -24176,14 +24250,14 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processClef
      * @param {Element} element the MEI clef element
-     * @param {MEI2VF.Stave} stave the containing stave
+     * @param {Stave} stave the containing stave
      * @param {Number} stave_n the number of the containing stave
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
      * layer
-     * @param {MEI2VF.StaveInfo} staveInfo the stave info object
+     * @param {StaveInfo} staveInfo the stave info object
      */
-    processClef : function (element, stave, stave_n, layerDir, staveInfo) {
-      this.currentClefChangeProperty = staveInfo.clefChangeInMeasure(element);
+    processClef : function (context, element, staveInfo) {
+      context.currentClefChangeProperty = staveInfo.clefChangeInMeasure(element);
     },
 
     /**
@@ -24194,12 +24268,12 @@ Vex.Flow.TextDynamics = (function(){
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
      * @param {MEI2VF.StaveInfo} staveInfo
      */
-    processBTrem : function (element, stave, stave_n, layerDir, staveInfo) {
+    processBTrem : function (context, element, staveInfo) {
       var me = this;
 
       Logger.info('Not implemented', 'Element <bTrem> not implemented. Processing child nodes.');
 
-      return me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
+      return me.processNoteLikeChildren(context, element, staveInfo);
 
     },
 
@@ -24211,31 +24285,54 @@ Vex.Flow.TextDynamics = (function(){
      * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
      * @param {MEI2VF.StaveInfo} staveInfo
      */
-    processBeam : function (element, stave, stave_n, layerDir, staveInfo) {
-      var me = this, vexNotes, childElements, k, l;
-      me.inBeamNo += 1;
+    processBeam : function (context, element, staveInfo) {
+      var me = this, vexNotes, childElements, k, l, filteredElements;
+      context.inBeamNo += 1;
 
-      vexNotes = me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
+      vexNotes = me.processNoteLikeChildren(context, element, staveInfo);
 
-      // TODO remove filter later and modify beam object to skip objects other than note and clef
-      var filteredElements = vexNotes.filter(function (element) {
-        return element.beamable === true;
-      });
+      if (context.hasSpaceInBeam) {
+        if (context.beamInfosToResolve.length !== 0) {
+          var otherBeamNotes = context.beamInfosToResolve.shift();
+          var combinedVexNotes = [];
+          for (var i = 0, j = vexNotes.length; i < j; i++) {
+            if (vexNotes[i] instanceof Space) {
+              combinedVexNotes.push(otherBeamNotes.vexNotes[i]);
+            } else {
+              combinedVexNotes.push(vexNotes[i]);
+            }
+          }
+          filteredElements = combinedVexNotes.filter(function (element) {
+            return element.beamable === true;
+          });
+        } else {
+          context.newBeamInfosToResolve.push({
+            element : element,
+            vexNotes : vexNotes
+          })
+        }
 
-      // set autostem parameter of VF.Beam to true if neither layerDir nor any stem direction in the beam is specified
+      } else {
+        // TODO remove filter later and modify beam object to skip objects other than note and clef
+        filteredElements = vexNotes.filter(function (element) {
+          return element.beamable === true;
+        });
+      }
 
-      if (vexNotes.length > 0) {
+      if (filteredElements && filteredElements.length > 1) {
         try {
-          me.allBeams.push(new VF.Beam(filteredElements, !layerDir && !me.hasStemDirInBeam));
+          // set autostem parameter of VF.Beam to true if neither layerDir nor any stem direction in the beam is specified
+          me.allBeams.push(new VF.Beam(filteredElements, !context.layerDir && !context.hasStemDirInBeam));
         } catch (e) {
           Logger.error('VexFlow Error', 'An error occurred processing ' + Util.serializeElement(element) + ': "' +
                                         e.toString() + '". Ignoring beam.');
         }
       }
 
-      me.inBeamNo -= 1;
-      if (me.inBeamNo === 0) {
-        me.hasStemDirInBeam = false;
+      context.inBeamNo -= 1;
+      if (context.inBeamNo === 0) {
+        context.hasStemDirInBeam = false;
+        context.hasSpaceInBeam = false;
       }
       return vexNotes;
     },
@@ -24258,10 +24355,10 @@ Vex.Flow.TextDynamics = (function(){
      * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
      */
-    processTuplet : function (element, stave, stave_n, layerDir, staveInfo) {
+    processTuplet : function (context, element, staveInfo) {
       var me = this, vexNotes, tuplet, bracketPlace;
 
-      vexNotes = me.processNoteLikeChildren(element, stave, stave_n, layerDir, staveInfo);
+      vexNotes = me.processNoteLikeChildren(context, element, staveInfo);
 
       if (vexNotes.length === 0) {
         Logger.warn('Missing content', 'Not content found in ' + Util.serializeElement(element) +
