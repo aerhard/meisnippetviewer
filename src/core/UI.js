@@ -40,8 +40,30 @@ define([
       me.vexLayerIndex = null;
     },
 
+    setSize : function (height, width, scale) {
+
+      var me = this, i, j, h, w, canvas;
+
+      h = height * scale;
+      w = width * scale;
+
+      me.outerDiv.style.marginLeft = (w / 2) + 'px';
+      me.outerDiv.style.marginRight = (w / 2) + 'px';
+
+      me.innerDiv.style.height = h + 'px';
+      me.innerDiv.style.left = (-w / 2) + 'px';
+
+      j = me.layers.length;
+      for (i = 0; i < j; i++) {
+        canvas = me.layers[i].element;
+        canvas.width = w;
+        canvas.height = h;
+        me.layers[i].ctx.scale(scale, scale);
+      }
+    },
+
     createLayers : function (cfg) {
-      var me = this, h, w, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
+      var me = this, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
 
       me.scale = cfg.pageScale;
 
@@ -49,8 +71,6 @@ define([
       var target = cfg.target[0] || cfg.target;
 
       layers = cfg.layers;
-      h = cfg.pageHeight * cfg.pageScale;
-      w = cfg.pageWidth * cfg.pageScale;
       j = layers.length;
 
       while (j--) {
@@ -65,12 +85,12 @@ define([
         });
       }
 
-      var div = me.createOuterDiv(w);
-      div.appendChild(innerDiv = me.createInnerDiv(w, h));
+      me.outerDiv = me.createOuterDiv();
+      me.outerDiv.appendChild(me.innerDiv = me.createInnerDiv());
 
-      for (var i = 0, j = layers.length; i < j; i++) {
-        element = me.createCanvas(w, h);
-        innerDiv.appendChild(element);
+      for (i = 0, j = layers.length; i < j; i++) {
+        element = me.createCanvas();
+        me.innerDiv.appendChild(element);
 
         if (layers[i].type === 'vex') {
           me.vexLayerIndex = i;
@@ -85,29 +105,28 @@ define([
         } else {
           throw new RuntimeError('Layer type "' + layers[i].type + '" not valid.');
         }
-        me.scaleContext(ctx, cfg);
+        //        me.scaleContext(ctx, cfg);
       }
 
-      target.appendChild(div);
+      target.appendChild(me.outerDiv);
 
       /**
        * @property {Object} topCanvas the top canvas containing the regular
        * MEI2VF output to which the mouse listeners get added.
        */
       me.topCanvas = layers[layers.length - 1].element;
+      me.layers = layers;
       return layers;
     },
 
     /**
      * Creates a single canvas element
-     * @param w
-     * @param h
      * @returns {HTMLElement}
      */
-    createCanvas : function (w, h) {
+    createCanvas : function () {
       var canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      //      canvas.width = w;
+      //      canvas.height = h;
       canvas.style.position = 'absolute';
       canvas.style.background = 'transparent';
       return canvas;
@@ -115,31 +134,24 @@ define([
 
     /**
      * Creates the outer div wrapper for the canvases
-     * @param w
      * @returns {HTMLElement}
      */
-    createOuterDiv : function (w) {
+    createOuterDiv : function () {
       var div = document.createElement('div');
       div.className = "outer-container";
-      div.style.marginLeft = (w / 2) + 'px';
-      div.style.marginRight = (w / 2) + 'px';
       return div;
     },
 
     /**
      * Creates the inner div wrapper for the canvases
-     * @param w
-     * @param h
      * @returns {HTMLElement}
      */
-    createInnerDiv : function (w, h) {
+    createInnerDiv : function () {
       var innerDiv = document.createElement('div');
       innerDiv.className = "inner-container";
       innerDiv.style.position = "relative";
       innerDiv.style.width = "100%";
       innerDiv.style.margin = "auto";
-      innerDiv.style.height = h + 'px';
-      innerDiv.style.left = (-w / 2) + 'px';
       return innerDiv;
     },
 
@@ -150,11 +162,11 @@ define([
     scaleContext : function (ctx, cfg) {
       var me = this, paper, w, h;
       if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
-        paper = ctx.paper;
-        h = cfg.pageHeight;
-        w = cfg.pageWidth;
-        paper.setSize(w * scale, h * scale);
-        paper.setViewBox(0, 0, w, h);
+        //        paper = ctx.paper;
+        //        h = cfg.pageHeight;
+        //        w = cfg.pageWidth;
+        //        paper.setSize(w * scale, h * scale);
+        //        paper.setViewBox(0, 0, w, h);
       } else {
         ctx.scale(me.scale, me.scale);
       }

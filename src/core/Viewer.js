@@ -53,13 +53,13 @@ define([
        */
       pageScale : 1,
       /**
-       * @cfg {Number} pageHeight The height of the page.
+       * @cfg {Number} pageHeight The height of the page. Null for auto height
        */
-      pageHeight : 350,
+      pageHeight : null,
       /**
-       * @cfg {Number} pageWidth The width of the page.
+       * @cfg {Number} pageWidth The width of the page. Null for auth width
        */
-      pageWidth : 800,
+      pageWidth : null,
       /**
        * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
        * automatically be added to each system start
@@ -156,6 +156,25 @@ define([
       }
 
 
+
+      var height, width;
+
+      // if height is specified don't return the calculated height to get same behavior as width
+      if (me.cfg.pageHeight) {
+        height = me.cfg.pageHeight;
+      } else {
+        height = me.converter.pageInfo.getCalculatedHeight();
+      }
+      if (me.converter.pageInfo.hasCalculatedWidth()) {
+        width = me.converter.pageInfo.getCalculatedWidth();
+      } else {
+        width = me.cfg.pageWidth;
+      }
+
+      me.UI.setSize(height, width, me.cfg.pageScale);
+
+
+
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
@@ -199,20 +218,24 @@ define([
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
       if (me.cfg.processPgHead && headEl) {
+
+        var printSpace = me.converter.pageInfo.getPrintSpace();
+
         me.pgHead = new PgHead(headEl, {
-          x : me.converter.printSpace.left,
-          y : 200,
-          w : me.converter.printSpace.width
+          x : printSpace.left,
+          y : me.converter.pageTopMar,
+          w : printSpace.width
         }, me.cfg.pageScale);
         me.pgHead.setContext(vexCtx).draw();
         if (!me.cfg.pageTopMar && me.pgHead.lowestY) {
           me.cfg.pageTopMar = me.pgHead.lowestY;
           me.converter.pageTopMar = me.pgHead.lowestY;
-          me.converter.printSpace.top = me.pgHead.lowestY;
+          printSpace.top = me.pgHead.lowestY;
         }
       }
 
       me.converter.process(xmlDoc);
+      me.converter.format(vexCtx);
 
       if (me.cfg.autoMeasureNumbers) {
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);

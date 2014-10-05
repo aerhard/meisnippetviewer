@@ -200,7 +200,7 @@ define([
         w = glyph.getMetrics().width;
         if (glyph.code) {
           me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h + 30, stave[codes[glyph.code] ||
-                                                                                        'meiTimeSpecElement'], i));
+                                                                                                          'meiTimeSpecElement'], i));
         }
         x += w;
       }
@@ -289,10 +289,29 @@ define([
             y = modifiers[i].y - h / 2 - modifiers[i].articulation.shift_down;
             me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
             break;
+          case 'ornaments':
+            w = modifiers[i].width + 8;
+            h = w;
+            x = modifiers[i].x - w / 2 - modifiers[i].ornament.shift_right;
+            y = modifiers[i].y - modifiers[i].ornament.shift_down;
+            me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, modifiers[i].getMeiElement(), i));
+            break;
+          case 'gracenotegroups':
+            var clef = modifiers[i].grace_notes[0];
+            // make shure it's a ClefNote:
+            if (clef.clef_obj) {
+              x = clef.getAbsoluteX() - 30;
+              y = note.stave.getYForLine(0) - 20;
+              w = 30;
+              h = note.stave.getYForLine(4) - y + 20;
+              me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, clef.getMeiElement(), i));
+            }
+
+            break;
           case 'dots':
           case 'accidentals':
           default:
-            // console.log('not processed: ' + category);
+            //console.log('not processed: ' + category);
             break;
         }
       }
