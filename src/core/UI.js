@@ -58,6 +58,12 @@ define([
         canvas = me.layers[i].element;
         canvas.width = w;
         canvas.height = h;
+        if (typeof me.layers[i].setContext === 'function') {
+          var ctx = canvas.getContext('2d');
+          me.layers[i].setContext(ctx);
+          me.layers[i].setScale(scale);
+        }
+
         me.layers[i].ctx.scale(scale, scale);
       }
     },
@@ -98,14 +104,10 @@ define([
           layers[i].element = element;
           layers[i].ctx = ctx;
         } else if (layers[i].type === 'highlighter') {
-          ctx = element.getContext('2d');
           layers[i].setElement(element);
-          layers[i].setContext(ctx);
-          layers[i].setScale(cfg.pageScale);
         } else {
           throw new RuntimeError('Layer type "' + layers[i].type + '" not valid.');
         }
-        //        me.scaleContext(ctx, cfg);
       }
 
       target.appendChild(me.outerDiv);
@@ -159,18 +161,18 @@ define([
       return new VF.Renderer(canvas, backend || VF.Renderer.Backends.CANVAS).getContext();
     },
 
-    scaleContext : function (ctx, cfg) {
-      var me = this, paper, w, h;
-      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
-        //        paper = ctx.paper;
-        //        h = cfg.pageHeight;
-        //        w = cfg.pageWidth;
-        //        paper.setSize(w * scale, h * scale);
-        //        paper.setViewBox(0, 0, w, h);
-      } else {
-        ctx.scale(me.scale, me.scale);
-      }
-    },
+//    scaleContext : function (ctx, cfg) {
+//      var me = this, paper, w, h;
+//      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
+//        //        paper = ctx.paper;
+//        //        h = cfg.pageHeight;
+//        //        w = cfg.pageWidth;
+//        //        paper.setSize(w * scale, h * scale);
+//        //        paper.setViewBox(0, 0, w, h);
+//      } else {
+//        ctx.scale(me.scale, me.scale);
+//      }
+//    },
 
     registerMouseClickHandler : function (handler) {
       var me = this;
