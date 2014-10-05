@@ -29,8 +29,8 @@ Inspector.prototype = {
 
         var elementOffset = $(element).offset();
         // note: "this.scale" refers to the scale property in the AreaCollection object
-        me.tooltip.enterNote(info, elementOffset.left + (noteArea.ctx.x * this.scale), elementOffset.top +
-                                                                                       (noteArea.ctx.y1 * this.scale) +
+        me.tooltip.enterNote(info, elementOffset.left + (noteArea.x * this.scale), elementOffset.top +
+                                                                                       (noteArea.y1 * this.scale) +
                                                                                        20);
       },
 
@@ -51,8 +51,8 @@ Inspector.prototype = {
         MSV.Logger.warn('no mei element provided. parameters:');
         console.log(arguments);
         elementOffset = $(element).offset();
-        me.tooltip.enterVariant(info, elementOffset.left + (area.ctx.x * this.scale), elementOffset.top +
-                                                                                      (area.ctx.y1 * this.scale) + 20);
+        me.tooltip.enterVariant(info, elementOffset.left + (area.x * this.scale), elementOffset.top +
+                                                                                      (area.y1 * this.scale) + 20);
       },
 
       onLeaveVariant : function (area, element, e) {

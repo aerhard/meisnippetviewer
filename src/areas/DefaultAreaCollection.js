@@ -37,12 +37,10 @@ define([
      * zero.
      */
     emptyArea : {
-      ctx : {
-        x : 0,
-        y : 0,
-        w : 0,
-        h : 0
-      }
+      x : 0,
+      y : 0,
+      w : 0,
+      h : 0
     },
 
     init : function (config) {
@@ -98,9 +96,9 @@ define([
       // select a rectangle larger than the highlight in order to remove
       // additional pixels created by anti-aliasing in the HTML5 canvas; the smaller
       // the scaling, the bigger these artifacts are proportionally
-      me.ctx.clearRect(me.currentHighlight.ctx.x - factor, me.currentHighlight.ctx.y -
-                                                           factor, me.currentHighlight.ctx.w +
-                                                                   2 * factor, me.currentHighlight.ctx.h + 2 * factor);
+      me.ctx.clearRect(me.currentHighlight.x - factor, me.currentHighlight.y -
+                                                           factor, me.currentHighlight.w +
+                                                                   2 * factor, me.currentHighlight.h + 2 * factor);
     },
 
     highlightAll : function () {
@@ -152,7 +150,7 @@ define([
      */
     setHighlight : function (area) {
       var me = this, M = Math;
-      me.roundRect(me.ctx, area.ctx.x, area.ctx.y, area.ctx.w, area.ctx.h, 5, true, false);
+      me.roundRect(me.ctx, area.x, area.y, area.w, area.h, 5, true, false);
       me.currentHighlight = area;
     },
 
@@ -209,7 +207,7 @@ define([
       areas = me.areas;
       i = areas.length;
       while (i--) {
-        if (me.isPointInRect(point, areas[i].ctx)) {
+        if (me.isPointInRect(point, areas[i])) {
           return areas[i];
         }
       }

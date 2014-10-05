@@ -145,14 +145,12 @@ define([
                 w = stave.width;
                 y1 = stave.getBottomY() - STAFF_BOTTOM_OFFSET;
                 me.measureAreas.push({
-                  ctx : {
-                    x : x,
-                    y : y,
-                    w : w,
-                    h : y1 - y,
-                    x1 : x + w,
-                    y1 : y1
-                  },
+                  x : x,
+                  y : y,
+                  w : w,
+                  h : y1 - y,
+                  x1 : x + w,
+                  y1 : y1,
                   measureN : measures[k].n,
                   staveN : m
                 });
@@ -172,10 +170,12 @@ define([
       var me = this;
 
       if (stave.modifiers[0].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x - 8, staveY, 16, staveH, meiElement, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x -
+                                                             8, staveY, 16, staveH, meiElement, 1));
       }
       if (stave.modifiers[1].barline !== 7) {
-        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x - 8, staveY, 16, staveH, meiElement, 1));
+        me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x -
+                                                             8, staveY, 16, staveH, meiElement, 1));
       }
     },
 
@@ -199,8 +199,9 @@ define([
         glyph = stave.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
-          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h + 30, stave[codes[glyph.code] ||
-                                                                                                          'meiTimeSpecElement'], i));
+          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h +
+                                                                                            30, stave[codes[glyph.code] ||
+                                                                                                      'meiTimeSpecElement'], i));
         }
         x += w;
       }
@@ -213,7 +214,8 @@ define([
         if (glyph.code) {
           w = glyph.getMetrics().width;
           x -= w;
-          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h + 30, stave.meiEndClefElement, i));
+          me.measureModifierAreas.push(me.createNoteAreaObj('stave-modifier', x, y - 15, w, h +
+                                                                                            30, stave.meiEndClefElement, i));
         }
       }
     },
@@ -236,14 +238,12 @@ define([
     createNoteAreaObj : function (type, x, y, w, h, meiElement, xmlid) {
       return {
         type : type,
-        ctx : {
-          x : x,
-          y : y,
-          w : w,
-          h : h,
-          x1 : x + w,
-          y1 : y + h
-        },
+        x : x,
+        y : y,
+        w : w,
+        h : h,
+        x1 : x + w,
+        y1 : y + h,
         meiElement : meiElement,
         xmlid : xmlid
       };
@@ -332,14 +332,12 @@ define([
       w = 30;
       h = box.h + 20;
       return {
-        ctx : {
-          x : x,
-          y : y,
-          w : w,
-          h : h,
-          x1 : x + w,
-          y1 : y + h
-        },
+        x : x,
+        y : y,
+        w : w,
+        h : h,
+        x1 : x + w,
+        y1 : y + h,
         xmlid : xmlid
       };
     },
@@ -347,11 +345,11 @@ define([
     /**
      * Calculates an area which contains all of the specified areas.
      * @param {Object[]} areas
-     * @returns {{ctx: {x: number, y: number, x1: number, y1: number}, xmlids: Array}}
+     * @returns {Object}
      */
     getSurroundingArea : function (areas) {
-      var i = areas.length, ctx, xmlids = [];
-      ctx = {
+      var i = areas.length, surroundingArea, xmlids = [];
+      surroundingArea = {
         x : 10000,
         y : 10000,
         x1 : 0,
@@ -359,17 +357,17 @@ define([
       };
       while (i--) {
         xmlids.push(areas[i].xmlid);
-        ctx.x = Math.min(ctx.x, areas[i].ctx.x);
-        ctx.y = Math.min(ctx.y, areas[i].ctx.y);
-        ctx.x1 = Math.max(ctx.x1, areas[i].ctx.x1);
-        ctx.y1 = Math.max(ctx.y1, areas[i].ctx.y1);
+        surroundingArea.x = Math.min(surroundingArea.x, areas[i].x);
+        surroundingArea.y = Math.min(surroundingArea.y, areas[i].y);
+        surroundingArea.x1 = Math.max(surroundingArea.x1, areas[i].x1);
+        surroundingArea.y1 = Math.max(surroundingArea.y1, areas[i].y1);
       }
-      ctx.w = ctx.x1 - ctx.x;
-      ctx.h = ctx.y1 - ctx.y;
-      return {
-        ctx : ctx,
-        xmlids : xmlids
-      }
+      surroundingArea.w = surroundingArea.x1 - surroundingArea.x;
+      surroundingArea.h = surroundingArea.y1 - surroundingArea.y;
+
+      surroundingArea.xmlids = xmlids;
+
+      return surroundingArea;
     },
 
     getVariantCoordinates : function (meiDoc) {
