@@ -132,8 +132,8 @@ define([
     },
 
     calculateMeasureAreas : function () {
-      var systems = me.viewer.converter.getSystems();
       var me = this, i, j, k, l, m, n, stave, x, y, w, y1, measures, staves;
+      var systems = me.viewer.converter.getSystems();
       var STAFF_BOTTOM_OFFSET = 20;
 
       for (i = 0, j = systems.length; i < j; i += 1) {
@@ -225,8 +225,8 @@ define([
     },
 
     calculateNoteAreas : function () {
-      var notes = me.viewer.converter.getNotes();
       var me = this, i, j, k, l, note, box, x, y, w, h, metrics, meiElement;
+      var notes = me.viewer.converter.getNotes();
       for (i in notes) {
         note = notes[i].vexNote;
         meiElement = notes[i].meiNote;
@@ -255,8 +255,8 @@ define([
     },
 
     calculateAnchoredTextAreas : function () {
+      var me = this, i;
       var texts = me.viewer.anchoredTexts.getAll();
-      var me = this;
       i = texts.length;
       while (i--) {
         me.anchoredTextAreas.push(texts[i].getArea());
