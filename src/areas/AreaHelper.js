@@ -28,9 +28,9 @@ define([
 
   AreaHelper.prototype = {
 
-    setAreas : function (meiDoc, layers) {
+    setAreas : function (meiDoc, areaCollections) {
 
-      var me = this, i, j, k, areas, areaCollection;
+      var me = this, i, j, k;
 
       me.measureAreas = [];
       //      me.layerAreas = [];
@@ -41,7 +41,50 @@ define([
       me.anchoredTextAreas = [];
       me.pgHeadAreas = [];
 
-      var hTypes = {
+      var areaCollectionsByCategory = me.groupByContentCategory(areaCollections);
+
+      i = areaCollectionsByCategory['measures'].length;
+      j = areaCollectionsByCategory['barlines'].length;
+      k = areaCollectionsByCategory['measure_modifiers'].length;
+      if (i > 0 || j > 0 || k > 0) {
+        me.calculateMeasureAreas();
+        while (i--) {
+          areaCollectionsByCategory['measures'][i].addAreas(me.measureAreas);
+        }
+        while (j--) {
+          areaCollectionsByCategory['barlines'][j].addAreas(me.barlineAreas);
+        }
+        while (k--) {
+          areaCollectionsByCategory['measure_modifiers'][k].addAreas(me.measureModifierAreas);
+        }
+      }
+
+      me.extractAndAddAreas (areaCollectionsByCategory['notes'], me.noteAreas, function(){
+        me.calculateNoteAreas();
+      });
+      me.extractAndAddAreas (areaCollectionsByCategory['anchoredTexts'], me.anchoredTextAreas, function(){
+        me.calculateAnchoredTextAreas();
+      });
+      me.extractAndAddAreas (areaCollectionsByCategory['pgHead'], me.pgHeadAreas, function(){
+          me.calculatePgHeadAreas();
+      });
+      me.extractAndAddAreas (areaCollectionsByCategory['variants'], me.variantAreas, function(){
+        me.getVariantCoordinates(meiDoc);
+      });
+
+      me.initHighlights(areaCollections);
+
+    },
+
+    /**
+     * creates an object with all the area content categories; each of them holds the area collections
+     * to which that content category has been assigned
+     * @param {AbstractAreaCollection[]} areaCollections
+     * @returns {Object}
+     */
+    groupByContentCategory : function (areaCollections) {
+      var areaCollection, i, j, category;
+      var areaCategories = {
         measures : [],
         //        layers:[],
         variants : [],
@@ -51,86 +94,47 @@ define([
         anchoredTexts : [],
         pgHead : []
       };
-
-      var hType;
-
-      i = layers.length;
+      i = areaCollections.length;
       while (i--) {
-        areaCollection = layers[i];
+        areaCollection = areaCollections[i];
         if (areaCollection.type === 'highlighter') {
           j = areaCollection.content.length;
           while (j--) {
-            hType = hTypes[areaCollection.content[j]];
-            if (hType) {
-              hType.push(areaCollection);
+            category = areaCategories[areaCollection.content[j]];
+            if (category) {
+              category.push(areaCollection);
             } else {
               Logger.warn('Configuration error', 'Unknown area type "' + areaCollection.content[j] + '".');
             }
           }
         }
       }
-
-      i = hTypes['measures'].length;
-      j = hTypes['barlines'].length;
-      k = hTypes['measure_modifiers'].length;
-      if (i > 0 || j > 0 || k > 0) {
-        me.calculateMeasureAreas(me.viewer.converter.getSystems());
-        while (i--) {
-          hTypes['measures'][i].addAreas(me.measureAreas);
-        }
-        while (j--) {
-          hTypes['barlines'][j].addAreas(me.barlineAreas);
-        }
-        while (k--) {
-          hTypes['measure_modifiers'][k].addAreas(me.measureModifierAreas);
-        }
-      }
-
-      i = hTypes['notes'].length;
-      if (i > 0) {
-        me.calculateNoteAreas(me.viewer.converter.getNotes());
-        while (i--) {
-          hTypes['notes'][i].addAreas(me.noteAreas);
-        }
-      }
-
-      i = hTypes['anchoredTexts'].length;
-      if (i > 0) {
-        me.calculateAnchoredTextAreas(me.viewer.anchoredTexts.getAll());
-        while (i--) {
-          hTypes['anchoredTexts'][i].addAreas(me.anchoredTextAreas);
-        }
-      }
-
-      i = hTypes['pgHead'].length;
-      if (i > 0 && me.viewer.pgHead) {
-        me.calculatePgHeadAreas(me.viewer.pgHead.getTextsByLine());
-        while (i--) {
-          hTypes['pgHead'][i].addAreas(me.pgHeadAreas);
-        }
-      }
-
-      i = hTypes['variants'].length;
-      if (i > 0) {
-        me.getVariantCoordinates(meiDoc);
-        while (i--) {
-          hTypes['variants'][i].addAreas(me.variantAreas);
-        }
-      }
-
-      i = layers.length;
-      while (i--) {
-        if (layers[i].type === 'highlighter') {
-          layers[i].initHighlights();
-        }
-      }
-
+      return areaCategories;
     },
 
-    calculateMeasureAreas : function (systems) {
+    extractAndAddAreas : function (areaCollectionGroup, result, extractFn) {
+      var i = areaCollectionGroup.length;
+      if (i > 0) {
+        extractFn();
+        while (i--) {
+          areaCollectionGroup[i].addAreas(result);
+        }
+      }
+    },
+
+    initHighlights : function (areaCollections) {
+      var i = areaCollections.length;
+      while (i--) {
+        if (areaCollections[i].type === 'highlighter') {
+          areaCollections[i].initHighlights();
+        }
+      }
+    },
+
+    calculateMeasureAreas : function () {
+      var systems = me.viewer.converter.getSystems();
       var me = this, i, j, k, l, m, n, stave, x, y, w, y1, measures, staves;
       var STAFF_BOTTOM_OFFSET = 20;
-
 
       for (i = 0, j = systems.length; i < j; i += 1) {
         if (systems[i]) {
@@ -209,7 +213,7 @@ define([
       j = stave.end_glyphs.length;
       x = stave.getGlyphEndX();
       var glyph;
-      for (var i = 0; i < j; i++) {
+      for (i = 0; i < j; i++) {
         glyph = stave.end_glyphs[i];
         if (glyph.code) {
           w = glyph.getMetrics().width;
@@ -220,7 +224,8 @@ define([
       }
     },
 
-    calculateNoteAreas : function (notes) {
+    calculateNoteAreas : function () {
+      var notes = me.viewer.converter.getNotes();
       var me = this, i, j, k, l, note, box, x, y, w, h, metrics, meiElement;
       for (i in notes) {
         note = notes[i].vexNote;
@@ -249,7 +254,8 @@ define([
       };
     },
 
-    calculateAnchoredTextAreas : function (texts) {
+    calculateAnchoredTextAreas : function () {
+      var texts = me.viewer.anchoredTexts.getAll();
       var me = this;
       i = texts.length;
       while (i--) {
@@ -257,14 +263,17 @@ define([
       }
     },
 
-    calculatePgHeadAreas : function (textsByLine) {
+    calculatePgHeadAreas : function () {
       var me = this, i, j, texts;
-      j = textsByLine.length;
-      while (j--) {
-        texts = textsByLine[j];
-        i = texts.length;
-        while (i--) {
-          me.pgHeadAreas.push(texts[i].getArea());
+      if (me.viewer.pgHead) {
+        var textsByLine = me.viewer.pgHead.getTextsByLine();
+        j = textsByLine.length;
+        while (j--) {
+          texts = textsByLine[j];
+          i = texts.length;
+          while (i--) {
+            me.pgHeadAreas.push(texts[i].getArea());
+          }
         }
       }
     },
@@ -306,7 +315,6 @@ define([
               h = note.stave.getYForLine(4) - y + 20;
               me.noteAreas.push(me.createNoteAreaObj('note-modifier', x, y, w, h, clef.getMeiElement(), i));
             }
-
             break;
           case 'dots':
           case 'accidentals':
@@ -315,10 +323,6 @@ define([
             break;
         }
       }
-    },
-
-    calculateNoteModifierArea : function () {
-
     },
 
     calculateNoteArea : function (notes, xmlid) {

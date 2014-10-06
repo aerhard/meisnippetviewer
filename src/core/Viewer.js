@@ -178,7 +178,6 @@ define([
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
-
       me.areaHelper.setAreas(meiDoc, layers);
 
       me.registerMouseHandlers(me.UI, layers);
