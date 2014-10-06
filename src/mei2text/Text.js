@@ -69,14 +69,12 @@ define([
       var me = this;
 
       return {
-        ctx : {
-          x : me.x - 6,
-          y : me.y - me.h,
-          w : me.w + 12,
-          h : me.h + 8,
-          x1 : me.x + me.w + 6,
-          y1 : me.y + 8
-        },
+        x : me.x - 6,
+        y : me.y - me.h,
+        w : me.w + 12,
+        h : me.h + 8,
+        x1 : me.x + me.w + 6,
+        y1 : me.y + 8,
         meiElement : me.meiElement,
         meiNodeMatch : me.meiNodeMatch,
         xmlid : null

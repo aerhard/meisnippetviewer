@@ -36,12 +36,10 @@ define([
       var me = this, i, measure, n;
       i = systems.length;
       while (i--) {
-        if (systems[i]) {
-          measure = systems[i].getMeasure(0);
-          n = measure.getN();
-          if (n > 1) {
-            measure.getFirstDefinedStave().setMeasure(n).font = me.font;
-          }
+        measure = systems[i].getMeasure(0);
+        n = measure.getNAttr();
+        if (parseInt(n, 10) > 1) {
+          measure.getFirstDefinedStave().setMeasure(n).font = me.font;
         }
       }
     }

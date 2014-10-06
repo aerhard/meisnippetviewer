@@ -59,16 +59,16 @@ define([
         }
       }
 
-      me.extractAndAddAreas (areaCollectionsByCategory['notes'], me.noteAreas, function(){
+      me.extractAndAddAreas(areaCollectionsByCategory['notes'], me.noteAreas, function () {
         me.calculateNoteAreas();
       });
-      me.extractAndAddAreas (areaCollectionsByCategory['anchoredTexts'], me.anchoredTextAreas, function(){
+      me.extractAndAddAreas(areaCollectionsByCategory['anchoredTexts'], me.anchoredTextAreas, function () {
         me.calculateAnchoredTextAreas();
       });
-      me.extractAndAddAreas (areaCollectionsByCategory['pgHead'], me.pgHeadAreas, function(){
-          me.calculatePgHeadAreas();
+      me.extractAndAddAreas(areaCollectionsByCategory['pgHead'], me.pgHeadAreas, function () {
+        me.calculatePgHeadAreas();
       });
-      me.extractAndAddAreas (areaCollectionsByCategory['variants'], me.variantAreas, function(){
+      me.extractAndAddAreas(areaCollectionsByCategory['variants'], me.variantAreas, function () {
         me.getVariantCoordinates(meiDoc);
       });
 
@@ -137,33 +137,31 @@ define([
       var STAFF_BOTTOM_OFFSET = 20;
 
       for (i = 0, j = systems.length; i < j; i += 1) {
-        if (systems[i]) {
-          measures = systems[i].getMeasures();
-          for (k = 0, l = measures.length; k < l; k += 1) {
-            staves = measures[k].getStaves();
-            for (m = 0, n = staves.length; m < n; m++) {
-              stave = staves[m];
-              if (stave) {
-                x = stave.x;
-                y = stave.y;
-                w = stave.width;
-                y1 = stave.getBottomY() - STAFF_BOTTOM_OFFSET;
-                me.measureAreas.push({
-                  x : x,
-                  y : y,
-                  w : w,
-                  h : y1 - y,
-                  x1 : x + w,
-                  y1 : y1,
-                  measureN : measures[k].n,
-                  staveN : m
-                });
+        measures = systems[i].getMeasures();
+        for (k = 0, l = measures.length; k < l; k += 1) {
+          staves = measures[k].getStaves();
+          for (m = 0, n = staves.length; m < n; m++) {
+            stave = staves[m];
+            if (stave) {
+              x = stave.x;
+              y = stave.y;
+              w = stave.width;
+              y1 = stave.getBottomY() - STAFF_BOTTOM_OFFSET;
+              me.measureAreas.push({
+                x : x,
+                y : y,
+                w : w,
+                h : y1 - y,
+                x1 : x + w,
+                y1 : y1,
+                measureN : measures[k].n,
+                staveN : m
+              });
 
-                var staveY = stave.getYForLine(0) - 5;
-                var staveH = stave.getYForLine(4) - staveY + 10;
-                me.calculateBarlineAreas(stave, staveY, staveH, measures[k].getMeiElement());
-                me.calculateStaveModifierAreas(stave, staveY, staveH);
-              }
+              var staveY = stave.getYForLine(0) - 5;
+              var staveH = stave.getYForLine(4) - staveY + 10;
+              me.calculateBarlineAreas(stave, staveY, staveH, measures[k].getMeiElement());
+              me.calculateStaveModifierAreas(stave, staveY, staveH);
             }
           }
         }
@@ -276,6 +274,7 @@ define([
           }
         }
       }
+//      console.log(me.pgHeadAreas);
     },
 
     calculateNoteModifierAreas : function (note) {

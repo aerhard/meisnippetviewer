@@ -26518,7 +26518,7 @@ Vex.Flow.TextDynamics = (function(){
         });
 
         maxFontSizeInLine =
-        Math.max(me.drawCenterTexts(centerTexts, currentCoords), me.drawRightAlignedTexts(rightTexts, currentCoords), me.drawLeftAlignedTexts(leftTexts, currentCoords));
+        Math.max(me.formatCenterTexts(centerTexts, currentCoords), me.formatRightAlignedTexts(rightTexts, currentCoords), me.formatLeftAlignedTexts(leftTexts, currentCoords));
 
         currentCoords.y += maxFontSizeInLine * me.lineHeight;
       };
@@ -26527,7 +26527,7 @@ Vex.Flow.TextDynamics = (function(){
       me.lowestY = currentCoords.y;
     },
 
-    drawCenterTexts : function (centerTexts, currentCoords) {
+    formatCenterTexts : function (centerTexts, currentCoords) {
       var me = this, maxFontSize, totalTextWidth = 0, i;
 
       i = centerTexts.length;
@@ -26535,7 +26535,7 @@ Vex.Flow.TextDynamics = (function(){
         totalTextWidth += centerTexts[i].w;
       }
 
-      maxFontSize = me.drawLeftAlignedTexts(centerTexts, {
+      maxFontSize = me.formatLeftAlignedTexts(centerTexts, {
         x : currentCoords.x + (currentCoords.w / 2) - (totalTextWidth / 2),
         y : currentCoords.y,
         w : currentCoords.w
@@ -26543,7 +26543,7 @@ Vex.Flow.TextDynamics = (function(){
       return maxFontSize;
     },
 
-    drawRightAlignedTexts : function (rightTexts, currentCoords) {
+    formatRightAlignedTexts : function (rightTexts, currentCoords) {
       var me = this, maxH = 0, offsetX = 0, obj, i;
       i = rightTexts.length;
       while (i--) {
@@ -26557,7 +26557,7 @@ Vex.Flow.TextDynamics = (function(){
       return maxH;
     },
 
-    drawLeftAlignedTexts : function (leftTexts, currentCoords) {
+    formatLeftAlignedTexts : function (leftTexts, currentCoords) {
       var me = this, maxH = 0, offsetX = 0;
       $.each(leftTexts, function (i, obj) {
         obj.setX(currentCoords.x + offsetX);

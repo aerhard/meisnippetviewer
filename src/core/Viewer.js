@@ -173,7 +173,10 @@ define([
 
       me.UI.setSize(height, width, me.cfg.pageScale);
 
-
+      if (me.pgHead) {
+        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
+        me.pgHead.setContext(layers[me.UI.vexLayerIndex].ctx).draw();
+      }
 
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
@@ -222,19 +225,21 @@ define([
 
         me.pgHead = new PgHead(headEl, {
           x : printSpace.left,
-          y : me.converter.pageTopMar,
+          y : me.converter.pageInfo.pageTopMar,
           w : printSpace.width
         }, me.cfg.pageScale);
-        me.pgHead.setContext(vexCtx).draw();
-        if (!me.cfg.pageTopMar && me.pgHead.lowestY) {
-          me.cfg.pageTopMar = me.pgHead.lowestY;
-          me.converter.pageTopMar = me.pgHead.lowestY;
-          printSpace.top = me.pgHead.lowestY;
+
+        me.pgHead.preFormat(vexCtx);
+
+        if (me.pgHead.lowestY) {
+          printSpace.top = me.pgHead.lowestY / me.cfg.pageScale;
         }
       }
 
       me.converter.process(xmlDoc);
       me.converter.format(vexCtx);
+
+
 
       if (me.cfg.autoMeasureNumbers) {
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);

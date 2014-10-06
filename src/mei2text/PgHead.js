@@ -39,9 +39,6 @@ define([
     init : function (element, coords, scale) {
       var me = this;
 
-      console.log(scale);
-
-
       me.scale = scale;
       me.defaultFontSize = 12;
       me.lineHeight = 1.3;
@@ -64,18 +61,18 @@ define([
         fontfamily : 'Times'
       });
 
-      /**
-       * @property {Number} x The x coordinate of the page head area
-       */
-      me.x = coords.x;
-      /**
-       * @property {Number} y The y coordinate of the page head area
-       */
-      me.y = coords.y;
-      /**
-       * @property {Number} w The width of the page head area
-       */
-      me.w = coords.w;
+//      /**
+//       * @property {Number} x The x coordinate of the page head area
+//       */
+//      me.x = coords.x;
+//      /**
+//       * @property {Number} y The y coordinate of the page head area
+//       */
+//      me.y = coords.y;
+//      /**
+//       * @property {Number} w The width of the page head area
+//       */
+//      me.w = coords.w;
 
       /**
        * Current coordinates
@@ -83,6 +80,10 @@ define([
        */
       me.currentCoords = coords;
 
+    },
+
+    setWidth: function(width){
+      this.currentCoords.w = width;
     },
 
     getLowestY : function () {
@@ -123,8 +124,6 @@ define([
               atts = Util.attsToObj(childNodes[i]);
               defaults = {
                 halign : 'center'
-//                fontsize : (atts.type === 'sub') ? 35 : 50,
-//                fontweight : 'Bold'
               };
               me.htmlToArray(childNodes[i], $.extend({}, opts, defaults, atts));
               me.breakLine();
@@ -132,7 +131,8 @@ define([
             default :
               atts = Util.attsToObj(childNodes[i]);
               me.htmlToArray(childNodes[i], $.extend({}, opts, atts));
-              if (atts.valign) {
+              // FIXME handle line breaks differently
+              if (atts.halign=='center') {
                 me.breakLine();
               }
 
@@ -152,38 +152,59 @@ define([
       return this;
     },
 
+    preFormat : function (ctx) {
+      var me = this, maxFontSizeInLine, i, j, k, l, textLine, text;
+      var currentCoords = me.currentCoords;
+      for (i = 0, j = me.textsByLine.length; i < j; i++) {
+        textLine = me.textsByLine[i];
+        maxFontSizeInLine = 0;
+        for (k = 0, l = textLine.length; k < l; k++) {
+          text = textLine[k];
+          text.setContext(ctx).preProcess(me.scale);
+          text.setY(currentCoords.y + text.h);
+          maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
+        }
+        currentCoords.y += maxFontSizeInLine * me.lineHeight;
+      }
+      me.lowestY = currentCoords.y;
+    },
+
+
     draw : function () {
-      var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i;
+      var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i, j, k, l, textLine, text;
 
       var currentCoords = me.currentCoords;
 
-      var processTextLine = function () {
+      for (i = 0, j = me.textsByLine.length; i < j; i++) {
+        textLine = me.textsByLine[i];
         leftTexts = [];
         centerTexts = [];
         rightTexts = [];
         maxFontSizeInLine = 0;
-        $.each(this, function () {
-          this.setContext(me.ctx).preProcess(me.scale);
-          this.setTextAlign('left');
-          switch (this.atts.halign) {
+
+        for (k = 0, l = textLine.length; k < l; k++) {
+          text = textLine[k];
+          text.setContext(me.ctx).preProcess(me.scale);
+          text.setTextAlign('left');
+          switch (text.atts.halign) {
             case 'center' :
-              centerTexts.push(this);
+              centerTexts.push(text);
               break;
             case 'right' :
-              rightTexts.push(this);
+              rightTexts.push(text);
               break;
             default :
-              leftTexts.push(this);
+              leftTexts.push(text);
           }
-        });
+        }
 
         maxFontSizeInLine =
         Math.max(me.drawCenterTexts(centerTexts, currentCoords), me.drawRightAlignedTexts(rightTexts, currentCoords), me.drawLeftAlignedTexts(leftTexts, currentCoords));
 
         currentCoords.y += maxFontSizeInLine * me.lineHeight;
-      };
 
-      $.each(me.textsByLine, processTextLine);
+      }
+
       me.lowestY = currentCoords.y;
     },
 
