@@ -20,10 +20,11 @@ module.exports = function (grunt) {
           baseUrl : 'src',
           mainConfigFile: "src/config.js",
           out : 'tmp/<%= pkg.name %>.build.js',
-
+          paths: {
+            "vexflow": "empty:"
+          },
           exclude : [
             'jquery',
-            'vexflow',
             'vex'
           ],
 
