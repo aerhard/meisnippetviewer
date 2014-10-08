@@ -15,8 +15,8 @@
  *
  */
 define([
-  'common/RuntimeError',
-], function (RuntimeError, undefined) {
+  'common/RuntimeError'
+], function (RuntimeError) {
   /**
    * @exports areas/AbstractAreaCollection
    */

@@ -18,7 +18,7 @@ define([
   'jquery',
   'vexflow',
   'msv/mei2text/Text'
-], function ($, VF, Text, undefined) {
+], function ($, VF, Text) {
   /**
    * @exports mei2text/AnchoredTexts
    */
@@ -46,8 +46,9 @@ define([
     /**
      * Creates a model object from an element and adds it to {@link #allTexts}
      * @param {Element} element
+     * @stave {Stave}
      */
-    addText : function (element, stave, stave_n, layerDir, staveInfo) {
+    addText : function (element, stave) {
       var me = this;
       var text = new Text(element, {
         fontfamily : me.font.family,
@@ -76,11 +77,8 @@ define([
     },
 
     draw : function () {
-      var me = this, x, y, stave, ctx = me.ctx;
+      var me = this, stave, ctx = me.ctx;
       $.each(me.allTexts, function () {
-
-        console.log(this)
-
 
         if (!this.y) {
           stave = this.getContainer();

@@ -225,7 +225,7 @@ define([
     },
 
     drawRightAlignedTexts : function (rightTexts, currentCoords) {
-      var me = this, maxH = 0, offsetX = 0, obj, i;
+      var maxH = 0, offsetX = 0, obj, i;
       i = rightTexts.length;
       while (i--) {
         obj = rightTexts[i];
@@ -239,7 +239,7 @@ define([
     },
 
     drawLeftAlignedTexts : function (leftTexts, currentCoords) {
-      var me = this, maxH = 0, offsetX = 0;
+      var maxH = 0, offsetX = 0;
       $.each(leftTexts, function (i, obj) {
         obj.setX(currentCoords.x + offsetX);
         obj.setY(currentCoords.y + obj.h);

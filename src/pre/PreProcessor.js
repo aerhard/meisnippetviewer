@@ -17,7 +17,7 @@
 define([
   'common/Logger',
   'common/Util'
-], function (Logger, Util, undefined) {
+], function (Logger, Util) {
   /**
    * @exports mei2text/PreProcessor
    */
@@ -72,7 +72,8 @@ define([
     /**
      * checks if descendants of the provided element have xml:ids; adds xml:ids
      * if they are missing
-     * @param {Element} options The pre-processing options
+     * @param {Element} element
+     * @param {Object} option The pre-processing option
      */
     addXmlIdPrefix : function (element, option) {
       var i, items = element.getElementsByTagName("*"), prefix = option[1];
@@ -88,8 +89,7 @@ define([
      * @param element
      */
     processDefs : function (element) {
-      var me = this, i, keys;
-      keys = {
+      var keys = {
         s : [
           'c',
           'g',
@@ -137,7 +137,7 @@ define([
       };
 
       var process = function (items, keys) {
-        var i, keySig, n, acc, found;
+        var i, keySig, n, acc, found, key;
         for (i = items.length; i--;) {
           if (items[i].hasAttribute('key.sig')) {
             keySig = items[i].getAttribute('key.sig');

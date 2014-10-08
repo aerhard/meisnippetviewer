@@ -11,7 +11,7 @@ define([
   'common/Util',
   'mei2vf/Tables',
   'mei2vf/stave/Stave'
-], function ($, VF, overrides, Directives, Dynamics, Fermatas, Converter, Logger, Util, Tables, Stave, undefined) {
+], function ($, VF, overrides, Directives, Dynamics, Fermatas, Converter, Logger, Util, Tables, Stave) {
 
   Stave.prototype.lineColor = '#000000';
 
@@ -86,7 +86,7 @@ define([
       }
     }
 
-    var is_above = (this.position === Modifier.Position.ABOVE) ? true : false;
+    var is_above = (this.position === Modifier.Position.ABOVE);
     var note_line = this.note.getLineNumber(is_above);
 
     // Beamed stems are longer than quarter note stems.

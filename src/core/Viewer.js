@@ -27,7 +27,7 @@ define([
   'msv/mei2text/MeasureNumbers',
   'msv/mei2text/PgHead',
   'msv/pre/PreProcessor'
-], function ($, VF, MeiLib, Converter, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor, undefined) {
+], function ($, VF, MeiLib, Converter, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor) {
   /**
    * @exports core/Viewer
    */
@@ -110,8 +110,8 @@ define([
       /**
        * @cfg {Object[]} layers The canvas layers. (optional)
        *
-       * Can be either a subclass of {@link MSV.AreaCollection} like
-       * {@link MSV.DefaultAreaCollection} or, to specify the layer to contain
+       * Can be either a subclass of {@link AbstractAreaCollection} like
+       * {@link DefaultAreaCollection} or, to specify the layer to contain
        * the VexFlow output, an object with the property `type` with the value `vex`.
        * The first layer will be the bottom-most, the last one the top-most.
        * If no VexFlow layer is specified, a VexFlow Layer gets added automatically
@@ -121,7 +121,7 @@ define([
     },
 
     init : function (config) {
-      var me = this, xmlDoc, firstScoreDef, cfg, canvas, ctx, meiDoc, layers;
+      var me = this, xmlDoc, firstScoreDef, meiDoc, layers;
 
       if (!config) {
         throw new RuntimeError('No config passed to Viewer.');
@@ -187,7 +187,7 @@ define([
     },
 
     registerMouseHandlers : function (UI, layers) {
-      var me = this, i, layer;
+      var i, layer;
       i = layers.length;
       while (i--) {
         layer = layers[i];

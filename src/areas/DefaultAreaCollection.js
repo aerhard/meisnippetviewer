@@ -15,8 +15,9 @@
  *
  */
 define([
-  'msv/areas/AbstractAreaCollection',
-], function (AbstractAreaCollection, undefined) {
+  'vex',
+  'msv/areas/AbstractAreaCollection'
+], function (Vex, AbstractAreaCollection, undefined) {
   /**
    * @exports areas/DefaultAreaCollection
    */
@@ -149,7 +150,7 @@ define([
      * @param {Object} area The area to highlight.
      */
     setHighlight : function (area) {
-      var me = this, M = Math;
+      var me = this;
       me.roundRect(me.ctx, area.x, area.y, area.w, area.h, 5, true, false);
       me.currentHighlight = area;
     },
@@ -203,7 +204,7 @@ define([
      * is in none of the highlighter's areas.
      */
     getAreaFromPoint : function (point) {
-      var me = this, areas, i, inArea = false;
+      var me = this, areas, i;
       areas = me.areas;
       i = areas.length;
       while (i--) {

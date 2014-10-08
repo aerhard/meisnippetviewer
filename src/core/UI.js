@@ -19,7 +19,7 @@ define([
   'vexflow',
   'common/Logger',
   'common/RuntimeError'
-], function ($, VF, Logger, RuntimeError, undefined) {
+], function ($, VF, Logger, RuntimeError) {
   /**
    * @exports core/UI
    */
@@ -69,7 +69,7 @@ define([
     },
 
     createLayers : function (cfg) {
-      var me = this, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
+      var me = this, element, ctx, i, j, layers, hasVexLayer = false;
 
       me.scale = cfg.pageScale;
 

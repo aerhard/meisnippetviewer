@@ -15,7 +15,7 @@
  *
  */
 define([
-], function (undefined) {
+], function () {
   /**
    * @exports mei2text/MeasureNumbers
    */

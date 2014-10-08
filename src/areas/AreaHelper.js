@@ -17,7 +17,7 @@
 define([
   'vexflow',
   'common/Logger'
-], function (VF, Logger, undefined) {
+], function (VF, Logger) {
   /**
    * @exports areas/AreaHelper
    */
@@ -182,10 +182,10 @@ define([
     },
 
     calculateStaveModifierAreas : function (stave, y, h) {
-      var me = this, modifiers = stave.modifiers, i, j, category, x, w;
+      var me = this, i, j, x, w;
       j = stave.glyphs.length;
       x = stave.getGlyphStartX();
-      var glyph, glyphXW = [], glyphXWindex = 0;
+      var glyph;
 
       var codes = {
         v18 : 'meiKeySpecElement',
@@ -223,7 +223,7 @@ define([
     },
 
     calculateNoteAreas : function () {
-      var me = this, i, j, k, l, note, box, x, y, w, h, metrics, meiElement;
+      var me = this, i, note, box, x, y, w, h, meiElement;
       var notes = me.viewer.converter.getNotes();
       for (i in notes) {
         note = notes[i].vexNote;
@@ -278,7 +278,7 @@ define([
     },
 
     calculateNoteModifierAreas : function (note) {
-      var me = this, modifiers = note.modifiers, i, category, x, y, w, h, areas = [];
+      var me = this, modifiers = note.modifiers, i, category, x, y, w, h;
       i = modifiers.length;
       while (i--) {
         category = modifiers[i].getCategory();
@@ -325,7 +325,7 @@ define([
     },
 
     calculateNoteArea : function (notes, xmlid) {
-      var me = this, i, j, k, l, note, box, x, y, w, h;
+      var note, box, x, y, w, h;
 
       note = notes[xmlid].vexNote;
       box = note.getBoundingBox();
@@ -374,7 +374,7 @@ define([
     },
 
     getVariantCoordinates : function (meiDoc) {
-      var me = this, i, j, appObject, idsInAlternative, area, areas, surroundingArea;
+      var me = this, i, j, appObject, idsInAlternative, area, areas;
 
       // loop through all meilib app objects
       for (i in meiDoc.ALTs) {
@@ -397,7 +397,7 @@ define([
     },
 
 
-    getIdsInAlternative : function (meiDoc, appObject, selectedSource) {
+    getIdsInAlternative : function (meiDoc, appObject) {
       var i, j, selectedAlternElement, id, descendantIds = {}, defaultAltern;
 
       defaultAltern = appObject.getDefaultItem();
@@ -419,7 +419,7 @@ define([
 
 
     getIdCoordinates : function (xmlid, localName) {
-      var me = this, area;
+      var me = this;
       switch (localName) {
         case 'note':
           return me.calculateNoteArea(me.viewer.converter.getNotes(), xmlid);
