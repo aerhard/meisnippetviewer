@@ -205,7 +205,7 @@ define([
     },
 
     convertMEI : function (xmlDoc, vexCtx) {
-      var me = this;
+      var me = this, pgHeadLowestY;
       /**
        * @property {MEI2VF.Converter} converter the MEI2VF converter
        */
@@ -231,8 +231,11 @@ define([
 
         me.pgHead.preFormat(vexCtx);
 
-        if (me.pgHead.lowestY) {
-          printSpace.top = me.pgHead.lowestY / me.cfg.pageScale;
+        pgHeadLowestY = me.pgHead.getLowestY();
+
+        if (pgHeadLowestY) {
+          // round the y value in order to prevent blurred staff lines on the canvas
+          printSpace.top = Math.ceil(pgHeadLowestY / me.cfg.pageScale);
         }
       }
 

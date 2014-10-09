@@ -173,7 +173,7 @@ define([
 
       if (stave.modifiers[0].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x -
-                                                             8, staveY, 16, staveH, meiElement, 1));
+                                                             8, staveY, 16, staveH, stave.leftBarlineElement || meiElement, 1));
       }
       if (stave.modifiers[1].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x -
