@@ -159,8 +159,6 @@ define([
 
       var lowestY = me.currentCoords.y;
 
-      console.log('preFormat ' + me.currentCoords.y);
-      console.log('preFormat ' + me.scale);
       for (i = 0, j = me.textsByLine.length; i < j; i++) {
         textLine = me.textsByLine[i];
         maxFontSizeInLine = 0;
@@ -180,8 +178,6 @@ define([
       var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i, j, k, l, textLine, text;
 
       var currentCoords = me.currentCoords;
-      console.log('draw ' + me.currentCoords.y);
-      console.log('draw ' + me.scale);
 
       for (i = 0, j = me.textsByLine.length; i < j; i++) {
         textLine = me.textsByLine[i];

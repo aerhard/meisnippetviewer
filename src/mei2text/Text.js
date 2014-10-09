@@ -89,8 +89,6 @@ define([
     preProcess : function (scale) {
       var me = this, ctx = me.ctx, atts = me.atts;
 
-      console.log(atts.fontsize);
-
       scale = scale || 1;
 //      me.h = fontsize * scale;
       me.h = atts.fontsize * 2;
