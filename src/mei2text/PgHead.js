@@ -40,6 +40,7 @@ define([
       var me = this;
 
       me.scale = scale;
+//      me.defaultFontSize = 12;
       me.defaultFontSize = 12;
       me.lineHeight = 1.3;
 
@@ -154,19 +155,24 @@ define([
 
     preFormat : function (ctx) {
       var me = this, maxFontSizeInLine, i, j, k, l, textLine, text;
-      var currentCoords = me.currentCoords;
+//      var currentCoords = me.currentCoords;
+
+      var lowestY = me.currentCoords.y;
+
+      console.log('preFormat ' + me.currentCoords.y);
+      console.log('preFormat ' + me.scale);
       for (i = 0, j = me.textsByLine.length; i < j; i++) {
         textLine = me.textsByLine[i];
         maxFontSizeInLine = 0;
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
           text.setContext(ctx).preProcess(me.scale);
-          text.setY(currentCoords.y + text.h);
+          text.setY(lowestY + text.h);
           maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
         }
-        currentCoords.y += maxFontSizeInLine * me.lineHeight;
+        lowestY += maxFontSizeInLine * me.lineHeight;
       }
-      me.lowestY = currentCoords.y;
+      me.lowestY = lowestY;
     },
 
 
@@ -174,6 +180,8 @@ define([
       var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i, j, k, l, textLine, text;
 
       var currentCoords = me.currentCoords;
+      console.log('draw ' + me.currentCoords.y);
+      console.log('draw ' + me.scale);
 
       for (i = 0, j = me.textsByLine.length; i < j; i++) {
         textLine = me.textsByLine[i];
@@ -184,7 +192,7 @@ define([
 
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
-          text.setContext(me.ctx).preProcess(me.scale);
+//          text.setContext(me.ctx).preProcess(me.scale);
           text.setTextAlign('left');
           switch (text.atts.halign) {
             case 'center' :
@@ -231,7 +239,7 @@ define([
         obj = rightTexts[i];
         offsetX += obj.w;
         obj.setX(currentCoords.x + currentCoords.w - offsetX);
-        obj.setY(currentCoords.y + obj.h);
+//        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         maxH = Math.max(obj.h, maxH);
       }
@@ -242,7 +250,7 @@ define([
       var maxH = 0, offsetX = 0;
       $.each(leftTexts, function (i, obj) {
         obj.setX(currentCoords.x + offsetX);
-        obj.setY(currentCoords.y + obj.h);
+//        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         offsetX += obj.w;
         maxH = Math.max(obj.h, maxH);

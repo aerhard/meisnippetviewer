@@ -173,11 +173,6 @@ define([
 
       me.UI.setSize(height, width, me.cfg.pageScale);
 
-      if (me.pgHead) {
-        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgHead.setContext(layers[me.UI.vexLayerIndex].ctx).draw();
-      }
-
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
@@ -216,7 +211,6 @@ define([
         me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
       };
 
-
       var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
 
       if (me.cfg.processPgHead && headEl) {
@@ -225,7 +219,7 @@ define([
 
         me.pgHead = new PgHead(headEl, {
           x : printSpace.left,
-          y : me.converter.pageInfo.pageTopMar,
+          y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
           w : printSpace.width
         }, me.cfg.pageScale);
 
@@ -235,7 +229,7 @@ define([
 
         if (pgHeadLowestY) {
           // round the y value in order to prevent blurred staff lines on the canvas
-          printSpace.top = Math.ceil(pgHeadLowestY / me.cfg.pageScale);
+          printSpace.top = Math.ceil(pgHeadLowestY) + 30;
         }
       }
 
@@ -252,6 +246,12 @@ define([
 
     drawMEI : function (ctx) {
       var me = this;
+
+      if (me.pgHead) {
+        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
+        me.pgHead.setContext(ctx).draw();
+      }
+
       me.converter.draw(ctx);
       me.anchoredTexts.setContext(ctx).draw();
     }
