@@ -156,7 +156,6 @@ define([
       }
 
 
-
       var height, width;
 
       // if height is specified don't return the calculated height to get same behavior as width
@@ -211,32 +210,46 @@ define([
         me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
       };
 
-      var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
-
-      if (me.cfg.processPgHead && headEl) {
-
-        var printSpace = me.converter.pageInfo.getPrintSpace();
-
-        me.pgHead = new PgHead(headEl, {
-          x : printSpace.left,
-          y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
-          w : printSpace.width
-        }, me.cfg.pageScale);
-
-        me.pgHead.preFormat(vexCtx);
-
-        pgHeadLowestY = me.pgHead.getLowestY();
-
-        if (pgHeadLowestY) {
-          // round the y value in order to prevent blurred staff lines on the canvas
-          printSpace.top = Math.ceil(pgHeadLowestY) + 30;
+      me.converter.systemInfo.processPgHead = function (element) {
+        if (me.cfg.processPgHead && !me.pgHead) {
+          var printSpace = me.converter.pageInfo.getPrintSpace();
+          me.pgHead = new PgHead(element, {
+            // TODO remove x, y, w !?
+            x : printSpace.left,
+            y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
+            w : printSpace.width
+          }, me.cfg.pageScale);
+          me.pgHead.preFormat(vexCtx);
+          pgHeadLowestY = me.pgHead.getLowestY();
+          if (pgHeadLowestY) {
+            // round the y value in order to prevent blurred staff lines on the canvas
+            printSpace.top = Math.ceil(pgHeadLowestY) + 30;
+          }
         }
-      }
+      };
+
+      var pgFootElement;
+
+      me.converter.systemInfo.processPgFoot = function (element) {
+        if (me.cfg.processPgHead) {
+          pgFootElement = element;
+        }
+      };
+
 
       me.converter.process(xmlDoc);
       me.converter.format(vexCtx);
 
-
+      if (pgFootElement) {
+        var printSpace = me.converter.pageInfo.getPrintSpace();
+        me.pgFoot = new PgHead(pgFootElement, {
+          x : printSpace.left,
+          y : me.converter.pageInfo.getLowestY() + 80,
+          w : printSpace.width
+        }, me.cfg.pageScale);
+        me.pgFoot.preFormat(vexCtx);
+        me.converter.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.converter.pageInfo.pageBottomMar);
+      }
 
       if (me.cfg.autoMeasureNumbers) {
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
@@ -250,6 +263,11 @@ define([
       if (me.pgHead) {
         me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
         me.pgHead.setContext(ctx).draw();
+      }
+
+      if (me.pgFoot) {
+        me.pgFoot.setWidth(me.converter.pageInfo.getPrintSpace().width);
+        me.pgFoot.setContext(ctx).draw();
       }
 
       me.converter.draw(ctx);

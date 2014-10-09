@@ -263,18 +263,24 @@ define([
 
     calculatePgHeadAreas : function () {
       var me = this, i, j, texts;
-      if (me.viewer.pgHead) {
-        var textsByLine = me.viewer.pgHead.getTextsByLine();
-        j = textsByLine.length;
-        while (j--) {
-          texts = textsByLine[j];
-          i = texts.length;
-          while (i--) {
-            me.pgHeadAreas.push(texts[i].getArea());
+
+      var calculate = function (obj) {
+        if (obj) {
+          var textsByLine = obj.getTextsByLine();
+          j = textsByLine.length;
+          while (j--) {
+            texts = textsByLine[j];
+            i = texts.length;
+            while (i--) {
+              me.pgHeadAreas.push(texts[i].getArea());
+            }
           }
         }
-      }
-//      console.log(me.pgHeadAreas);
+      };
+
+      calculate(me.viewer.pgHead);
+      calculate(me.viewer.pgFoot);
+
     },
 
     calculateNoteModifierAreas : function (note) {
