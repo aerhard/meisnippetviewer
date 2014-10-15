@@ -40,6 +40,7 @@ define([
       me.variantAreas = [];
       me.anchoredTextAreas = [];
       me.pgHeadAreas = [];
+      me.hairpinAreas = [];
 
       var areaCollectionsByCategory = me.groupByContentCategory(areaCollections);
 
@@ -61,6 +62,9 @@ define([
 
       me.extractAndAddAreas(areaCollectionsByCategory['notes'], me.noteAreas, function () {
         me.calculateNoteAreas();
+      });
+      me.extractAndAddAreas(areaCollectionsByCategory['hairpins'], me.noteAreas, function () {
+        me.calculateHairpinAreas();
       });
       me.extractAndAddAreas(areaCollectionsByCategory['anchoredTexts'], me.anchoredTextAreas, function () {
         me.calculateAnchoredTextAreas();
@@ -87,6 +91,7 @@ define([
       var areaCategories = {
         measures : [],
         //        layers:[],
+        hairpins : [],
         variants : [],
         notes : [],
         barlines : [],
@@ -173,7 +178,8 @@ define([
 
       if (stave.modifiers[0].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x -
-                                                             8, staveY, 16, staveH, stave.leftBarlineElement || meiElement, 1));
+                                                             8, staveY, 16, staveH, stave.leftBarlineElement ||
+                                                                                    meiElement, 1));
       }
       if (stave.modifiers[1].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x -
@@ -221,6 +227,20 @@ define([
         }
       }
     },
+
+    calculateHairpinAreas : function () {
+      var me = this, i, hairpin, x, y, w, h;
+      var hairpins = me.viewer.converter.hairpins.allVexObjects;
+      for (i in hairpins) {
+        hairpin = hairpins[i];
+        x = hairpin.x - 5;
+        y = hairpin.y - 5;
+        w = hairpin.x1 - hairpin.x + 5;
+        h = hairpin.height + 10;
+        me.noteAreas.push(me.createNoteAreaObj('note', x, y, w, h, hairpin.getMeiElement(), i));
+      }
+    },
+
 
     calculateNoteAreas : function () {
       var me = this, i, note, box, x, y, w, h, meiElement;

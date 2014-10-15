@@ -25449,7 +25449,7 @@ Vex.Flow.TextDynamics = (function(){
 
       vexNotes = me.processNoteLikeChildren(context, element, staveInfo);
 
-      if (context.hasSpaceInBeam) {
+      if (context.spaceInBeam) {
         if (context.beamInfosToResolve.length !== 0) {
           var otherBeamNotes = context.beamInfosToResolve.shift();
           var combinedVexNotes = [];

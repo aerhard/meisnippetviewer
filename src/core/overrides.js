@@ -90,7 +90,9 @@ define([
     var note_line = this.note.getLineNumber(is_above);
 
     // Beamed stems are longer than quarter note stems.
-    if (!is_on_head && this.note.beam) line_spacing += 0.5;
+    if (!is_on_head && this.note.beam) {
+      line_spacing = this.note.beam.beam_count * 0.5;
+    }
 
     // If articulation will overlap a line, reposition it.
     if (needsLineAdjustment(this, note_line, line_spacing)) line_spacing += 0.5;

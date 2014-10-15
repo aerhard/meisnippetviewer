@@ -37,7 +37,7 @@ define([
     },
 
     resolveSameAs : function (element) {
-      this.copyElements(element, 'sameas');
+//      this.copyElements(element, 'sameas');
     },
 
     resolveCopyOf : function (element) {
