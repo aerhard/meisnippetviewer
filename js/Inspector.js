@@ -10,7 +10,7 @@ Inspector.prototype = {
     me.handlers = {
 
       onEnterMeasure : function (measureArea, element, e) {
-        $('#measureinfo').text('M. ' + measureArea.measureN + '-' + measureArea.staffN);
+        $('#measureinfo').text('M. ' + measureArea.measureN + '-' + measureArea.staveN);
       },
 
       onLeaveMeasure : function (measureArea, element, e) {
@@ -23,15 +23,15 @@ Inspector.prototype = {
           '<div class="tt-code">' + me.processAreaInfo(noteArea) + '</div>' + me.getXPathString(noteArea.meiElement);
         } else {
           info = '(no MEI element provided)';
-          MSV.Logger.log('log', 'no mei element provided. parameters:');
-          MSV.Logger.log('log', arguments);
+          MSV.Logger.warn('no mei element provided. parameters:');
+          console.log(arguments);
         }
 
         var elementOffset = $(element).offset();
         // note: "this.scale" refers to the scale property in the AreaCollection object
-        me.tooltip.showNoteInfo(info, elementOffset.left + (noteArea.ctx.x * this.scale), elementOffset.top +
-                                                                                       (noteArea.ctx.y1 * this.scale) +
-                                                                                       20);
+        me.tooltip.showNoteInfo(info, elementOffset.left + (noteArea.x * this.scale), elementOffset.top +
+                                                                                      (noteArea.y1 * this.scale) +
+                                                                                      20);
       },
 
       onLeaveNote : function (noteArea, element, e) {
@@ -48,11 +48,11 @@ Inspector.prototype = {
         var info, elementOffset;
         element.style.cursor = 'pointer';
         info = (area.alt.elem) ? me.getElementInfo(area.alt.elem) : '(no MEI element provided)';
-        MSV.Logger.log('log', 'no mei element provided. parameters:');
-        MSV.Logger.log('log', arguments);
+        MSV.Logger.warn('no mei element provided. parameters:');
+        console.log(arguments);
         elementOffset = $(element).offset();
-        me.tooltip.enterVariant(info, elementOffset.left + (area.ctx.x * this.scale), elementOffset.top +
-                                                                                      (area.ctx.y1 * this.scale) + 20);
+        me.tooltip.enterVariant(info, elementOffset.left + (area.x * this.scale), elementOffset.top +
+                                                                                  (area.y1 * this.scale) + 20);
       },
 
       onLeaveVariant : function (area, element, e) {
@@ -105,7 +105,7 @@ Inspector.prototype = {
     me.tooltip.hide();
   },
 
-  render : function (docName, options) {
+  render : function (docName, options, callback) {
 
     var me = this, options = options || {};
 
@@ -119,9 +119,6 @@ Inspector.prototype = {
           autoMeasureNumbers : true,
           labelMode : 'full',
           useMeiLib : true,
-          staff : {
-            fill_style : '#000'
-          },
 
           layers : [
             new MSV.DefaultAreaCollection({
@@ -134,7 +131,8 @@ Inspector.prototype = {
               content : [
                 'notes',
                 'barlines',
-                'measure_modifiers',
+                'measure_modifiers'
+                ,
                 'anchoredTexts',
                 'pgHead'
               ],
@@ -159,6 +157,11 @@ Inspector.prototype = {
         console.time('m');
         MSV.Logger.setLevel('info');
         var mei2vf = new MSV.Viewer(options);
+
+        if (typeof callback === 'function') {
+          callback.call(this, mei2vf);
+        }
+
         console.timeEnd('m');
 
       } catch (e) {
@@ -174,6 +177,17 @@ Inspector.prototype = {
     var me = this, element, nodeMatch;
     element = area.meiElement;
     nodeMatch = area.meiNodeMatch;
+
+    if (area.type === 'barline') {
+      // TODO elaborate, include left barlines
+      if (element.getAttribute('right') === null) {
+        return '<span class="ace_comment">[default bar line]</span>';
+      }
+
+      return '<span class="xml-element-tag">&lt;<span class="xml-element-name">' + element.localName + '</span> ' +
+             me.attsToString(element) + '</span><span class="xml-element-tag">&gt;<span class="xml-element-name"><br/>'
+    }
+
     if (nodeMatch) {
       switch (nodeMatch.type) {
         case 'child':
