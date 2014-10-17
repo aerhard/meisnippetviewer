@@ -233,8 +233,8 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 		<body>
 			<mdiv>
 				<score>
-					<scoreDef key.pname="c" key.mode="major" music.size="16.2" page.height="3000"
-					page.width="1600" page.topmar="450" page.leftmar="100" page.rightmar="100" page.scale="60%">
+					<scoreDef key.pname="c" key.mode="major" music.size="16.2" 
+					page.width="1600" page.leftmar="100" page.rightmar="100" page.scale="60%">
 						<pgHead>
 							<title type="main">
 								<rend halign="center" valign="top">LA DESCENTE DE MARS</rend>
