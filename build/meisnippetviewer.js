@@ -14630,65 +14630,1081 @@ Vex.Flow.TextDynamics = (function(){
   });
 
   return TextDynamics;
-})();;var VF = Vex.Flow;;
+})();;var VF = Vex.Flow;;/**
+ * Changes:
+ * 1) draw(): let left justified notes align with note heads on the left
+ * 2) format(): take text height into account when calculating text_line
+ * 3) format(): increase text_lines of annotations separately for top, bottom and the rest
+ */
 
-  VF.Tremolo.prototype.draw = function () {
-    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Tremolo without a context.");
-    if (!(this.note && (this.index != null))) {
-      throw new Vex.RERR("NoAttachedNote", "Can't draw Tremolo without a note and index.");
-    }
-
-
-    var stem = this.note.getStem();
-
-    var start, x, y;
-
-    if (this.note.duration === 'w') {
-      x = (stem.x_end + stem.x_begin) / 2;
-      if (stem.stem_direction === 1) {
-        y = stem.getExtents().topY - (this.y_spacing * this.num / 2) + stem.stem_extension;
-      } else {
-        start = this.note.getModifierStartXY(this.position, this.index);
-        y = start.y;
-      }
-    } else if (stem.stem_direction === 1) {
-      x = stem.x_end;
-      y = stem.getExtents().topY - (this.y_spacing * this.num / 2);
-    } else {
-      start = this.note.getModifierStartXY(this.position, this.index);
-      x = start.x; // or stem.x_begin
-      y = start.y;
-    }
-
-    x += this.shift_right;
-    for (var i = 0; i < this.num; ++i) {
-      Vex.Flow.renderGlyph(this.context, x, y, this.render_options.font_scale, this.code);
-      y += this.y_spacing;
-    }
-  };
 
 
   VF.Annotation.prototype.setMeiElement = function (element) {
     this.meiElement = element;
     return this;
   };
+
   VF.Annotation.prototype.getMeiElement = function () {
     return this.meiElement;
   };
-  VF.Articulation.prototype.setMeiElement = function (element) {
-    this.meiElement = element;
-    return this;
+
+
+  VF.Annotation.format = function (annotations, state) {
+    if (!annotations || annotations.length === 0) return false;
+
+    var text_line = state.text_line;
+    var max_width = 0;
+
+    var top_text_line = state.top_text_line;
+    if (top_text_line === undefined) top_text_line = text_line;
+    var bottom_text_line = state.bottom_text_line;
+    if (bottom_text_line === undefined) bottom_text_line = text_line;
+
+    // TODO get this from the stave
+    var spacing_between_lines = 10;
+    var height_in_lines;
+
+    // Format Annotations
+    var width;
+    for (var i = 0; i < annotations.length; ++i) {
+      var annotation = annotations[i];
+
+      height_in_lines = annotation.font.size / spacing_between_lines * 1.5;
+
+      if (annotation.vert_justification === 1) {
+        annotation.setTextLine(top_text_line);
+        top_text_line += height_in_lines;
+      } else if (annotation.vert_justification === 3) {
+        annotation.setTextLine(bottom_text_line);
+        bottom_text_line += height_in_lines;
+      } else {
+        annotation.setTextLine(text_line);
+        text_line += height_in_lines;
+      }
+
+      width = annotation.getWidth() > max_width ? annotation.getWidth() : max_width;
+    }
+
+    state.left_shift += width / 2;
+    state.right_shift += width / 2;
+    return true;
+  }
+
+
+  VF.Annotation.prototype.draw = function () {
+
+    // START ADDITION
+    var Annotation = VF.Annotation;
+    var Modifier = VF.Modifier;
+    // END ADDITION
+
+    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw text annotation without a context.");
+    if (!this.note) throw new Vex.RERR("NoNoteForAnnotation", "Can't draw text annotation without an attached note.");
+
+    var start = this.note.getModifierStartXY(Modifier.Position.ABOVE, this.index);
+
+    // We're changing context parameters. Save current state.
+    this.context.save();
+    this.context.setFont(this.font.family, this.font.size, this.font.weight);
+    var text_width = this.context.measureText(this.text).width;
+
+    // Estimate text height to be the same as the width of an 'm'.
+    //
+    // This is a hack to work around the inability to measure text height
+    // in HTML5 Canvas (and SVG).
+    var text_height = this.context.measureText("m").width;
+    var x, y;
+
+    if (this.justification == Annotation.Justify.LEFT) {
+      // START MODIFIFICATION
+      //x = start.x;
+      x = this.note.getAbsoluteX();
+      // END MODIFICATION
+    } else if (this.justification == Annotation.Justify.RIGHT) {
+      x = start.x - text_width;
+    } else if (this.justification == Annotation.Justify.CENTER) {
+      x = start.x - text_width / 2;
+    } else /* CENTER_STEM */ {
+      x = this.note.getStemX() - text_width / 2;
+    }
+
+    var stem_ext, spacing;
+    var has_stem = this.note.hasStem();
+    var stave = this.note.getStave();
+
+    // The position of the text varies based on whether or not the note
+    // has a stem.
+    if (has_stem) {
+      stem_ext = this.note.getStem().getExtents();
+    }
+    spacing = stave.getSpacingBetweenLines();
+
+    // TODO check - spacing is not initialized when has_stem is false. does it need a default value
+    // or is has_stem always true?
+
+    if (this.vert_justification == Annotation.VerticalJustify.BOTTOM) {
+      y = stave.getYForBottomText(this.text_line);
+      if (has_stem) {
+        var stem_base = (this.note.getStemDirection() === 1 ? stem_ext.baseY : stem_ext.topY);
+        y = Math.max(y, stem_base + (spacing * ((this.text_line) + 2)));
+      }
+
+    } else if (this.vert_justification == Annotation.VerticalJustify.CENTER) {
+      var yt = this.note.getYForTopText(this.text_line) - 1;
+      var yb = stave.getYForBottomText(this.text_line);
+      y = yt + ( yb - yt ) / 2 + text_height / 2;
+
+    } else if (this.vert_justification == Annotation.VerticalJustify.TOP) {
+      y = Math.min(stave.getYForTopText(this.text_line), this.note.getYs()[0] - 10);
+      if (has_stem) {
+        y = Math.min(y, (stem_ext.topY - 5) - (spacing * this.text_line));
+      }
+    } else /* CENTER_STEM */{
+      var extents = this.note.getStemExtents();
+      y = extents.topY + (extents.baseY - extents.topY) / 2 + text_height / 2;
+    }
+
+
+    // START ADDITION
+    this.x = x;
+    this.y = y;
+    this.text_height = text_height;
+    this.text_width = text_width;
+    // END ADDITION
+
+
+    this.context.fillText(this.text, x, y);
+    this.context.restore();
   };
-  VF.Articulation.prototype.getMeiElement = function () {
-    return this.meiElement;
-  };
-  VF.Ornament.prototype.setMeiElement = function (element) {
-    this.meiElement = element;
-    return this;
-  };
-  VF.Ornament.prototype.getMeiElement = function () {
-    return this.meiElement;
-  };
+
+
+
+/**
+ * Changes:
+ * 1) let left justified notes align with note heads on the left
+ * 2) use this.text_line * 2 instead of this.text_line as y starting point so annotations don't
+ * collide when default font sizes are used
+ * 3) increase text_lines of annotations separately for top, bottom and the rest
+ */
+
+
+
+  // ## Static Methods
+    // Arrange articulations inside `ModifierContext`
+  VF.Articulation.format = function(articulations, state) {
+    if (!articulations || articulations.length === 0) return false;
+
+    var text_line = state.text_line;
+    var max_width = 0;
+
+    var top_text_line = text_line;
+    var bottom_text_line = text_line;
+
+    // Format Articulations
+    var width;
+    for (var i = 0; i < articulations.length; ++i) {
+      var articulation = articulations[i];
+
+      var type = Vex.Flow.articulationCodes(articulation.type);
+
+      if (articulation.position === 3) {
+        articulation.setTextLine(top_text_line);
+        top_text_line += (type.between_lines) ? 1 : 1.5;
+      } else if (articulation.position === 4) {
+        articulation.setTextLine(bottom_text_line);
+        bottom_text_line += (type.between_lines) ? 1 : 1.5;
+      } else {
+        articulation.setTextLine(text_line);
+        text_line += (type.between_lines) ? 1 : 1.5;
+      }
+
+      width = articulation.getWidth() > max_width ?
+              articulation.getWidth() : max_width;
+    }
+
+    state.left_shift += width / 2;
+    state.right_shift += width / 2;
+
+    state.text_line = text_line;
+    state.top_text_line = top_text_line;
+    state.bottom_text_line = bottom_text_line;
+
+    return true;
+  }
+
+
+;
+/**
+ * Changes:
+ * 1) set default partial beam direction to left instead of right (that's the correct direction in
+ * most cases; in order to get 100% correct beams, the direction must be calculated on basis of the
+ * metrical position of the beam)
+ * 2) Changed beaming behavior: Never beam rests, draw partial beams instead
+ * 3) Treat rests in beams distinctly so they don't clash with their beam when the beam is
+ * below and they don't claim too much space when the beam is above
+ * 4) extend beam stems of notes with diverging stem direction
+ */
+
+
+
+
+
+
+  // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
+  //
+  // ## Description
+  //
+  // This file implements `Beams` that span over a set of `StemmableNotes`.
+  //
+  // Requires: vex.js, vexmusic.js, note.js
+  Vex.Flow.Beam = (function () {
+    function Beam(notes, auto_stem) {
+      if (arguments.length > 0) this.init(notes, auto_stem);
+    }
+
+    var Stem = Vex.Flow.Stem;
+
+    // ## Prototype Methods
+    Beam.prototype = {
+      init : function (notes, auto_stem) {
+        if (!notes || notes == []) {
+          throw new Vex.RuntimeError("BadArguments", "No notes provided for beam.");
+        }
+
+        if (notes.length == 1) {
+          throw new Vex.RuntimeError("BadArguments", "Too few notes for beam.");
+        }
+
+        // Validate beam line, direction and ticks.
+        this.ticks = notes[0].getIntrinsicTicks();
+
+        if (this.ticks >= Vex.Flow.durationToTicks("4")) {
+          throw new Vex.RuntimeError("BadArguments", "Beams can only be applied to notes shorter than a quarter note.");
+        }
+
+        var i; // shared iterator
+        var note;
+
+        this.stem_direction = Stem.UP;
+
+        for (i = 0; i < notes.length; ++i) {
+          note = notes[i];
+          if (note.hasStem()) {
+            this.stem_direction = note.getStemDirection();
+            break;
+          }
+        }
+
+        var stem_direction = this.stem_direction;
+        // Figure out optimal stem direction based on given notes
+        if (auto_stem && notes[0].getCategory() === 'stavenotes') {
+          stem_direction = calculateStemDirection(notes);
+        } else if (auto_stem && notes[0].getCategory() === 'tabnotes') {
+          // Auto Stem TabNotes
+          var stem_weight = notes.reduce(function (memo, note) {
+            return memo + note.stem_direction;
+          }, 0);
+
+          stem_direction = stem_weight > -1 ? Stem.UP : Stem.DOWN;
+        }
+
+        // Apply stem directions and attach beam to notes
+        for (i = 0; i < notes.length; ++i) {
+          note = notes[i];
+          if (auto_stem) {
+            note.setStemDirection(stem_direction);
+            this.stem_direction = stem_direction;
+          }
+          note.setBeam(this);
+        }
+
+        this.postFormatted = false;
+        this.notes = notes;
+        this.beam_count = this.getBeamCount();
+        this.break_on_indices = [];
+        this.render_options = {
+          beam_width : 5,
+          max_slope : 0.25,
+          min_slope : -0.25,
+          slope_iterations : 20,
+          slope_cost : 100,
+          show_stemlets : false,
+          stemlet_extension : 7,
+          partial_beam_length : 10
+        };
+      },
+
+      // The the rendering `context`
+      setContext : function (context) {
+        this.context = context;
+        return this;
+      },
+
+      // Get the notes in this beam
+      getNotes : function () {
+        return this.notes;
+      },
+
+      // Get the max number of beams in the set of notes
+      getBeamCount : function () {
+        var beamCounts = this.notes.map(function (note) {
+          return note.getGlyph().beam_count;
+        });
+
+        var maxBeamCount = beamCounts.reduce(function (max, beamCount) {
+          return beamCount > max ? beamCount : max;
+        });
+
+        return maxBeamCount;
+      },
+
+      // Set which note `indices` to break the secondary beam at
+      breakSecondaryAt : function (indices) {
+        this.break_on_indices = indices;
+        return this;
+      },
+
+      // Return the y coordinate for linear function
+      getSlopeY : function (x, first_x_px, first_y_px, slope) {
+        return first_y_px + ((x - first_x_px) * slope);
+      },
+
+      // Calculate the best possible slope for the provided notes
+      calculateSlope : function () {
+        var first_note = this.notes[0];
+        var first_y_px = first_note.getStemExtents().topY;
+        var first_x_px = first_note.getStemX();
+
+        var inc = (this.render_options.max_slope - this.render_options.min_slope) /
+                  this.render_options.slope_iterations;
+        var min_cost = Number.MAX_VALUE;
+        var best_slope = 0;
+        var y_shift = 0;
+
+        // iterate through slope values to find best weighted fit
+        for (var slope = this.render_options.min_slope; slope <= this.render_options.max_slope; slope += inc) {
+          var total_stem_extension = 0;
+          var y_shift_tmp = 0;
+
+          // iterate through notes, calculating y shift and stem extension
+          for (var i = 1; i < this.notes.length; ++i) {
+            var note = this.notes[i];
+
+            var x_px = note.getStemX();
+            var y_px = note.getStemExtents().topY;
+
+            // QUICKFIX
+            if (note.isRest()) {
+              y_px = (this.stem_direction === -1) ? y_px + 70 : y_px + 10;
+            }
+
+            var slope_y_px = this.getSlopeY(x_px, first_x_px, first_y_px, slope) + y_shift_tmp;
+
+            // beam needs to be shifted up to accommodate note
+            if (y_px * this.stem_direction < slope_y_px * this.stem_direction) {
+              var diff = Math.abs(y_px - slope_y_px);
+              y_shift_tmp += diff * -this.stem_direction;
+              total_stem_extension += (diff * i);
+            } else { // beam overshoots note, account for the difference
+              total_stem_extension += (y_px - slope_y_px) * this.stem_direction;
+            }
+
+          }
+
+          var last_note = this.notes[this.notes.length - 1];
+          var first_last_slope = ((last_note.getStemExtents().topY - first_y_px) / (last_note.getStemX() - first_x_px));
+          // most engraving books suggest aiming for a slope about half the angle of the
+          // difference between the first and last notes' stem length;
+          var ideal_slope = first_last_slope / 2;
+          var distance_from_ideal = Math.abs(ideal_slope - slope);
+
+          // This tries to align most beams to something closer to the ideal_slope, but
+          // doesn't go crazy. To disable, set this.render_options.slope_cost = 0
+          var cost = this.render_options.slope_cost * distance_from_ideal + Math.abs(total_stem_extension);
+
+          // update state when a more ideal slope is found
+          if (cost < min_cost) {
+            min_cost = cost;
+            best_slope = slope;
+            y_shift = y_shift_tmp;
+          }
+        }
+
+        this.slope = best_slope;
+        this.y_shift = y_shift;
+      },
+
+      // Create new stems for the notes in the beam, so that each stem
+      // extends into the beams.
+      applyStemExtensions : function () {
+        var first_note = this.notes[0];
+        var first_y_px = first_note.getStemExtents().topY;
+        var first_x_px = first_note.getStemX();
+
+        for (var i = 0; i < this.notes.length; ++i) {
+          var note = this.notes[i];
+
+          var x_px = note.getStemX();
+          var y_extents = note.getStemExtents();
+          var base_y_px = y_extents.baseY;
+          var top_y_px = y_extents.topY;
+
+          // For harmonic note heads, shorten stem length by 3 pixels
+          base_y_px += this.stem_direction * note.glyph.stem_offset;
+
+          // Don't go all the way to the top (for thicker stems)
+          var y_displacement = Vex.Flow.STEM_WIDTH;
+
+          if (!note.hasStem()) {
+            if (note.isRest() && this.render_options.show_stemlets) {
+              var centerGlyphX = note.getCenterGlyphX();
+
+              var width = this.render_options.beam_width;
+              var total_width = ((this.beam_count - 1) * width * 1.5) + width;
+
+              var stemlet_height = (total_width - y_displacement + this.render_options.stemlet_extension);
+
+              var beam_y = this.getSlopeY(centerGlyphX, first_x_px, first_y_px, this.slope) + this.y_shift;
+              var start_y = beam_y + (Vex.Flow.Stem.HEIGHT * this.stem_direction);
+              var end_y = beam_y + (stemlet_height * this.stem_direction);
+
+              // Draw Stemlet
+              note.setStem(new Vex.Flow.Stem({
+                x_begin : centerGlyphX,
+                x_end : centerGlyphX,
+                y_bottom : this.stem_direction === 1 ? end_y : start_y,
+                y_top : this.stem_direction === 1 ? start_y : end_y,
+                y_extend : y_displacement,
+                stem_extension : -1, // To avoid protruding through the beam
+                stem_direction : this.stem_direction
+              }));
+            }
+
+            continue;
+          }
+
+          var slope_y = this.getSlopeY(x_px, first_x_px, first_y_px, this.slope) + this.y_shift;
+
+          // addition to the stem extension when notes are on the other side of the beam
+          var additional_stem_extension;
+          if (note.stem_direction === this.stem_direction) {
+            additional_stem_extension = 0;
+          } else {
+            var prev_note, regular_dir_beam_count = true;
+            var k;
+            k = i;
+            while (k--) {
+              prev_note = this.notes[k];
+              if (prev_note.stem_direction === this.stem_direction) {
+                regular_dir_beam_count = prev_note.getBeamCount();
+                break;
+              }
+            }
+            //            var next_note = this.notes[i+1];
+            //            prev_note.getBeamCount() - next_note.getBeamCount()
+
+            if (regular_dir_beam_count > 1) {
+              var width = this.render_options.beam_width;
+              regular_dir_beam_count = Math.min (regular_dir_beam_count, note.getGlyph().beam_count);
+              additional_stem_extension = (((regular_dir_beam_count - 1) * width * 1.5) + width - 1)
+                * -1;
+            }
+
+          }
+
+          note.setStem(new Vex.Flow.Stem({
+            x_begin : x_px - (Vex.Flow.STEM_WIDTH / 2),
+            x_end : x_px,
+            y_top : this.stem_direction === 1 ? top_y_px : base_y_px,
+            y_bottom : this.stem_direction === 1 ? base_y_px : top_y_px,
+            y_extend : y_displacement,
+            stem_extension : Math.abs(top_y_px - slope_y) - Stem.HEIGHT - 1 + additional_stem_extension,
+            stem_direction : this.stem_direction
+          }));
+        }
+      },
+
+      // Get the x coordinates for the beam lines of specific `duration`
+      getBeamLines : function (duration) {
+        var beam_lines = [];
+        var beam_started = false;
+        var current_beam;
+        var partial_beam_length = this.render_options.partial_beam_length;
+
+        function determinePartialSide(prev_note, next_note) {
+          // Compare beam counts and store differences
+          var unshared_beams = 0;
+          if (next_note && prev_note) {
+            unshared_beams = prev_note.getBeamCount() - next_note.getBeamCount();
+          }
+
+          //          var left_partial = duration !== "8" && unshared_beams > 0;
+          var right_partial = duration !== "8" && unshared_beams < 0;
+
+          return {
+            left : prev_note,
+            right : right_partial
+          };
+        }
+
+        for (var i = 0; i < this.notes.length; ++i) {
+          var note = this.notes[i];
+          var prev_note = this.notes[i - 1];
+          var next_note = this.notes[i + 1];
+          var ticks = note.getIntrinsicTicks();
+          var partial = determinePartialSide(prev_note, next_note);
+          var stem_x = note.isRest() ? note.getCenterGlyphX() : note.getStemX();
+
+          // Check whether to apply beam(s)
+          if (ticks < Vex.Flow.durationToTicks(duration)) {
+            if (!beam_started) {
+              if (!note.isRest()) {
+
+                var new_line = {
+                  start : stem_x,
+                  end : null,
+                  flipped : note.getStemDirection() !== this.stem_direction
+                };
+
+                if (partial.left && !partial.right) {
+                  new_line.end = stem_x - partial_beam_length;
+                }
+
+                beam_lines.push(new_line);
+                beam_started = true;
+              }
+            } else {
+              current_beam = beam_lines[beam_lines.length - 1];
+              current_beam.end = stem_x;
+
+              // Should break secondary beams on note
+              var should_break = this.break_on_indices.indexOf(i) !== -1;
+              // Shorter than or eq an 8th note duration
+              var can_break = parseInt(duration, 10) >= 8;
+              if (should_break && can_break) {
+                beam_started = false;
+              }
+            }
+          } else {
+            if (!beam_started) {
+              // we don't care
+            } else {
+              current_beam = beam_lines[beam_lines.length - 1];
+              if (current_beam.end == null) {
+                // single note
+                current_beam.end = current_beam.start + partial_beam_length;
+              } else {
+                // we don't care
+              }
+            }
+
+            beam_started = false;
+          }
+        }
+
+        if (beam_started === true) {
+          current_beam = beam_lines[beam_lines.length - 1];
+          if (current_beam.end == null) {
+            // single note
+            current_beam.end = current_beam.start - partial_beam_length;
+          }
+        }
+
+        return beam_lines;
+      },
+
+      // Render the stems for each notes
+      drawStems : function () {
+        this.notes.forEach(function (note) {
+          if (note.getStem()) {
+            note.getStem().setContext(this.context).draw();
+          }
+        }, this);
+      },
+
+      // Render the beam lines
+      drawBeamLines : function () {
+        if (!this.context) throw new Vex.RERR("NoCanvasContext", "Can't draw without a canvas context.");
+
+        var valid_beam_durations = [
+          "4",
+          "8",
+          "16",
+          "32",
+          "64"
+        ];
+
+        var first_note = this.notes[0];
+        var last_note = this.notes[this.notes.length - 1];
+
+        var first_y_px = first_note.getStemExtents().topY;
+        var last_y_px = last_note.getStemExtents().topY;
+
+        var first_x_px = first_note.getStemX();
+
+        var beam_width = this.render_options.beam_width * this.stem_direction;
+
+        // Draw the beams.
+        for (var i = 0; i < valid_beam_durations.length; ++i) {
+          var duration = valid_beam_durations[i];
+          var beam_lines = this.getBeamLines(duration);
+
+          for (var j = 0; j < beam_lines.length; ++j) {
+            var beam_line = beam_lines[j];
+
+            if (!beam_line.flipped) {
+              var first_x = beam_line.start - (this.stem_direction == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
+              var first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
+
+              var last_x = beam_line.end +
+                           (this.stem_direction == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
+              var last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
+
+              this.context.beginPath();
+              this.context.moveTo(first_x, first_y + this.y_shift);
+              this.context.lineTo(first_x, first_y + beam_width + this.y_shift);
+              this.context.lineTo(last_x + 1, last_y + beam_width + this.y_shift);
+              this.context.lineTo(last_x + 1, last_y + this.y_shift);
+              this.context.closePath();
+              this.context.fill();
+            }
+          }
+
+          first_y_px += beam_width * 1.5;
+          last_y_px += beam_width * 1.5;
+        }
+
+
+        // TODO integrate!:
+
+
+        var beam_width = this.render_options.beam_width * this.stem_direction * -1;
+
+        var first_y_px = first_note.getStemExtents().topY + (beam_width * 0.5);
+        var last_y_px = last_note.getStemExtents().topY + (beam_width * 0.5);
+
+        var first_x_px = first_note.getStemX();
+
+        var inc = false;
+
+        // Draw the beams.
+        for (var i = 0; i < valid_beam_durations.length; ++i) {
+          var duration = valid_beam_durations[i];
+          var beam_lines = this.getBeamLines(duration);
+
+          for (var j = 0; j < beam_lines.length; ++j) {
+            var beam_line = beam_lines[j];
+
+            if (beam_line.flipped) {
+              inc = true;
+
+              var first_x = beam_line.start - (this.stem_direction * -1 == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
+              var first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
+
+              var last_x = beam_line.end +
+                           (this.stem_direction * -1 == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
+              var last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
+
+              this.context.beginPath();
+              this.context.moveTo(first_x, first_y + this.y_shift);
+              this.context.lineTo(first_x, first_y + beam_width + this.y_shift);
+              this.context.lineTo(last_x + 1, last_y + beam_width + this.y_shift);
+              this.context.lineTo(last_x + 1, last_y + this.y_shift);
+              this.context.closePath();
+              this.context.fill();
+
+            }
+          }
+
+          if (inc) {
+            first_y_px += beam_width * 1.5;
+            last_y_px += beam_width * 1.5;
+          }
+
+        }
+
+      },
+
+      // Pre-format the beam
+      preFormat : function () {
+        return this;
+      },
+
+      // Post-format the beam. This can only be called after
+      // the notes in the beam have both `x` and `y` values. ie: they've
+      // been formatted and have staves
+      postFormat : function () {
+        if (this.postFormatted) return;
+
+        this.calculateSlope();
+        this.applyStemExtensions();
+
+        this.postFormatted = true;
+      },
+
+      // Render the beam to the canvas context
+      draw : function () {
+        if (!this.context) throw new Vex.RERR("NoCanvasContext", "Can't draw without a canvas context.");
+
+        if (this.unbeamable) return;
+
+        if (!this.postFormatted) {
+          this.postFormat();
+        }
+
+        this.drawStems();
+        this.drawBeamLines();
+
+        return true;
+      }
+    };
+
+    function calculateStemDirection(notes) {
+      var lineSum = 0;
+      notes.forEach(function (note) {
+        if (note.keyProps) {
+          note.keyProps.forEach(function (keyProp) {
+            lineSum += (keyProp.line - 3);
+          });
+        }
+      });
+
+      if (lineSum >= 0)
+        return Stem.DOWN;
+      return Stem.UP;
+    }
+
+    //    // ## Static Methods
+    //    //
+    //    // Gets the default beam groups for a provided time signature.
+    //    // Attempts to guess if the time signature is not found in table.
+    //    // Currently this is fairly naive.
+    //    Beam.getDefaultBeamGroups = function (time_sig) {
+    //      if (!time_sig || time_sig == "c") time_sig = "4/4";
+    //
+    //      var defaults = {
+    //        '1/2' : ['1/2'],
+    //        '2/2' : ['1/2'],
+    //        '3/2' : ['1/2'],
+    //        '4/2' : ['1/2'],
+    //
+    //        '1/4' : ['1/4'],
+    //        '2/4' : ['1/4'],
+    //        '3/4' : ['1/4'],
+    //        '4/4' : ['1/4'],
+    //
+    //        '1/8' : ['1/8'],
+    //        '2/8' : ['2/8'],
+    //        '3/8' : ['3/8'],
+    //        '4/8' : ['2/8'],
+    //
+    //        '1/16' : ['1/16'],
+    //        '2/16' : ['2/16'],
+    //        '3/16' : ['3/16'],
+    //        '4/16' : ['2/16']
+    //      };
+    //
+    //      var Fraction = Vex.Flow.Fraction;
+    //      var groups = defaults[time_sig];
+    //
+    //      if (!groups) {
+    //        // If no beam groups found, naively determine
+    //        // the beam groupings from the time signature
+    //        var beatTotal = parseInt(time_sig.split('/')[0], 10);
+    //        var beatValue = parseInt(time_sig.split('/')[1], 10);
+    //
+    //        var tripleMeter = beatTotal % 3 === 0;
+    //
+    //        if (tripleMeter) {
+    //          return [new Fraction(3, beatValue)];
+    //        } else if (beatValue > 4) {
+    //          return [new Fraction(2, beatValue)];
+    //        } else if (beatValue <= 4) {
+    //          return [new Fraction(1, beatValue)];
+    //        }
+    //      } else {
+    //        return groups.map(function (group) {
+    //          return new Fraction().parse(group);
+    //        });
+    //      }
+    //    };
+    //
+    //    // A helper function to automatically build basic beams for a voice. For more
+    //    // complex auto-beaming use `Beam.generateBeams()`.
+    //    //
+    //    // Parameters:
+    //    // * `voice` - The voice to generate the beams for
+    //    // * `stem_direction` - A stem direction to apply to the entire voice
+    //    // * `groups` - An array of `Fraction` representing beat groupings for the beam
+    //    Beam.applyAndGetBeams = function (voice, stem_direction, groups) {
+    //      return Beam.generateBeams(voice.getTickables(), {
+    //        groups : groups,
+    //        stem_direction : stem_direction
+    //      });
+    //    };
+    //
+    //    // A helper function to autimatically build beams for a voice with
+    //    // configuration options.
+    //    //
+    //    // Example configuration object:
+    //    //
+    //    // ```
+    //    // config = {
+    //    //   groups: [new Vex.Flow.Fraction(2, 8)],
+    //    //   stem_direction: -1,
+    //    //   beam_rests: true,
+    //    //   beam_middle_only: true,
+    //    //   show_stemlets: false
+    //    // };
+    //    // ```
+    //    //
+    //    // Parameters:
+    //    // * `notes` - An array of notes to create the beams for
+    //    // * `config` - The configuration object
+    //    //    * `groups` - Array of `Fractions` that represent the beat structure to beam the notes
+    //    //    * `stem_direction` - Set to apply the same direction to all notes
+    //    //    * `beam_rests` - Set to `true` to include rests in the beams
+    //    //    * `beam_middle_only` - Set to `true` to only beam rests in the middle of the beat
+    //    //    * `show_stemlets` - Set to `true` to draw stemlets for rests
+    //    //    * `maintain_stem_directions` - Set to `true` to not apply new stem directions
+    //    //
+    //    Beam.generateBeams = function (notes, config) {
+    //
+    //      if (!config) config = {};
+    //
+    //      if (!config.groups || !config.groups.length) {
+    //        config.groups = [new Vex.Flow.Fraction(2, 8)];
+    //      }
+    //
+    //      // Convert beam groups to tick amounts
+    //      var tickGroups = config.groups.map(function (group) {
+    //        if (!group.multiply) {
+    //          throw new Vex.RuntimeError("InvalidBeamGroups", "The beam groups must be an array of Vex.Flow.Fractions");
+    //        }
+    //        return group.clone().multiply(Vex.Flow.RESOLUTION, 1);
+    //      });
+    //
+    //      var unprocessedNotes = notes;
+    //      var currentTickGroup = 0;
+    //      var noteGroups = [];
+    //      var currentGroup = [];
+    //
+    //      function getTotalTicks(vf_notes) {
+    //        return vf_notes.reduce(function (memo, note) {
+    //          return note.getTicks().clone().add(memo);
+    //        }, new Vex.Flow.Fraction(0, 1));
+    //      }
+    //
+    //      function nextTickGroup() {
+    //        if (tickGroups.length - 1 > currentTickGroup) {
+    //          currentTickGroup += 1;
+    //        } else {
+    //          currentTickGroup = 0;
+    //        }
+    //      }
+    //
+    //      function createGroups() {
+    //        var nextGroup = [];
+    //
+    //        unprocessedNotes.forEach(function (unprocessedNote) {
+    //          nextGroup = [];
+    //          if (unprocessedNote.shouldIgnoreTicks()) {
+    //            noteGroups.push(currentGroup);
+    //            currentGroup = nextGroup;
+    //            return; // Ignore untickables (like bar notes)
+    //          }
+    //
+    //          currentGroup.push(unprocessedNote);
+    //          var ticksPerGroup = tickGroups[currentTickGroup].clone();
+    //          var totalTicks = getTotalTicks(currentGroup);
+    //
+    //          // Double the amount of ticks in a group, if it's an unbeamable tuplet
+    //          var unbeamable = Vex.Flow.durationToNumber(unprocessedNote.duration) < 8;
+    //          if (unbeamable && unprocessedNote.tuplet) {
+    //            ticksPerGroup.numerator *= 2;
+    //          }
+    //
+    //          // If the note that was just added overflows the group tick total
+    //          if (totalTicks.greaterThan(ticksPerGroup)) {
+    //            // If the overflow note can be beamed, start the next group
+    //            // with it. Unbeamable notes leave the group overflowed.
+    //            if (!unbeamable) {
+    //              nextGroup.push(currentGroup.pop());
+    //            }
+    //            noteGroups.push(currentGroup);
+    //            currentGroup = nextGroup;
+    //            nextTickGroup();
+    //          } else if (totalTicks.equals(ticksPerGroup)) {
+    //            noteGroups.push(currentGroup);
+    //            currentGroup = nextGroup;
+    //            nextTickGroup();
+    //          }
+    //        });
+    //
+    //        // Adds any remainder notes
+    //      if (currentGroup.length > 0)
+    //          noteGroups.push(currentGroup);
+    //        }
+    //
+    //      function getBeamGroups() {
+    //        return noteGroups.filter(function (group) {
+    //          if (group.length > 1) {
+    //            var beamable = true;
+    //            group.forEach(function (note) {
+    //              if (note.getIntrinsicTicks() >= Vex.Flow.durationToTicks("4")) {
+    //                beamable = false;
+    //              }
+    //            });
+    //            return beamable;
+    //          }
+    //          return false;
+    //        });
+    //      }
+    //
+    //      // Splits up groups by Rest
+    //      function sanitizeGroups() {
+    //        var sanitizedGroups = [];
+    //        noteGroups.forEach(function (group) {
+    //          var tempGroup = [];
+    //          group.forEach(function (note, index, group) {
+    //            var isFirstOrLast = index === 0 || index === group.length - 1;
+    //            var prevNote = group[index - 1];
+    //
+    //            var breaksOnEachRest = !config.beam_rests && note.isRest();
+    //            var breaksOnFirstOrLastRest = (config.beam_rests && config.beam_middle_only && note.isRest() &&
+    //                                           isFirstOrLast);
+    //
+    //            var breakOnStemChange = false;
+    //            if (config.maintain_stem_directions && prevNote && !note.isRest() && !prevNote.isRest()) {
+    //              var prevDirection = prevNote.getStemDirection();
+    //              var currentDirection = note.getStemDirection();
+    //              breakOnStemChange = currentDirection !== prevDirection;
+    //            }
+    //
+    //            var isUnbeamableDuration = parseInt(note.duration, 10) < 8;
+    //
+    //            // Determine if the group should be broken at this note
+    //            var shouldBreak = breaksOnEachRest || breaksOnFirstOrLastRest || breakOnStemChange || isUnbeamableDuration;
+    //
+    //            if (shouldBreak) {
+    //              // Add current group
+    //              if (tempGroup.length > 0) {
+    //                sanitizedGroups.push(tempGroup);
+    //              }
+    //
+    //              // Start a new group. Include the current note if the group
+    //              // was broken up by stem direction, as that note needs to start
+    //              // the next group of notes
+    //              tempGroup = breakOnStemChange ? [note] : [];
+    //            } else {
+    //              // Add note to group
+    //              tempGroup.push(note);
+    //            }
+    //          });
+    //
+    //          // If there is a remaining group, add it as well
+    //          if (tempGroup.length > 0) {
+    //            sanitizedGroups.push(tempGroup);
+    //          }
+    //        });
+    //
+    //        noteGroups = sanitizedGroups;
+    //      }
+    //
+    //      function formatStems() {
+    //        noteGroups.forEach(function (group) {
+    //          var stemDirection;
+    //          if (config.maintain_stem_directions) {
+    //            var note = findFirstNote(group);
+    //            stemDirection = note ? note.getStemDirection() : Stem.UP;
+    //          } else {
+    //            if (config.stem_direction) {
+    //              stemDirection = config.stem_direction;
+    //            } else {
+    //              stemDirection = calculateStemDirection(group);
+    //            }
+    //          }
+    //          applyStemDirection(group, stemDirection);
+    //        });
+    //      }
+    //
+    //      function findFirstNote(group) {
+    //        for (var i = 0; i < group.length; i++) {
+    //          var note = group[i];
+    //          if (!note.isRest()) {
+    //            return note;
+    //          }
+    //        }
+    //
+    //        return false;
+    //      }
+    //
+    //      function applyStemDirection(group, direction) {
+    //        group.forEach(function (note) {
+    //          note.setStemDirection(direction);
+    //        });
+    //      }
+    //
+    //      function getTupletGroups() {
+    //        return noteGroups.filter(function (group) {
+    //          if (group[0]) return group[0].tuplet;
+    //        });
+    //      }
+    //
+    //
+    //      // Using closures to store the variables throughout the various functions
+    //      // IMO Keeps it this process lot cleaner - but not super consistent with
+    //      // the rest of the API's style - Silverwolf90 (Cyril)
+    //      createGroups();
+    //      sanitizeGroups();
+    //      formatStems();
+    //
+    //      // Get the notes to be beamed
+    //      var beamedNoteGroups = getBeamGroups();
+    //
+    //      // Get the tuplets in order to format them accurately
+    //      var tupletGroups = getTupletGroups();
+    //
+    //      // Create a Vex.Flow.Beam from each group of notes to be beamed
+    //      var beams = [];
+    //      beamedNoteGroups.forEach(function (group) {
+    //        var beam = new Vex.Flow.Beam(group);
+    //
+    //        if (config.show_stemlets) {
+    //          beam.render_options.show_stemlets = true;
+    //        }
+    //
+    //        beams.push(beam);
+    //      });
+    //
+    //      // Reformat tuplets
+    //      tupletGroups.forEach(function (group) {
+    //        var firstNote = group[0];
+    //        for (var i = 0; i < group.length; ++i) {
+    //          if (group[i].hasStem()) {
+    //            firstNote = group[i];
+    //            break;
+    //          }
+    //        }
+    //
+    //        var tuplet = firstNote.tuplet;
+    //
+    //        if (firstNote.beam) tuplet.setBracketed(false);
+    //        if (firstNote.stem_direction == Stem.DOWN) {
+    //          tuplet.setTupletLocation(Vex.Flow.Tuplet.LOCATION_BOTTOM);
+    //        }
+    //      });
+    //
+    //      return beams;
+    //    };
+
+    return Beam;
+  }());
+
+
+
+
+
   VF.ClefNote.prototype.setMeiElement = function (element) {
     this.meiElement = element;
     return this;
@@ -14697,205 +15713,7 @@ Vex.Flow.TextDynamics = (function(){
     return this.meiElement;
   };
 
-  VF.Ornament.prototype.draw = function () {
-    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Ornament without a context.");
-    if (!(this.note && (this.index !== null))) {
-      throw new Vex.RERR("NoAttachedNote", "Can't draw Ornament without a note and index.");
-    }
 
-    var ctx = this.context;
-    var stem_direction = this.note.getStemDirection();
-    var stave = this.note.getStave();
-
-    // Get stem extents
-    var stem_ext = this.note.getStem().getExtents();
-    var top, bottom;
-    if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
-      top = stem_ext.baseY;
-      bottom = stem_ext.topY;
-    } else {
-      top = stem_ext.topY;
-      bottom = stem_ext.baseY;
-    }
-
-    // TabNotes don't have stems attached to them. Tab stems are rendered
-    // outside the stave.
-    var is_tabnote = this.note.getCategory() === 'tabnotes';
-    if (is_tabnote) {
-      if (this.note.hasStem()) {
-        if (stem_direction === Vex.Flow.StaveNote.STEM_UP) {
-          bottom = stave.getYForBottomText(this.text_line - 2);
-        } else if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
-          top = stave.getYForTopText(this.text_line - 1.5);
-        }
-      } else { // Without a stem
-        top = stave.getYForTopText(this.text_line - 1);
-        bottom = stave.getYForBottomText(this.text_line - 2);
-      }
-    }
-
-    var is_on_head = stem_direction === Vex.Flow.StaveNote.STEM_DOWN;
-    var spacing = stave.getSpacingBetweenLines();
-    var line_spacing = 1;
-
-    // Beamed stems are longer than quarter note stems, adjust accordingly
-    if (!is_on_head && this.note.beam) {
-      line_spacing += 0.5;
-    }
-
-    var total_spacing = spacing * (this.text_line + line_spacing);
-    var glyph_y_between_lines = (top - 7) - total_spacing;
-
-    // Get initial coordinates for the modifier position
-    var start = this.note.getModifierStartXY(this.position, this.index);
-    var glyph_x = start.x + this.ornament.shift_right;
-    var glyph_y = Math.min(stave.getYForTopText(this.text_line) - 3, glyph_y_between_lines);
-    glyph_y += this.ornament.shift_up + this.y_shift;
-
-    // Ajdust x position if ornament is delayed
-    if (this.delayed) {
-      glyph_x += this.ornament.width;
-      var next_context = Vex.Flow.TickContext.getNextContext(this.note.getTickContext());
-      if (next_context) {
-        glyph_x += (next_context.getX() - glyph_x) * 0.5;
-      } else {
-        glyph_x += (stave.x + stave.width - glyph_x) * 0.5;
-      }
-    }
-
-    var ornament = this;
-
-    function drawAccidental(ctx, code, upper) {
-      var acc_mods = {
-        "n" : {
-          shift_x : 1,
-          shift_y_upper : 0,
-          shift_y_lower : 0,
-          height : 17
-        },
-        "#" : {
-          shift_x : 0,
-          shift_y_upper : -2,
-          shift_y_lower : -2,
-          height : 20
-        },
-        "b" : {
-          shift_x : 1,
-          shift_y_upper : 0,
-          shift_y_lower : 3,
-          height : 18
-        },
-        "##" : {
-          shift_x : 0,
-          shift_y_upper : 0,
-          shift_y_lower : 0,
-          height : 12
-        },
-        "bb" : {
-          shift_x : 0,
-          shift_y_upper : 0,
-          shift_y_lower : 4,
-          height : 17
-        },
-        "db" : {
-          shift_x : -3,
-          shift_y_upper : 0,
-          shift_y_lower : 4,
-          height : 17
-        },
-        "bbs" : {
-          shift_x : 0,
-          shift_y_upper : 0,
-          shift_y_lower : 4,
-          height : 17
-        },
-        "d" : {
-          shift_x : 0,
-          shift_y_upper : 0,
-          shift_y_lower : 0,
-          height : 17
-        },
-        "++" : {
-          shift_x : -2,
-          shift_y_upper : -6,
-          shift_y_lower : -3,
-          height : 22
-        },
-        "+" : {
-          shift_x : 1,
-          shift_y_upper : -4,
-          shift_y_lower : -2,
-          height : 20
-        }
-      };
-
-      var accidental = Vex.Flow.accidentalCodes(code);
-
-      var acc_x = glyph_x - 3;
-      var acc_y = glyph_y + 2;
-
-      // Special adjustments for trill glyph
-      if (upper) {
-        acc_y -= mods ? mods.height : 18;
-        acc_y += ornament.type === "tr" ? -8 : 0;
-      } else {
-        acc_y += ornament.type === "tr" ? -6 : 0;
-      }
-
-      // Fine tune position of accidental glyph
-      var mods = acc_mods[code];
-      if (mods) {
-        acc_x += mods.shift_x;
-        acc_y += upper ? mods.shift_y_upper : mods.shift_y_lower;
-      }
-
-      // Render the glyph
-      var scale = ornament.render_options.font_scale / 1.3;
-      Vex.Flow.renderGlyph(ctx, acc_x, acc_y, scale, accidental.code);
-
-      // If rendered a bottom accidental, increase the y value by the
-      // accidental height so that the ornament's glyph is shifted up
-      if (!upper) {
-        glyph_y -= mods ? mods.height : 18;
-      }
-    }
-
-    // Draw lower accidental for ornament
-    if (this.accidental_lower) {
-      drawAccidental(ctx, this.accidental_lower, false, glyph_x, glyph_y);
-    }
-
-    Vex.Flow.renderGlyph(ctx, glyph_x, glyph_y, this.render_options.font_scale, this.ornament.code);
-
-    // ADDITION:
-    this.x = glyph_x;
-    this.y = glyph_y;
-
-    // Draw upper accidental for ornament
-    if (this.accidental_upper) {
-      drawAccidental(ctx, this.accidental_upper, true, glyph_x, glyph_y);
-    }
-
-  };
-
-
-  // Vex Flow Notation
-  // Implements key signatures
-  //
-  // Requires vex.js.
-
-  VF.StaveNote.prototype.getTieRightX = function () {
-    var tieStartX = this.getAbsoluteX();
-    tieStartX += this.glyph.head_width + this.x_shift + this.extraRightPx;
-    //if (this.modifierContext) tieStartX += this.modifierContext.getExtraRightPx();
-    return tieStartX;
-  };
-
-  VF.StaveNote.prototype.getYForBottomText = function (text_line) {
-    var extents = this.getStemExtents();
-    return Vex.Max(this.stave.getYForBottomText(text_line), extents.baseY +
-                                                            (this.render_options.annotation_spacing * (text_line + 1)));
-  };
 
   //######## start addition
   VF.ClefNote.prototype.setOffsetLeft = function (offset) {
@@ -14931,6 +15749,296 @@ Vex.Flow.TextDynamics = (function(){
     }
 
   };
+
+
+
+
+
+
+  VF.Curve.prototype.renderCurve = function (params) {
+    var ctx = this.context;
+    var cps = this.render_options.cps;
+
+    var x_shift = this.render_options.x_shift;
+    var y_shift = this.render_options.y_shift * params.direction;
+
+    // TODO name variables according to staveTie
+    // START MODIFICATION (allows to specify y_shift for start & end
+    // note separately):
+    var y_shift_start = this.render_options.y_shift_start || 0;
+    var y_shift_end = this.render_options.y_shift_end || 0;
+    var first_x = params.first_x + x_shift;
+    var first_y = params.first_y + y_shift + y_shift_start;
+    var last_x = params.last_x - x_shift;
+    var last_y = params.last_y + y_shift + y_shift_end;
+    // END MODIFICATION
+
+    var thickness = this.render_options.thickness;
+
+    var cp_spacing = (last_x - first_x) / (cps.length + 2);
+
+    ctx.beginPath();
+    ctx.moveTo(first_x, first_y);
+    ctx.bezierCurveTo(first_x + cp_spacing + cps[0].x, first_y + (cps[0].y * params.direction), last_x - cp_spacing +
+                                                                                                cps[1].x, last_y +
+                                                                                                          (cps[1].y *
+                                                                                                           params.direction), last_x, last_y);
+    ctx.bezierCurveTo(last_x - cp_spacing + cps[1].x, last_y + ((cps[1].y + thickness) * params.direction), first_x +
+                                                                                                            cp_spacing +
+                                                                                                            cps[0].x, first_y +
+                                                                                                                      ((cps[0].y +
+                                                                                                                        thickness) *
+                                                                                                                       params.direction), first_x, first_y);
+    ctx.stroke();
+    ctx.closePath();
+    ctx.fill();
+  };
+
+
+  VF.Curve.prototype.draw = function () {
+    //#######start addition
+    var Curve = VF.Curve;
+    //###########end addition
+
+
+    if (!this.context) {
+      throw new Vex.RERR("NoContext", "No context to render tie.");
+    }
+    var first_note = this.from;
+    var last_note = this.to;
+    var first_x, last_x, first_y, last_y, stem_direction;
+
+    var metric = "baseY";
+    var end_metric = "baseY";
+    var position = this.render_options.position;
+    var position_end = this.render_options.position_end;
+
+    if (position === Curve.Position.NEAR_TOP) {
+      metric = "topY";
+      end_metric = "topY";
+    }
+
+    if (position_end == Curve.Position.NEAR_HEAD) {
+      end_metric = "baseY";
+    } else if (position_end == Curve.Position.NEAR_TOP) {
+      end_metric = "topY";
+    }
+
+    if (first_note) {
+      first_x = first_note.getTieRightX();
+      stem_direction = first_note.getStemDirection();
+      first_y = first_note.getStemExtents()[metric];
+    } else {
+      // ##### START MODIFICATION
+      first_x = last_note.getStave().getSlurStartX();
+      // ##### END MODIFICATION
+      first_y = last_note.getStemExtents()[metric];
+    }
+
+    if (last_note) {
+      last_x = last_note.getTieLeftX();
+      stem_direction = last_note.getStemDirection();
+      last_y = last_note.getStemExtents()[end_metric];
+    } else {
+      // ##### START MODIFICATION
+      last_x = first_note.getStave().getSlurEndX();
+      // ##### END MODIFICATION
+      last_y = first_note.getStemExtents()[end_metric];
+    }
+
+    this.renderCurve({
+      first_x : first_x,
+      last_x : last_x,
+      first_y : first_y,
+      last_y : last_y,
+      direction : stem_direction * (this.render_options.invert === true ? -1 : 1)
+    });
+    return true;
+  };
+
+
+
+
+
+
+
+  // use square breve glyph instead of VexFlow's ||O||
+  VF.durationToGlyph.duration_codes['1/2'].type.n = {code_head : "noteheadDoubleWholeSquare"};
+
+  //fallback: remove when the CMN long is implemented in VexFlow
+  if (!VF.durationToTicks.durations['1/4']) {
+    VF.durationToTicks.durations['1/4'] = VF.RESOLUTION / 0.25;
+  }
+
+  // fallback: remove when the CMN long is implemented in VexFlow
+  if (!VF.durationToGlyph.duration_codes['1/4']) {
+    VF.durationToGlyph.duration_codes['1/4'] = {
+      common : {
+        head_width : 22,
+        stem : false,
+        stem_offset : 0,
+        flag : false,
+        stem_up_extension : -VF.STEM_HEIGHT,
+        stem_down_extension : -VF.STEM_HEIGHT,
+        gracenote_stem_up_extension : -VF.STEM_HEIGHT,
+        gracenote_stem_down_extension : -VF.STEM_HEIGHT,
+        tabnote_stem_up_extension : -VF.STEM_HEIGHT,
+        tabnote_stem_down_extension : -VF.STEM_HEIGHT,
+        dot_shiftY : 0,
+        line_above : 0,
+        line_below : 0
+      },
+      type : {
+        "n" : { // Longa note
+          code_head : "noteheadCMNLonga"
+        },
+        // the following shapes are not supported with longas
+        "h" : { // Breve note harmonic
+          code_head : "v59"
+        },
+        "m" : { // Breve note muted -
+          code_head : "vf",
+          stem_offset : 0
+        },
+        "r" : { // Breve rest
+          code_head : "v31",
+          head_width : 24,
+          rest : true,
+          position : "B/5",
+          dot_shiftY : 0.5
+        },
+        "s" : { // Breve note slash -
+          // Drawn with canvas primitives
+          head_width : 15,
+          position : "B/4"
+        }
+      }
+    };
+  }
+
+  VF.Font.glyphs["noteheadDoubleWholeSquare"] = {
+    "x_min" : 0,
+    "x_max" : 746,
+    "ha" : 746,
+    "o" : "0 0 117 0 1 1 560 560 1 -1 0 -1120 m 724 350 b 746 328 736 350 746 340 l 746 -328 b 724 -350 746 -339 736 -350 b 701 -328 711 -350 701 -339 l 701 -270 b 659 -234 701 -253 683 -234 l 83 -234 b 45 -276 67 -234 45 -256 l 45 -328 b 22 -350 45 -339 35 -350 b 0 -328 10 -350 0 -339 l 0 328 b 22 350 0 340 10 350 b 45 328 35 350 45 340 l 45 260 b 77 218 45 260 64 218 l 659 218 b 701 265 679 218 701 232 l 701 328 b 724 350 701 340 711 350 m 45 18 l 45 -36 b 146 -94 45 -70 83 -94 l 606 -94 b 701 -36 664 -94 701 -77 l 701 28 b 606 78 701 57 664 78 l 139 78 b 45 18 71 78 45 59 "
+  };
+  // NOT PART OF BRAVURA:
+  VF.Font.glyphs["noteheadCMNLonga"] = {
+    "x_min" : 0,
+    "x_max" : 746,
+    "ha" : 746,
+    // based on the Bravura breve glyph; CHANGES: all values < -1400
+    "o" : "0 0 117 0 1 1 560 560 1 -1 0 -1120 " + "m 724 350 " + "b 746 328 736 350 746 340 " + "l 746 -1428 " +
+          "b 724 -1450 746 -1439 736 -1450 " + "b 701 -1428 711 -1450 701 -1439 " + "l 701 -270 " +
+          "b 659 -234 701 -253 683 -234 " + "l 83 -234 " + "b 45 -276 67 -234 45 -256 " + "l 45 -328 " +
+          "b 22 -350 45 -339 35 -350 " + "b 0 -328 10 -350 0 -339 " + "l 0 328 " + "b 22 350 0 340 10 350 " +
+          "b 45 328 35 350 45 340 " + "l 45 260 " + "b 77 218 45 260 64 218 " + "l 659 218 " +
+          "b 701 265 679 218 701 232 " + "l 701 328 " + "b 724 350 701 340 711 350 " + "m 45 18 " + "l 45 -36 " +
+          "b 146 -94 45 -70 83 -94 " + "l 606 -94 " + "b 701 -36 664 -94 701 -77 " + "l 701 28 " +
+          "b 606 78 701 57 664 78 " + "l 139 78 " + "b 45 18 71 78 45 59 "
+  };
+
+
+
+
+
+  /**
+   * Create hyphens between the specified annotations.
+   *
+   * @constructor
+   */
+  VF.Hyphen = ( function () {
+    function Hyphen(config) {
+      if (arguments.length > 0) {
+        this.init(config);
+      }
+    }
+
+    Hyphen.prototype = {
+      init : function (config) {
+        /**
+         * config is a struct that has:
+         *
+         *  {
+         *    first_annot: Annotation or any other object with an x (and optional
+         * y) property,
+         *    last_annot: Annotation or any other object with an x (and optional
+         * y) property,
+         *    NOTE: either first_annot or last_annot must have an y property
+         *    (optional) max_hyphen_distance: the maximum distance between two
+         * hyphens
+         *    (optional) hyphen_width: the width of the hyphen character to draw
+         *  }
+         *
+         **/
+
+        this.max_hyphen_distance = config.max_hyphen_distance || 75;
+        this.font = {
+          family : "Arial",
+          size : 10,
+          style : ""
+        };
+
+        this.config = config;
+        this.context = null;
+
+      },
+
+      setContext : function (context) {
+        this.context = context;
+        return this;
+      },
+
+      setFont : function (font) {
+        this.font = font;
+        return this;
+      },
+
+      renderHyphen : function () {
+        var cfg = this.config;
+        var ctx = this.context;
+        var hyphen_width = cfg.hyphen_width || ctx.measureText('-').width;
+
+        var first = cfg.first_annot;
+        var last = cfg.last_annot;
+
+        var start_x = (first.text) ? first.x + first.text_width : first.x;
+        var end_x = last.x;
+
+        var distance = end_x - start_x;
+
+        if (distance > hyphen_width) {
+          var y = (first.y && last.y) ? (first.y + last.y) / 2 : first.y || last.y;
+          var hyphen_count = Math.ceil(distance / this.max_hyphen_distance);
+          var single_width = distance / (hyphen_count + 1);
+          while (hyphen_count--) {
+            start_x += single_width;
+            ctx.fillText('-', start_x - hyphen_width / 2, y);
+          }
+        }
+      },
+
+      draw : function () {
+        if (!this.context) {
+          throw new Vex.RERR("NoContext", "No context to render hyphens.");
+        }
+        var ctx = this.context;
+        ctx.save();
+        ctx.setFont(this.font.family, this.font.size, this.font.style);
+        this.renderHyphen();
+        ctx.restore();
+        return true;
+      }
+    };
+
+    return Hyphen;
+  }());
+
+
+
+
+
+
 
 
   // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
@@ -15196,589 +16304,247 @@ Vex.Flow.TextDynamics = (function(){
     return KeySignature;
   }());
 
-  /**
-   * Create hyphens between the specified annotations.
-   *
-   * @constructor
-   */
-  VF.Hyphen = ( function () {
-    function Hyphen(config) {
-      if (arguments.length > 0) {
-        this.init(config);
-      }
-    };
-
-    Hyphen.prototype = {
-      init : function (config) {
-        /**
-         * config is a struct that has:
-         *
-         *  {
-         *    first_annot: Annotation or any other object with an x (and optional
-         * y) property,
-         *    last_annot: Annotation or any other object with an x (and optional
-         * y) property,
-         *    NOTE: either first_annot or last_annot must have an y property
-         *    (optional) max_hyphen_distance: the maximum distance between two
-         * hyphens
-         *    (optional) hyphen_width: the width of the hyphen character to draw
-         *  }
-         *
-         **/
-
-        this.max_hyphen_distance = config.max_hyphen_distance || 75;
-        this.font = {
-          family : "Arial",
-          size : 10,
-          style : ""
-        };
-
-        this.config = config;
-        this.context = null;
-
-      },
-
-      setContext : function (context) {
-        this.context = context;
-        return this;
-      },
-
-      setFont : function (font) {
-        this.font = font;
-        return this;
-      },
-
-      renderHyphen : function () {
-        var cfg = this.config;
-        var ctx = this.context;
-        var hyphen_width = cfg.hyphen_width || ctx.measureText('-').width;
-
-        var first = cfg.first_annot;
-        var last = cfg.last_annot;
-
-        var start_x = (first.text) ? first.x + first.text_width : first.x;
-        var end_x = last.x;
-
-        var distance = end_x - start_x;
-
-        if (distance > hyphen_width) {
-          var y = (first.y && last.y) ? (first.y + last.y) / 2 : first.y || last.y;
-          var hyphen_count = Math.ceil(distance / this.max_hyphen_distance);
-          var single_width = distance / (hyphen_count + 1);
-          while (hyphen_count--) {
-            start_x += single_width;
-            ctx.fillText('-', start_x - hyphen_width / 2, y);
-          }
-        }
-      },
-
-      draw : function () {
-        if (!this.context) {
-          throw new Vex.RERR("NoContext", "No context to render hyphens.");
-        }
-        var ctx = this.context;
-        ctx.save();
-        ctx.setFont(this.font.family, this.font.size, this.font.style);
-        this.renderHyphen();
-        ctx.restore();
-        return true;
-      }
-    };
-
-    return Hyphen;
-  }());
 
 
-  // use square breve glyph instead of VexFlow's ||O||
-  VF.durationToGlyph.duration_codes['1/2'].type.n = {code_head : "noteheadDoubleWholeSquare"};
 
-  //fallback: remove when the CMN long is implemented in VexFlow
-  if (!VF.durationToTicks.durations['1/4']) {
-    VF.durationToTicks.durations['1/4'] = VF.RESOLUTION / 0.25;
-  }
-
-  // fallback: remove when the CMN long is implemented in VexFlow
-  if (!VF.durationToGlyph.duration_codes['1/4']) {
-    VF.durationToGlyph.duration_codes['1/4'] = {
-      common : {
-        head_width : 22,
-        stem : false,
-        stem_offset : 0,
-        flag : false,
-        stem_up_extension : -VF.STEM_HEIGHT,
-        stem_down_extension : -VF.STEM_HEIGHT,
-        gracenote_stem_up_extension : -VF.STEM_HEIGHT,
-        gracenote_stem_down_extension : -VF.STEM_HEIGHT,
-        tabnote_stem_up_extension : -VF.STEM_HEIGHT,
-        tabnote_stem_down_extension : -VF.STEM_HEIGHT,
-        dot_shiftY : 0,
-        line_above : 0,
-        line_below : 0
-      },
-      type : {
-        "n" : { // Longa note
-          code_head : "noteheadCMNLonga"
-        },
-        // the following shapes are not supported with longas
-        "h" : { // Breve note harmonic
-          code_head : "v59"
-        },
-        "m" : { // Breve note muted -
-          code_head : "vf",
-          stem_offset : 0
-        },
-        "r" : { // Breve rest
-          code_head : "v31",
-          head_width : 24,
-          rest : true,
-          position : "B/5",
-          dot_shiftY : 0.5
-        },
-        "s" : { // Breve note slash -
-          // Drawn with canvas primitives
-          head_width : 15,
-          position : "B/4"
-        }
-      }
-    };
-  }
-
-  VF.Font.glyphs["noteheadDoubleWholeSquare"] = {
-    "x_min" : 0,
-    "x_max" : 746,
-    "ha" : 746,
-    "o" : "0 0 117 0 1 1 560 560 1 -1 0 -1120 m 724 350 b 746 328 736 350 746 340 l 746 -328 b 724 -350 746 -339 736 -350 b 701 -328 711 -350 701 -339 l 701 -270 b 659 -234 701 -253 683 -234 l 83 -234 b 45 -276 67 -234 45 -256 l 45 -328 b 22 -350 45 -339 35 -350 b 0 -328 10 -350 0 -339 l 0 328 b 22 350 0 340 10 350 b 45 328 35 350 45 340 l 45 260 b 77 218 45 260 64 218 l 659 218 b 701 265 679 218 701 232 l 701 328 b 724 350 701 340 711 350 m 45 18 l 45 -36 b 146 -94 45 -70 83 -94 l 606 -94 b 701 -36 664 -94 701 -77 l 701 28 b 606 78 701 57 664 78 l 139 78 b 45 18 71 78 45 59 "
+  VF.Ornament.prototype.setMeiElement = function (element) {
+    this.meiElement = element;
+    return this;
   };
-  // NOT PART OF BRAVURA:
-  VF.Font.glyphs["noteheadCMNLonga"] = {
-    "x_min" : 0,
-    "x_max" : 746,
-    "ha" : 746,
-    // based on the Bravura breve glyph; CHANGES: all values < -1400
-    "o" : "0 0 117 0 1 1 560 560 1 -1 0 -1120 " + "m 724 350 " + "b 746 328 736 350 746 340 " + "l 746 -1428 " +
-          "b 724 -1450 746 -1439 736 -1450 " + "b 701 -1428 711 -1450 701 -1439 " + "l 701 -270 " +
-          "b 659 -234 701 -253 683 -234 " + "l 83 -234 " + "b 45 -276 67 -234 45 -256 " + "l 45 -328 " +
-          "b 22 -350 45 -339 35 -350 " + "b 0 -328 10 -350 0 -339 " + "l 0 328 " + "b 22 350 0 340 10 350 " +
-          "b 45 328 35 350 45 340 " + "l 45 260 " + "b 77 218 45 260 64 218 " + "l 659 218 " +
-          "b 701 265 679 218 701 232 " + "l 701 328 " + "b 724 350 701 340 711 350 " + "m 45 18 " + "l 45 -36 " +
-          "b 146 -94 45 -70 83 -94 " + "l 606 -94 " + "b 701 -36 664 -94 701 -77 " + "l 701 28 " +
-          "b 606 78 701 57 664 78 " + "l 139 78 " + "b 45 18 71 78 45 59 "
+  VF.Ornament.prototype.getMeiElement = function () {
+    return this.meiElement;
   };
 
 
-  VF.Curve.prototype.renderCurve = function (params) {
-    var ctx = this.context;
-    var cps = this.render_options.cps;
+  // ## Static Methods
+  // Arrange ornaments inside `ModifierContext`
+  VF.Ornament.format = function(ornaments, state) {
+    if (!ornaments || ornaments.length === 0) return false;
 
-    var x_shift = this.render_options.x_shift;
-    var y_shift = this.render_options.y_shift * params.direction;
+    var text_line = state.text_line;
+    var max_width = 0;
 
-    // TODO name variables according to staveTie
-    // START MODIFICATION (allows to specify y_shift for start & end
-    // note separately):
-    var y_shift_start = this.render_options.y_shift_start || 0;
-    var y_shift_end = this.render_options.y_shift_end || 0;
-    var first_x = params.first_x + x_shift;
-    var first_y = params.first_y + y_shift + y_shift_start;
-    var last_x = params.last_x - x_shift;
-    var last_y = params.last_y + y_shift + y_shift_end;
-    // END MODIFICATION
+    var top_text_line = state.top_text_line;
+    if (top_text_line === undefined) top_text_line = text_line;
+    var bottom_text_line = state.bottom_text_line;
+    if (bottom_text_line === undefined) bottom_text_line = text_line;
 
-    var thickness = this.render_options.thickness;
+    // Format Articulations
+    var width;
+    for (var i = 0; i < ornaments.length; ++i) {
+      var ornament = ornaments[i];
 
-    var cp_spacing = (last_x - first_x) / (cps.length + 2);
+      var type = Vex.Flow.ornamentCodes(ornament.type);
 
-    ctx.beginPath();
-    ctx.moveTo(first_x, first_y);
-    ctx.bezierCurveTo(first_x + cp_spacing + cps[0].x, first_y + (cps[0].y * params.direction), last_x - cp_spacing +
-                                                                                                cps[1].x, last_y +
-                                                                                                          (cps[1].y *
-                                                                                                           params.direction), last_x, last_y);
-    ctx.bezierCurveTo(last_x - cp_spacing + cps[1].x, last_y + ((cps[1].y + thickness) * params.direction), first_x +
-                                                                                                            cp_spacing +
-                                                                                                            cps[0].x, first_y +
-                                                                                                                      ((cps[0].y +
-                                                                                                                        thickness) *
-                                                                                                                       params.direction), first_x, first_y);
-    ctx.stroke();
-    ctx.closePath();
-    ctx.fill();
-  };
+      if (ornament.position === 3) {
+        ornament.setTextLine(top_text_line);
+        top_text_line += (type.between_lines) ? 1 : 1.5;
+      } else if (ornament.position=== 4) {
+        ornament.setTextLine(bottom_text_line);
+        bottom_text_line += (type.between_lines) ? 1 : 1.5;
+      } else {
+        ornament.setTextLine(text_line);
+        text_line += (type.between_lines) ? 1 : 1.5;
+      }
 
-
-  VF.Curve.prototype.draw = function () {
-    //#######start addition
-    var Curve = VF.Curve;
-    //###########end addition
-
-
-    if (!this.context) {
-      throw new Vex.RERR("NoContext", "No context to render tie.");
-    }
-    var first_note = this.from;
-    var last_note = this.to;
-    var first_x, last_x, first_y, last_y, stem_direction;
-
-    var metric = "baseY";
-    var end_metric = "baseY";
-    var position = this.render_options.position;
-    var position_end = this.render_options.position_end;
-
-    if (position === Curve.Position.NEAR_TOP) {
-      metric = "topY";
-      end_metric = "topY";
+      width = ornament.getWidth() > max_width ?
+              ornament.getWidth() : max_width;
     }
 
-    if (position_end == Curve.Position.NEAR_HEAD) {
-      end_metric = "baseY";
-    } else if (position_end == Curve.Position.NEAR_TOP) {
-      end_metric = "topY";
-    }
+    state.left_shift += width / 2;
+    state.right_shift += width / 2;
 
-    if (first_note) {
-      first_x = first_note.getTieRightX();
-      stem_direction = first_note.getStemDirection();
-      first_y = first_note.getStemExtents()[metric];
-    } else {
-      // ##### START MODIFICATION
-      first_x = last_note.getStave().getSlurStartX();
-      // ##### END MODIFICATION
-      first_y = last_note.getStemExtents()[metric];
-    }
+    state.text_line = text_line;
+    state.top_text_line = top_text_line;
+    state.bottom_text_line = bottom_text_line;
 
-    if (last_note) {
-      last_x = last_note.getTieLeftX();
-      stem_direction = last_note.getStemDirection();
-      last_y = last_note.getStemExtents()[end_metric];
-    } else {
-      // ##### START MODIFICATION
-      last_x = first_note.getStave().getSlurEndX();
-      // ##### END MODIFICATION
-      last_y = first_note.getStemExtents()[end_metric];
-    }
-
-    this.renderCurve({
-      first_x : first_x,
-      last_x : last_x,
-      first_y : first_y,
-      last_y : last_y,
-      direction : stem_direction * (this.render_options.invert === true ? -1 : 1)
-    });
     return true;
   };
 
 
-  VF.Annotation.prototype.draw = function () {
-    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw text annotation without a context.");
-    if (!this.note) throw new Vex.RERR("NoNoteForAnnotation", "Can't draw text annotation without an attached note.");
-
-    // START ADDITION
-    var Annotation = VF.Annotation;
-    var Modifier = VF.Modifier;
-    var L = function () {
-    };
-    // END ADDITION
-
-
-    var start = this.note.getModifierStartXY(Modifier.Position.ABOVE, this.index);
-
-    // We're changing context parameters. Save current state.
-    this.context.save();
-    this.context.setFont(this.font.family, this.font.size, this.font.weight);
-    var text_width = this.context.measureText(this.text).width;
-
-    // Estimate text height to be the same as the width of an 'm'.
-    //
-    // This is a hack to work around the inability to measure text height
-    // in HTML5 Canvas (and SVG).
-    var text_height = this.context.measureText("m").width;
-    var x, y;
-
-    if (this.justification == Annotation.Justify.LEFT) {
-      x = start.x;
-    } else if (this.justification == Annotation.Justify.RIGHT) {
-      x = start.x - text_width;
-    } else if (this.justification == Annotation.Justify.CENTER) {
-      x = start.x - text_width / 2;
-    } else /* CENTER_STEM */ {
-      x = this.note.getStemX() - text_width / 2;
+  VF.Ornament.prototype.draw = function () {
+    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Ornament without a context.");
+    if (!(this.note && (this.index !== null))) {
+      throw new Vex.RERR("NoAttachedNote", "Can't draw Ornament without a note and index.");
     }
 
-    var stem_ext, spacing;
-    var has_stem = this.note.hasStem();
+    var ctx = this.context;
+    var stem_direction = this.note.getStemDirection();
     var stave = this.note.getStave();
 
-    // The position of the text varies based on whether or not the note
-    // has a stem.
-    if (has_stem) {
-      stem_ext = this.note.getStem().getExtents();
-
-      spacing = stave.getSpacingBetweenLines();
+    // Get stem extents
+    var stem_ext = this.note.getStem().getExtents();
+    var top, bottom;
+    if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
+      top = stem_ext.baseY;
+      bottom = stem_ext.topY;
+    } else {
+      top = stem_ext.topY;
+      bottom = stem_ext.baseY;
     }
 
-    // START ADDITION
-    var PADDING = 5;
-    // END ADDITION
-
-    if (this.vert_justification == Annotation.VerticalJustify.BOTTOM) {
-
-      y = stave.getYForBottomText(this.text_line);
-      if (has_stem) {
-
-        // START MODIFICATION
-        var stem_base = (this.note.getStemDirection() === 1 ? stem_ext.baseY + 2 * PADDING : stem_ext.topY + PADDING);
-        // END MODIFICATION
-
-        y = Math.max(y, stem_base + (spacing * (this.text_line + 2)));
+    // TabNotes don't have stems attached to them. Tab stems are rendered
+    // outside the stave.
+    var is_tabnote = this.note.getCategory() === 'tabnotes';
+    if (is_tabnote) {
+      if (this.note.hasStem()) {
+        if (stem_direction === Vex.Flow.StaveNote.STEM_UP) {
+          bottom = stave.getYForBottomText(this.text_line - 2);
+        } else if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
+          top = stave.getYForTopText(this.text_line - 1.5);
+        }
+      } else { // Without a stem
+        top = stave.getYForTopText(this.text_line - 1);
+        bottom = stave.getYForBottomText(this.text_line - 2);
       }
-    } else if (this.vert_justification == Annotation.VerticalJustify.CENTER) {
-      var yt = this.note.getYForTopText(this.text_line) - 1;
-      var yb = stave.getYForBottomText(this.text_line);
-      y = yt + ( yb - yt ) / 2 + text_height / 2;
-    } else if (this.vert_justification == Annotation.VerticalJustify.TOP) {
-      y = Math.min(stave.getYForTopText(this.text_line), this.note.getYs()[0] - 10);
-      if (has_stem) {
-        y = Math.min(y, (stem_ext.topY - 5) - (spacing * this.text_line));
-      }
-    } else /* CENTER_STEM */{
-      var extents = this.note.getStemExtents();
-      y = extents.topY + (extents.baseY - extents.topY) / 2 + text_height / 2;
     }
 
+    var is_on_head = stem_direction === Vex.Flow.StaveNote.STEM_DOWN;
+    var spacing = stave.getSpacingBetweenLines();
+    var line_spacing = 1;
 
-    // START ADDITION
-    this.x = x;
-    this.y = y;
-    this.text_height = text_height;
-    this.text_width = text_width;
-    // END ADDITION
+    // Beamed stems are longer than quarter note stems, adjust accordingly
+    if (!is_on_head && this.note.beam) {
+      line_spacing += 0.5;
+    }
 
+    var total_spacing = spacing * (this.text_line + line_spacing);
+    var glyph_y_between_lines = (top - 7) - total_spacing;
 
-    this.context.fillText(this.text, x, y);
-    this.context.restore();
+    // Get initial coordinates for the modifier position
+    var start = this.note.getModifierStartXY(this.position, this.index);
+    var glyph_x = start.x + this.ornament.shift_right;
+    var glyph_y = Math.min(stave.getYForTopText(this.text_line) - 3, glyph_y_between_lines);
+    glyph_y += this.ornament.shift_up + this.y_shift;
+
+    // Ajdust x position if ornament is delayed
+    if (this.delayed) {
+      glyph_x += this.ornament.width;
+      var next_context = Vex.Flow.TickContext.getNextContext(this.note.getTickContext());
+      if (next_context) {
+        glyph_x += (next_context.getX() - glyph_x) * 0.5;
+      } else {
+        glyph_x += (stave.x + stave.width - glyph_x) * 0.5;
+      }
+    }
+
+    var ornament = this;
+
+    function drawAccidental(ctx, code, upper) {
+      var acc_mods = {
+        "n" : {
+          shift_x : 1,
+          shift_y_upper : 0,
+          shift_y_lower : 0,
+          height : 17
+        },
+        "#" : {
+          shift_x : 0,
+          shift_y_upper : -2,
+          shift_y_lower : -2,
+          height : 20
+        },
+        "b" : {
+          shift_x : 1,
+          shift_y_upper : 0,
+          shift_y_lower : 3,
+          height : 18
+        },
+        "##" : {
+          shift_x : 0,
+          shift_y_upper : 0,
+          shift_y_lower : 0,
+          height : 12
+        },
+        "bb" : {
+          shift_x : 0,
+          shift_y_upper : 0,
+          shift_y_lower : 4,
+          height : 17
+        },
+        "db" : {
+          shift_x : -3,
+          shift_y_upper : 0,
+          shift_y_lower : 4,
+          height : 17
+        },
+        "bbs" : {
+          shift_x : 0,
+          shift_y_upper : 0,
+          shift_y_lower : 4,
+          height : 17
+        },
+        "d" : {
+          shift_x : 0,
+          shift_y_upper : 0,
+          shift_y_lower : 0,
+          height : 17
+        },
+        "++" : {
+          shift_x : -2,
+          shift_y_upper : -6,
+          shift_y_lower : -3,
+          height : 22
+        },
+        "+" : {
+          shift_x : 1,
+          shift_y_upper : -4,
+          shift_y_lower : -2,
+          height : 20
+        }
+      };
+
+      var accidental = Vex.Flow.accidentalCodes(code);
+
+      var acc_x = glyph_x - 3;
+      var acc_y = glyph_y + 2;
+
+      var mods = acc_mods[code];
+
+      // Special adjustments for trill glyph
+      if (upper) {
+        acc_y -= mods ? mods.height : 18;
+        acc_y += ornament.type === "tr" ? -8 : 0;
+      } else {
+        acc_y += ornament.type === "tr" ? -6 : 0;
+      }
+
+      // Fine tune position of accidental glyph
+      if (mods) {
+        acc_x += mods.shift_x;
+        acc_y += upper ? mods.shift_y_upper : mods.shift_y_lower;
+      }
+
+      // Render the glyph
+      var scale = ornament.render_options.font_scale / 1.3;
+      Vex.Flow.renderGlyph(ctx, acc_x, acc_y, scale, accidental.code);
+
+      // If rendered a bottom accidental, increase the y value by the
+      // accidental height so that the ornament's glyph is shifted up
+      if (!upper) {
+        glyph_y -= mods ? mods.height : 18;
+      }
+    }
+
+    // Draw lower accidental for ornament
+    if (this.accidental_lower) {
+      drawAccidental(ctx, this.accidental_lower, false, glyph_x, glyph_y);
+    }
+
+    Vex.Flow.renderGlyph(ctx, glyph_x, glyph_y, this.render_options.font_scale, this.ornament.code);
+
+    // ADDITION:
+    this.x = glyph_x;
+    this.y = glyph_y;
+
+    // Draw upper accidental for ornament
+    if (this.accidental_upper) {
+      drawAccidental(ctx, this.accidental_upper, true, glyph_x, glyph_y);
+    }
+
   };
 
 
-  // VexFlow - Music Engraving for HTML5
-  // Copyright Mohit Muthanna 2010
-  //
-  // This class implements varies types of ties between contiguous notes. The
-  // ties include: regular ties, hammer ons, pull offs, and slides.
-
-  /**
-   * Create a new tie from the specified notes. The notes must
-   * be part of the same line, and have the same duration (in ticks).
-   *
-   * @constructor
-   * @param {!Object} context The canvas context.
-   * @param {!Object} notes The notes to tie up.
-   * @param {!Object} Options
-   */
-  VF.StaveTie = ( function () {
-    function StaveTie(notes, text) {
-      if (arguments.length > 0) {
-        this.init(notes, text);
-      }
-    }
-
-
-    StaveTie.prototype = {
-      init : function (notes, text) {
-        /**
-         * Notes is a struct that has:
-         *
-         *  {
-         *    first_note: Note,
-         *    last_note: Note,
-         *    first_indices: [n1, n2, n3],
-         *    last_indices: [n1, n2, n3]
-         *  }
-         *
-         **/
-        this.notes = notes;
-        this.context = null;
-        this.text = text;
-
-        this.render_options = {
-          cp1 : 8, // Curve control point 1
-          cp2 : 12, // Curve control point 2
-          text_shift_x : 0,
-          first_x_shift : 0,
-          last_x_shift : 0,
-          y_shift : 7,
-          tie_spacing : 0,
-          font : {
-            family : "Arial",
-            size : 10,
-            style : ""
-          }
-        };
-
-        this.font = this.render_options.font;
-        this.setNotes(notes);
-      },
-
-      setContext : function (context) {
-        this.context = context;
-        return this;
-      },
-      setFont : function (font) {
-        this.font = font;
-        return this;
-      },
-
-      /**
-       * Set the notes to attach this tie to.
-       *
-       * @param {!Object} notes The notes to tie up.
-       */
-      setNotes : function (notes) {
-        if (!notes.first_note && !notes.last_note) {
-          throw new Vex.RuntimeError("BadArguments", "Tie needs to have either first_note or last_note set.");
-        }
-
-        if (!notes.first_indices) {
-          notes.first_indices = [0];
-        }
-        if (!notes.last_indices) {
-          notes.last_indices = [0];
-        }
-
-        if (notes.first_indices.length != notes.last_indices.length) {
-          throw new Vex.RuntimeError("BadArguments", "Tied notes must have similar" + " index sizes");
-        }
-
-        // Success. Lets grab 'em notes.
-        this.first_note = notes.first_note;
-        this.first_indices = notes.first_indices;
-        this.last_note = notes.last_note;
-        this.last_indices = notes.last_indices;
-        return this;
-      },
-
-      /**
-       * @return {boolean} Returns true if this is a partial bar.
-       */
-      isPartial : function () {
-        return (!this.first_note || !this.last_note);
-      },
-
-      // START ADDITION
-      setDir : function (dir) {
-        this.curvedir = dir;
-      },
-
-      getDir : function () {
-        return this.curvedir;
-      },
-      // END ADDITION
-
-      renderTie : function (params) {
-        if (params.first_ys.length === 0 || params.last_ys.length === 0) {
-          throw new Vex.RERR("BadArguments", "No Y-values to render");
-        }
-
-        // START ADDITION
-        if (this.curvedir) {
-          params.direction = (this.curvedir === 'above') ? -1 : 1;
-        } else {
-          this.curvedir = params.direction;
-        }
-        // END ADDITION
-
-        var ctx = this.context;
-        var cp1 = this.render_options.cp1;
-        var cp2 = this.render_options.cp2;
-
-        if (Math.abs(params.last_x_px - params.first_x_px) < 10) {
-          cp1 = 2;
-          cp2 = 8;
-        }
-
-        var first_x_shift = this.render_options.first_x_shift;
-        var last_x_shift = this.render_options.last_x_shift;
-        var y_shift = this.render_options.y_shift * params.direction;
-
-        for (var i = 0; i < this.first_indices.length; ++i) {
-          var cp_x = ((params.last_x_px + last_x_shift) + (params.first_x_px + first_x_shift)) / 2;
-          var first_y_px = params.first_ys[this.first_indices[i]] + y_shift;
-          var last_y_px = params.last_ys[this.last_indices[i]] + y_shift;
-
-          if (isNaN(first_y_px) || isNaN(last_y_px)) {
-            throw new Vex.RERR("BadArguments", "Bad indices for tie rendering.");
-          }
-
-          var top_cp_y = ((first_y_px + last_y_px) / 2) + (cp1 * params.direction);
-          var bottom_cp_y = ((first_y_px + last_y_px) / 2) + (cp2 * params.direction);
-
-          ctx.beginPath();
-          ctx.moveTo(params.first_x_px + first_x_shift, first_y_px);
-          ctx.quadraticCurveTo(cp_x, top_cp_y, params.last_x_px + last_x_shift, last_y_px);
-          ctx.quadraticCurveTo(cp_x, bottom_cp_y, params.first_x_px + first_x_shift, first_y_px);
-
-          ctx.closePath();
-          ctx.fill();
-        }
-      },
-
-      renderText : function (first_x_px, last_x_px) {
-        if (!this.text) {
-          return;
-        }
-        var center_x = (first_x_px + last_x_px) / 2;
-        center_x -= this.context.measureText(this.text).width / 2;
-
-        this.context.save();
-        this.context.setFont(this.font.family, this.font.size, this.font.style);
-        this.context.fillText(this.text, center_x + this.render_options.text_shift_x, (this.first_note ||
-                                                                                       this.last_note).getStave().getYForTopText() -
-                                                                                      1);
-        this.context.restore();
-      },
-
-      draw : function () {
-        if (!this.context) {
-          throw new Vex.RERR("NoContext", "No context to render tie.");
-        }
-        var first_note = this.first_note;
-        var last_note = this.last_note;
-        var first_x_px, last_x_px, first_ys, last_ys, stem_direction;
-
-        if (first_note) {
-          first_x_px = first_note.getTieRightX() + this.render_options.tie_spacing;
-          stem_direction = first_note.getStemDirection();
-          first_ys = first_note.getYs();
-        } else {
-          first_x_px = last_note.getStave().getTieStartX();
-          first_ys = last_note.getYs();
-          this.first_indices = this.last_indices;
-        }
-
-        if (last_note) {
-          last_x_px = last_note.getTieLeftX() + this.render_options.tie_spacing;
-          stem_direction = last_note.getStemDirection();
-          last_ys = last_note.getYs();
-        } else {
-          last_x_px = first_note.getStave().getTieEndX();
-          last_ys = first_note.getYs();
-          this.last_indices = this.first_indices;
-        }
-
-        this.renderTie({
-          first_x_px : first_x_px,
-          last_x_px : last_x_px,
-          first_ys : first_ys,
-          last_ys : last_ys,
-          direction : stem_direction
-        });
-
-        this.renderText(first_x_px, last_x_px);
-        return true;
-      }
-    };
-
-    return StaveTie;
-  }());
 
 
   // Vex Flow
@@ -16283,820 +17049,854 @@ Vex.Flow.TextDynamics = (function(){
   }());
 
 
-  // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
+
+
+
+  // Vex Flow Notation
+  // Implements key signatures
   //
-  // ## Description
+  // Requires vex.js.
+
+  VF.StaveNote.prototype.getTieRightX = function () {
+    var tieStartX = this.getAbsoluteX();
+    tieStartX += this.glyph.head_width + this.x_shift + this.extraRightPx;
+    //if (this.modifierContext) tieStartX += this.modifierContext.getExtraRightPx();
+    return tieStartX;
+  };
+
+  VF.StaveNote.prototype.getYForBottomText = function (text_line) {
+    var extents = this.getStemExtents();
+    return Vex.Max(this.stave.getYForBottomText(text_line), extents.baseY +
+                                                            (this.render_options.annotation_spacing * (text_line + 1)));
+  };
+
+
+/**
+ * Modifications:
+ * 1) Added ctx.save() etc
+ */
+
+
+
+  // VexFlow - Music Engraving for HTML5
+  // Copyright Mohit Muthanna 2010
+  // This class by Raffaele Viglianti, 2012 http://itisnotsound.wordpress.com/
   //
-  // This file implements `Beams` that span over a set of `StemmableNotes`.
-  //
-  // Requires: vex.js, vexmusic.js, note.js
-  Vex.Flow.Beam = (function () {
-    function Beam(notes, auto_stem) {
-      if (arguments.length > 0) this.init(notes, auto_stem);
+  // This class implements hairpins between notes.
+  // Hairpins can be either Crescendo or Descrescendo.
+
+  /**
+   * Create a new hairpin from the specified notes.
+   *
+   * @constructor
+   * @param {!Object} notes The notes to tie up.
+   * @param {!Object} type The type of hairpin
+   */
+
+  VF.StaveHairpin = (function () {
+    function StaveHairpin(notes, type) {
+      if (arguments.length > 0) this.init(notes, type);
     }
 
-    var Stem = Vex.Flow.Stem;
+    StaveHairpin.type = {
+      CRESC : 1,
+      DECRESC : 2
+    };
 
-    // ## Prototype Methods
-    Beam.prototype = {
-      init : function (notes, auto_stem) {
-        if (!notes || notes == []) {
-          throw new Vex.RuntimeError("BadArguments", "No notes provided for beam.");
-        }
+    /* Helper function to convert ticks into pixels.
+     * Requires a Formatter with voices joined and formatted (to
+     * get pixels per tick)
+     *
+     * options is struct that has:
+     *
+     *  {
+     *   height: px,
+     *   y_shift: px, //vertical offset
+     *   left_shift_ticks: 0, //left horizontal offset expressed in ticks
+     *   right_shift_ticks: 0 // right horizontal offset expressed in ticks
+     *  }
+     *
+     **/
+    StaveHairpin.FormatByTicksAndDraw = function (ctx, formatter, notes, type, position, options) {
+      var ppt = formatter.pixelsPerTick;
 
-        if (notes.length == 1) {
-          throw new Vex.RuntimeError("BadArguments", "Too few notes for beam.");
-        }
+      if (ppt == null) {
+        throw new Vex.RuntimeError("BadArguments", "A valid Formatter must be provide to draw offsets by ticks.");
+      }
 
-        // Validate beam line, direction and ticks.
-        this.ticks = notes[0].getIntrinsicTicks();
+      var l_shift_px = ppt * options.left_shift_ticks;
+      var r_shift_px = ppt * options.right_shift_ticks;
 
-        if (this.ticks >= Vex.Flow.durationToTicks("4")) {
-          throw new Vex.RuntimeError("BadArguments", "Beams can only be applied to notes shorter than a quarter note.");
-        }
+      var hairpin_options = {
+        height : options.height,
+        y_shift : options.y_shift,
+        left_shift_px : l_shift_px,
+        right_shift_px : r_shift_px};
 
-        var i; // shared iterator
-        var note;
+      new StaveHairpin({
+        first_note : notes.first_note,
+        last_note : notes.last_note
+      }, type).setContext(ctx).setRenderOptions(hairpin_options).setPosition(position).draw();
+    };
 
-        this.stem_direction = Stem.UP;
+    StaveHairpin.prototype = {
 
-        for (i = 0; i < notes.length; ++i) {
-          note = notes[i];
-          if (note.hasStem()) {
-            this.stem_direction = note.getStemDirection();
-            break;
-          }
-        }
+    setMeiElement : function (element) {
+      this.meiElement = element;
+      return this;
+    },
 
-        var stem_direction = this.stem_direction;
-        // Figure out optimal stem direction based on given notes
-        if (auto_stem && notes[0].getCategory() === 'stavenotes') {
-          stem_direction = calculateStemDirection(notes);
-        } else if (auto_stem && notes[0].getCategory() === 'tabnotes') {
-          // Auto Stem TabNotes
-          var stem_weight = notes.reduce(function (memo, note) {
-            return memo + note.stem_direction;
-          }, 0);
+    getMeiElement : function () {
+      return this.meiElement;
+    },
 
-          stem_direction = stem_weight > -1 ? Stem.UP : Stem.DOWN;
-        }
 
-        // Apply stem directions and attach beam to notes
-        for (i = 0; i < notes.length; ++i) {
-          note = notes[i];
-          if (auto_stem) {
-            note.setStemDirection(stem_direction);
-            this.stem_direction = stem_direction;
-          }
-          note.setBeam(this);
-        }
+      init : function (notes, type) {
+        /**
+         * Notes is a struct that has:
+         *
+         *  {
+       *    first_note: Note,
+       *    last_note: Note,
+       *  }
+         *
+         **/
 
-        this.postFormatted = false;
-        this.notes = notes;
-        this.beam_count = this.getBeamCount();
-        this.break_on_indices = [];
+        this.setNotes(notes);
+        this.hairpin = type;
+        this.position = VF.Modifier.Position.BELOW;
+
+        this.context = null;
+
         this.render_options = {
-          beam_width : 5,
-          max_slope : 0.25,
-          min_slope : -0.25,
-          slope_iterations : 20,
-          slope_cost : 100,
-          show_stemlets : false,
-          stemlet_extension : 7,
-          partial_beam_length : 10
+          height : 10,
+          y_shift : 0, //vertical offset
+          left_shift_px : 0, //left horizontal offset
+          right_shift_px : 0 // right horizontal offset
         };
+
+        this.setNotes(notes);
       },
 
-      // The the rendering `context`
       setContext : function (context) {
         this.context = context;
         return this;
       },
 
-      // Get the notes in this beam
-      getNotes : function () {
-        return this.notes;
-      },
-
-      // Get the max number of beams in the set of notes
-      getBeamCount : function () {
-        var beamCounts = this.notes.map(function (note) {
-          return note.getGlyph().beam_count;
-        });
-
-        var maxBeamCount = beamCounts.reduce(function (max, beamCount) {
-          return beamCount > max ? beamCount : max;
-        });
-
-        return maxBeamCount;
-      },
-
-      // Set which note `indices` to break the secondary beam at
-      breakSecondaryAt : function (indices) {
-        this.break_on_indices = indices;
+      setPosition : function (position) {
+        if (position == VF.Modifier.Position.ABOVE || position == VF.Modifier.Position.BELOW) {
+          this.position = position;
+        }
         return this;
       },
 
-      // Return the y coordinate for linear function
-      getSlopeY : function (x, first_x_px, first_y_px, slope) {
-        return first_y_px + ((x - first_x_px) * slope);
-      },
-
-      // Calculate the best possible slope for the provided notes
-      calculateSlope : function () {
-        var first_note = this.notes[0];
-        var first_y_px = first_note.getStemExtents().topY;
-        var first_x_px = first_note.getStemX();
-
-        var inc = (this.render_options.max_slope - this.render_options.min_slope) /
-                  this.render_options.slope_iterations;
-        var min_cost = Number.MAX_VALUE;
-        var best_slope = 0;
-        var y_shift = 0;
-
-        // iterate through slope values to find best weighted fit
-        for (var slope = this.render_options.min_slope; slope <= this.render_options.max_slope; slope += inc) {
-          var total_stem_extension = 0;
-          var y_shift_tmp = 0;
-
-          // iterate through notes, calculating y shift and stem extension
-          for (var i = 1; i < this.notes.length; ++i) {
-            var note = this.notes[i];
-
-            var x_px = note.getStemX();
-            var y_px = note.getStemExtents().topY;
-            var slope_y_px = this.getSlopeY(x_px, first_x_px, first_y_px, slope) + y_shift_tmp;
-
-            // beam needs to be shifted up to accommodate note
-            if (y_px * this.stem_direction < slope_y_px * this.stem_direction) {
-              var diff = Math.abs(y_px - slope_y_px);
-              y_shift_tmp += diff * -this.stem_direction;
-              total_stem_extension += (diff * i);
-            } else { // beam overshoots note, account for the difference
-              total_stem_extension += (y_px - slope_y_px) * this.stem_direction;
-            }
-
-          }
-
-          var last_note = this.notes[this.notes.length - 1];
-          var first_last_slope = ((last_note.getStemExtents().topY - first_y_px) / (last_note.getStemX() - first_x_px));
-          // most engraving books suggest aiming for a slope about half the angle of the
-          // difference between the first and last notes' stem length;
-          var ideal_slope = first_last_slope / 2;
-          var distance_from_ideal = Math.abs(ideal_slope - slope);
-
-          // This tries to align most beams to something closer to the ideal_slope, but
-          // doesn't go crazy. To disable, set this.render_options.slope_cost = 0
-          var cost = this.render_options.slope_cost * distance_from_ideal + Math.abs(total_stem_extension);
-
-          // update state when a more ideal slope is found
-          if (cost < min_cost) {
-            min_cost = cost;
-            best_slope = slope;
-            y_shift = y_shift_tmp;
-          }
+      setRenderOptions : function (options) {
+        if (options) {
+          Vex.Merge(this.render_options, options);
         }
-
-        this.slope = best_slope;
-        this.y_shift = y_shift;
-      },
-
-      // Create new stems for the notes in the beam, so that each stem
-      // extends into the beams.
-      applyStemExtensions : function () {
-        var first_note = this.notes[0];
-        var first_y_px = first_note.getStemExtents().topY;
-        var first_x_px = first_note.getStemX();
-
-        for (var i = 0; i < this.notes.length; ++i) {
-          var note = this.notes[i];
-
-          var x_px = note.getStemX();
-          var y_extents = note.getStemExtents();
-          var base_y_px = y_extents.baseY;
-          var top_y_px = y_extents.topY;
-
-          // For harmonic note heads, shorten stem length by 3 pixels
-          base_y_px += this.stem_direction * note.glyph.stem_offset;
-
-          // Don't go all the way to the top (for thicker stems)
-          var y_displacement = Vex.Flow.STEM_WIDTH;
-
-          if (!note.hasStem()) {
-            if (note.isRest() && this.render_options.show_stemlets) {
-              var centerGlyphX = note.getCenterGlyphX();
-
-              var width = this.render_options.beam_width;
-              var total_width = ((this.beam_count - 1) * width * 1.5) + width;
-
-              var stemlet_height = (total_width - y_displacement + this.render_options.stemlet_extension);
-
-              var beam_y = this.getSlopeY(centerGlyphX, first_x_px, first_y_px, this.slope) + this.y_shift;
-              var start_y = beam_y + (Vex.Flow.Stem.HEIGHT * this.stem_direction);
-              var end_y = beam_y + (stemlet_height * this.stem_direction);
-
-              // Draw Stemlet
-              note.setStem(new Vex.Flow.Stem({
-                x_begin : centerGlyphX,
-                x_end : centerGlyphX,
-                y_bottom : this.stem_direction === 1 ? end_y : start_y,
-                y_top : this.stem_direction === 1 ? start_y : end_y,
-                y_extend : y_displacement,
-                stem_extension : -1, // To avoid protruding through the beam
-                stem_direction : this.stem_direction
-              }));
-            }
-
-            continue;
-          }
-
-          var slope_y = this.getSlopeY(x_px, first_x_px, first_y_px, this.slope) + this.y_shift;
-
-          note.setStem(new Vex.Flow.Stem({
-            x_begin : x_px - (Vex.Flow.STEM_WIDTH / 2),
-            x_end : x_px,
-            y_top : this.stem_direction === 1 ? top_y_px : base_y_px,
-            y_bottom : this.stem_direction === 1 ? base_y_px : top_y_px,
-            y_extend : y_displacement,
-            stem_extension : Math.abs(top_y_px - slope_y) - Stem.HEIGHT - 1,
-            stem_direction : this.stem_direction
-          }));
-        }
-      },
-
-      // Get the x coordinates for the beam lines of specific `duration`
-      getBeamLines : function (duration) {
-        var beam_lines = [];
-        var beam_started = false;
-        var current_beam;
-        var partial_beam_length = this.render_options.partial_beam_length;
-
-        function determinePartialSide(prev_note, next_note) {
-          // Compare beam counts and store differences
-          var unshared_beams = 0;
-          if (next_note && prev_note) {
-            unshared_beams = prev_note.getBeamCount() - next_note.getBeamCount();
-          }
-
-          //          var left_partial = duration !== "8" && unshared_beams > 0;
-          var right_partial = duration !== "8" && unshared_beams < 0;
-
-          return {
-            left : prev_note,
-            right : right_partial
-          };
-        }
-
-        for (var i = 0; i < this.notes.length; ++i) {
-          var note = this.notes[i];
-          var prev_note = this.notes[i - 1];
-          var next_note = this.notes[i + 1];
-          var ticks = note.getIntrinsicTicks();
-          var partial = determinePartialSide(prev_note, next_note);
-          var stem_x = note.isRest() ? note.getCenterGlyphX() : note.getStemX();
-
-          // Check whether to apply beam(s)
-          if (ticks < Vex.Flow.durationToTicks(duration)) {
-            if (!beam_started) {
-              if (!note.isRest()) {
-
-                var new_line = { start : stem_x, end : null, flipped : note.getStemDirection() !== this.stem_direction};
-
-                if (partial.left && !partial.right) {
-                  new_line.end = stem_x - partial_beam_length;
-                }
-
-                beam_lines.push(new_line);
-                beam_started = true;
-              }
-            } else {
-              current_beam = beam_lines[beam_lines.length - 1];
-              current_beam.end = stem_x;
-
-              // Should break secondary beams on note
-              var should_break = this.break_on_indices.indexOf(i) !== -1;
-              // Shorter than or eq an 8th note duration
-              var can_break = parseInt(duration, 10) >= 8;
-              if (should_break && can_break) {
-                beam_started = false;
-              }
-            }
-          } else {
-            if (!beam_started) {
-              // we don't care
-            } else {
-              current_beam = beam_lines[beam_lines.length - 1];
-              if (current_beam.end == null) {
-                // single note
-                current_beam.end = current_beam.start + partial_beam_length;
-              } else {
-                // we don't care
-              }
-            }
-
-            beam_started = false;
-          }
-        }
-
-        if (beam_started === true) {
-          current_beam = beam_lines[beam_lines.length - 1];
-          if (current_beam.end == null) {
-            // single note
-            current_beam.end = current_beam.start - partial_beam_length;
-          }
-        }
-
-        return beam_lines;
-      },
-
-      // Render the stems for each notes
-      drawStems : function () {
-        this.notes.forEach(function (note) {
-          if (note.getStem()) {
-            note.getStem().setContext(this.context).draw();
-          }
-        }, this);
-      },
-
-      // Render the beam lines
-      drawBeamLines : function () {
-        if (!this.context) throw new Vex.RERR("NoCanvasContext", "Can't draw without a canvas context.");
-
-        var valid_beam_durations = [
-          "4",
-          "8",
-          "16",
-          "32",
-          "64"
-        ];
-
-        var first_note = this.notes[0];
-        var last_note = this.notes[this.notes.length - 1];
-
-        var first_y_px = first_note.getStemExtents().topY;
-        var last_y_px = last_note.getStemExtents().topY;
-
-        var first_x_px = first_note.getStemX();
-
-        var beam_width = this.render_options.beam_width * this.stem_direction;
-
-        // Draw the beams.
-        for (var i = 0; i < valid_beam_durations.length; ++i) {
-          var duration = valid_beam_durations[i];
-          var beam_lines = this.getBeamLines(duration);
-
-          for (var j = 0; j < beam_lines.length; ++j) {
-            var beam_line = beam_lines[j];
-
-            if (!beam_line.flipped) {
-              var first_x = beam_line.start - (this.stem_direction == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
-              var first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
-
-              var last_x = beam_line.end +
-                           (this.stem_direction == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
-              var last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
-
-              this.context.beginPath();
-              this.context.moveTo(first_x, first_y + this.y_shift);
-              this.context.lineTo(first_x, first_y + beam_width + this.y_shift);
-              this.context.lineTo(last_x + 1, last_y + beam_width + this.y_shift);
-              this.context.lineTo(last_x + 1, last_y + this.y_shift);
-              this.context.closePath();
-              this.context.fill();
-
-            }
-          }
-
-          first_y_px += beam_width * 1.5;
-          last_y_px += beam_width * 1.5;
-        }
-
-
-        // TODO integrate!:
-
-
-        var beam_width = this.render_options.beam_width * this.stem_direction * -1;
-
-        var first_y_px = first_note.getStemExtents().topY - beam_width;
-        var last_y_px = last_note.getStemExtents().topY - beam_width;
-
-        var first_x_px = first_note.getStemX();
-
-
-        // Draw the beams.
-        for (var i = 0; i < valid_beam_durations.length; ++i) {
-          var duration = valid_beam_durations[i];
-          var beam_lines = this.getBeamLines(duration);
-
-          for (var j = 0; j < beam_lines.length; ++j) {
-            var beam_line = beam_lines[j];
-
-            if (beam_line.flipped) {
-              var first_x = beam_line.start - (this.stem_direction * -1 == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
-              var first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
-
-              var last_x = beam_line.end +
-                           (this.stem_direction * -1 == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
-              var last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
-
-              this.context.beginPath();
-              this.context.moveTo(first_x, first_y + this.y_shift);
-              this.context.lineTo(first_x, first_y + beam_width + this.y_shift);
-              this.context.lineTo(last_x + 1, last_y + beam_width + this.y_shift);
-              this.context.lineTo(last_x + 1, last_y + this.y_shift);
-              this.context.closePath();
-              this.context.fill();
-
-            }
-          }
-
-          first_y_px += beam_width * 1.5;
-          last_y_px += beam_width * 1.5;
-        }
-
-
-      },
-
-      // Pre-format the beam
-      preFormat : function () {
         return this;
       },
 
-      // Post-format the beam. This can only be called after
-      // the notes in the beam have both `x` and `y` values. ie: they've
-      // been formatted and have staves
-      postFormat : function () {
-        if (this.postFormatted) return;
+      /**
+       * Set the notes to attach this hairpin to.
+       *
+       * @param {!Object} notes The start and end notes.
+       */
+      setNotes : function (notes) {
+        if (!notes.first_note && !notes.last_note) {
+          throw new Vex.RuntimeError("BadArguments", "Hairpin needs to have either first_note or last_note set.");
+        }
 
-        this.calculateSlope();
-        this.applyStemExtensions();
-
-        this.postFormatted = true;
+        // Success. Lets grab 'em notes.
+        this.first_note = notes.first_note;
+        this.last_note = notes.last_note;
+        return this;
       },
 
-      // Render the beam to the canvas context
-      draw : function () {
-        if (!this.context) throw new Vex.RERR("NoCanvasContext", "Can't draw without a canvas context.");
+      renderHairpin : function (params) {
+        var ctx = this.context;
 
-        if (this.unbeamable) return;
+        ctx.save();
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
 
-        if (!this.postFormatted) {
-          this.postFormat();
+        var dis = this.render_options.y_shift + 20;
+        var y_shift = params.first_y;
+
+        if (this.position == VF.Modifier.Position.ABOVE) {
+          dis = -dis + 30;
+          y_shift = params.first_y - params.staff_height;
         }
 
-        this.drawStems();
-        this.drawBeamLines();
+        var l_shift = this.render_options.left_shift_px;
+        var r_shift = this.render_options.right_shift_px;
 
-        return true;
-      }
-    };
+        var x, x1, y, height;
+        x = params.first_x + l_shift;
+        x1 = params.last_x + r_shift;
+        y = y_shift + dis;
+        height = this.render_options.height;
 
-    function calculateStemDirection(notes) {
-      var lineSum = 0;
-      notes.forEach(function (note) {
-        if (note.keyProps) {
-          note.keyProps.forEach(function (keyProp) {
-            lineSum += (keyProp.line - 3);
-          });
-        }
-      });
+        this.x = x;
+        this.x1 = x1;
+        this.y = y;
+        this.height = height;
 
-      if (lineSum >= 0) {
-        return Stem.DOWN;
-      }
-      return Stem.UP;
-    }
-
-    // ## Static Methods
-    //
-    // Gets the default beam groups for a provided time signature.
-    // Attempts to guess if the time signature is not found in table.
-    // Currently this is fairly naive.
-    Beam.getDefaultBeamGroups = function (time_sig) {
-      if (!time_sig || time_sig == "c") time_sig = "4/4";
-
-      var defaults = {
-        '1/2' : ['1/2'],
-        '2/2' : ['1/2'],
-        '3/2' : ['1/2'],
-        '4/2' : ['1/2'],
-
-        '1/4' : ['1/4'],
-        '2/4' : ['1/4'],
-        '3/4' : ['1/4'],
-        '4/4' : ['1/4'],
-
-        '1/8' : ['1/8'],
-        '2/8' : ['2/8'],
-        '3/8' : ['3/8'],
-        '4/8' : ['2/8'],
-
-        '1/16' : ['1/16'],
-        '2/16' : ['2/16'],
-        '3/16' : ['3/16'],
-        '4/16' : ['2/16']
-      };
-
-      var Fraction = Vex.Flow.Fraction;
-      var groups = defaults[time_sig];
-
-      if (!groups) {
-        // If no beam groups found, naively determine
-        // the beam groupings from the time signature
-        var beatTotal = parseInt(time_sig.split('/')[0], 10);
-        var beatValue = parseInt(time_sig.split('/')[1], 10);
-
-        var tripleMeter = beatTotal % 3 === 0;
-
-        if (tripleMeter) {
-          return [new Fraction(3, beatValue)];
-        } else if (beatValue > 4) {
-          return [new Fraction(2, beatValue)];
-        } else if (beatValue <= 4) {
-          return [new Fraction(1, beatValue)];
-        }
-      } else {
-        return groups.map(function (group) {
-          return new Fraction().parse(group);
-        });
-      }
-    };
-
-    // A helper function to automatically build basic beams for a voice. For more
-    // complex auto-beaming use `Beam.generateBeams()`.
-    //
-    // Parameters:
-    // * `voice` - The voice to generate the beams for
-    // * `stem_direction` - A stem direction to apply to the entire voice
-    // * `groups` - An array of `Fraction` representing beat groupings for the beam
-    Beam.applyAndGetBeams = function (voice, stem_direction, groups) {
-      return Beam.generateBeams(voice.getTickables(), {
-        groups : groups,
-        stem_direction : stem_direction
-      });
-    };
-
-    // A helper function to autimatically build beams for a voice with
-    // configuration options.
-    //
-    // Example configuration object:
-    //
-    // ```
-    // config = {
-    //   groups: [new Vex.Flow.Fraction(2, 8)],
-    //   stem_direction: -1,
-    //   beam_rests: true,
-    //   beam_middle_only: true,
-    //   show_stemlets: false
-    // };
-    // ```
-    //
-    // Parameters:
-    // * `notes` - An array of notes to create the beams for
-    // * `config` - The configuration object
-    //    * `groups` - Array of `Fractions` that represent the beat structure to beam the notes
-    //    * `stem_direction` - Set to apply the same direction to all notes
-    //    * `beam_rests` - Set to `true` to include rests in the beams
-    //    * `beam_middle_only` - Set to `true` to only beam rests in the middle of the beat
-    //    * `show_stemlets` - Set to `true` to draw stemlets for rests
-    //    * `maintain_stem_directions` - Set to `true` to not apply new stem directions
-    //
-    Beam.generateBeams = function (notes, config) {
-
-      if (!config) config = {};
-
-      if (!config.groups || !config.groups.length) {
-        config.groups = [new Vex.Flow.Fraction(2, 8)];
-      }
-
-      // Convert beam groups to tick amounts
-      var tickGroups = config.groups.map(function (group) {
-        if (!group.multiply) {
-          throw new Vex.RuntimeError("InvalidBeamGroups", "The beam groups must be an array of Vex.Flow.Fractions");
-        }
-        return group.clone().multiply(Vex.Flow.RESOLUTION, 1);
-      });
-
-      var unprocessedNotes = notes;
-      var currentTickGroup = 0;
-      var noteGroups = [];
-      var currentGroup = [];
-
-      function getTotalTicks(vf_notes) {
-        return vf_notes.reduce(function (memo, note) {
-          return note.getTicks().clone().add(memo);
-        }, new Vex.Flow.Fraction(0, 1));
-      }
-
-      function nextTickGroup() {
-        if (tickGroups.length - 1 > currentTickGroup) {
-          currentTickGroup += 1;
-        } else {
-          currentTickGroup = 0;
-        }
-      }
-
-      function createGroups() {
-        var nextGroup = [];
-
-        unprocessedNotes.forEach(function (unprocessedNote) {
-          nextGroup = [];
-          if (unprocessedNote.shouldIgnoreTicks()) {
-            noteGroups.push(currentGroup);
-            currentGroup = nextGroup;
-            return; // Ignore untickables (like bar notes)
-          }
-
-          currentGroup.push(unprocessedNote);
-          var ticksPerGroup = tickGroups[currentTickGroup].clone();
-          var totalTicks = getTotalTicks(currentGroup);
-
-          // Double the amount of ticks in a group, if it's an unbeamable tuplet
-          var unbeamable = Vex.Flow.durationToNumber(unprocessedNote.duration) < 8;
-          if (unbeamable && unprocessedNote.tuplet) {
-            ticksPerGroup.numerator *= 2;
-          }
-
-          // If the note that was just added overflows the group tick total
-          if (totalTicks.greaterThan(ticksPerGroup)) {
-            // If the overflow note can be beamed, start the next group
-            // with it. Unbeamable notes leave the group overflowed.
-            if (!unbeamable) {
-              nextGroup.push(currentGroup.pop());
-            }
-            noteGroups.push(currentGroup);
-            currentGroup = nextGroup;
-            nextTickGroup();
-          } else if (totalTicks.equals(ticksPerGroup)) {
-            noteGroups.push(currentGroup);
-            currentGroup = nextGroup;
-            nextTickGroup();
-          }
-        });
-
-        // Adds any remainder notes
-        if (currentGroup.length > 0) {
-          noteGroups.push(currentGroup);
-        }
-      }
-
-      function getBeamGroups() {
-        return noteGroups.filter(function (group) {
-          if (group.length > 1) {
-            var beamable = true;
-            group.forEach(function (note) {
-              if (note.getIntrinsicTicks() >= Vex.Flow.durationToTicks("4")) {
-                beamable = false;
-              }
-            });
-            return beamable;
-          }
-          return false;
-        });
-      }
-
-      // Splits up groups by Rest
-      function sanitizeGroups() {
-        var sanitizedGroups = [];
-        noteGroups.forEach(function (group) {
-          var tempGroup = [];
-          group.forEach(function (note, index, group) {
-            var isFirstOrLast = index === 0 || index === group.length - 1;
-            var prevNote = group[index - 1];
-
-            var breaksOnEachRest = !config.beam_rests && note.isRest();
-            var breaksOnFirstOrLastRest = (config.beam_rests && config.beam_middle_only && note.isRest() &&
-                                           isFirstOrLast);
-
-            var breakOnStemChange = false;
-            if (config.maintain_stem_directions && prevNote && !note.isRest() && !prevNote.isRest()) {
-              var prevDirection = prevNote.getStemDirection();
-              var currentDirection = note.getStemDirection();
-              breakOnStemChange = currentDirection !== prevDirection;
-            }
-
-            var isUnbeamableDuration = parseInt(note.duration, 10) < 8;
-
-            // Determine if the group should be broken at this note
-            var shouldBreak = breaksOnEachRest || breaksOnFirstOrLastRest || breakOnStemChange || isUnbeamableDuration;
-
-            if (shouldBreak) {
-              // Add current group
-              if (tempGroup.length > 0) {
-                sanitizedGroups.push(tempGroup);
-              }
-
-              // Start a new group. Include the current note if the group
-              // was broken up by stem direction, as that note needs to start
-              // the next group of notes
-              tempGroup = breakOnStemChange ? [note] : [];
+        switch (this.hairpin) {
+          case StaveHairpin.type.CRESC:
+            if (params.continued_left) {
+              var height_diff = height * 0.2;
+              ctx.moveTo(x1 + l_shift, y);
+              ctx.lineTo(x, y + height_diff);
+              ctx.moveTo(x + l_shift,  y + height - height_diff);
+              ctx.lineTo(x1, y + height);
             } else {
-              // Add note to group
-              tempGroup.push(note);
+              ctx.moveTo(x1, y);
+              ctx.lineTo(x, y + (height / 2));
+              ctx.lineTo(x1, y + height);
             }
-          });
-
-          // If there is a remaining group, add it as well
-          if (tempGroup.length > 0) {
-            sanitizedGroups.push(tempGroup);
-          }
-        });
-
-        noteGroups = sanitizedGroups;
-      }
-
-      function formatStems() {
-        noteGroups.forEach(function (group) {
-          var stemDirection;
-          if (config.maintain_stem_directions) {
-            var note = findFirstNote(group);
-            stemDirection = note ? note.getStemDirection() : Stem.UP;
-          } else {
-            if (config.stem_direction) {
-              stemDirection = config.stem_direction;
-            } else {
-              stemDirection = calculateStemDirection(group);
-            }
-          }
-          applyStemDirection(group, stemDirection);
-        });
-      }
-
-      function findFirstNote(group) {
-        for (var i = 0; i < group.length; i++) {
-          var note = group[i];
-          if (!note.isRest()) {
-            return note;
-          }
-        }
-
-        return false;
-      }
-
-      function applyStemDirection(group, direction) {
-        group.forEach(function (note) {
-          note.setStemDirection(direction);
-        });
-      }
-
-      function getTupletGroups() {
-        return noteGroups.filter(function (group) {
-          if (group[0]) return group[0].tuplet;
-        });
-      }
-
-
-      // Using closures to store the variables throughout the various functions
-      // IMO Keeps it this process lot cleaner - but not super consistent with
-      // the rest of the API's style - Silverwolf90 (Cyril)
-      createGroups();
-      sanitizeGroups();
-      formatStems();
-
-      // Get the notes to be beamed
-      var beamedNoteGroups = getBeamGroups();
-
-      // Get the tuplets in order to format them accurately
-      var tupletGroups = getTupletGroups();
-
-      // Create a Vex.Flow.Beam from each group of notes to be beamed
-      var beams = [];
-      beamedNoteGroups.forEach(function (group) {
-        var beam = new Vex.Flow.Beam(group);
-
-        if (config.show_stemlets) {
-          beam.render_options.show_stemlets = true;
-        }
-
-        beams.push(beam);
-      });
-
-      // Reformat tuplets
-      tupletGroups.forEach(function (group) {
-        var firstNote = group[0];
-        for (var i = 0; i < group.length; ++i) {
-          if (group[i].hasStem()) {
-            firstNote = group[i];
             break;
-          }
+          case StaveHairpin.type.DECRESC:
+            if (params.continued_right) {
+              var height_diff = height * 0.2;
+              ctx.moveTo(x + l_shift, y);
+              ctx.lineTo(x1, y + height_diff);
+              ctx.moveTo(x1 + l_shift,  y + height - height_diff);
+              ctx.lineTo(x, y + height);
+            } else {
+              ctx.moveTo(x + l_shift, y);
+              ctx.lineTo(x1, y + (height / 2));
+              ctx.lineTo(x, y + height);
+            }
+            break;
+          default:
+            // Default is NONE, so nothing to draw
+            break;
         }
 
-        var tuplet = firstNote.tuplet;
+        ctx.stroke();
+        ctx.restore();
+      },
 
-        if (firstNote.beam) tuplet.setBracketed(false);
-        if (firstNote.stem_direction == Stem.DOWN) {
-          tuplet.setTupletLocation(Vex.Flow.Tuplet.LOCATION_BOTTOM);
+      draw : function () {
+        if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Hairpin without a context.");
+
+        var first_note = this.first_note;
+        var last_note = this.last_note;
+
+        if (first_note && last_note) {
+          var start = first_note.getModifierStartXY(this.position, 0);
+          var end = last_note.getModifierStartXY(this.position, 0);
+
+          this.renderHairpin({
+            first_x : start.x,
+            last_x : end.x,
+            first_y : first_note.getStave().y + first_note.getStave().height,
+            // currently not in use:
+//            last_y : last_note.getStave().y + last_note.getStave().height,
+            staff_height : first_note.getStave().height,
+            continued_left : false,
+            continued_right : false
+          });
+          return true;
+        } else if (first_note) {
+          var start = first_note.getModifierStartXY(this.position, 0);
+          this.renderHairpin({
+            first_x : start.x,
+            last_x : first_note.getStave().getSlurEndX(),
+            first_y : first_note.getStave().y + first_note.getStave().height,
+            // currently not in use:
+            //            last_y : last_note.getStave().y + last_note.getStave().height,
+            staff_height : first_note.getStave().height,
+            continued_left : false,
+            continued_right : true
+          });
+          return true;
+
+        } else {
+          var end = last_note.getModifierStartXY(this.position, 0);
+          this.renderHairpin({
+            first_x : last_note.getStave().getSlurStartX(),
+            last_x : end.x,
+            first_y : last_note.getStave().y + last_note.getStave().height,
+            // currently not in use:
+            //            last_y : last_note.getStave().y + last_note.getStave().height,
+            staff_height : last_note.getStave().height,
+            continued_left : true,
+            continued_right : false
+          });
         }
-      });
 
-      return beams;
+      }
     };
-
-    return Beam;
+    return StaveHairpin;
   }());
 
 
 
+
+
+
+
+  // VexFlow - Music Engraving for HTML5
+  // Copyright Mohit Muthanna 2010
+  //
+  // This class implements varies types of ties between contiguous notes. The
+  // ties include: regular ties, hammer ons, pull offs, and slides.
+
+  /**
+   * Create a new tie from the specified notes. The notes must
+   * be part of the same line, and have the same duration (in ticks).
+   *
+   * @constructor
+   * @param {!Object} context The canvas context.
+   * @param {!Object} notes The notes to tie up.
+   * @param {!Object} Options
+   */
+  VF.StaveTie = ( function () {
+    function StaveTie(notes, text) {
+      if (arguments.length > 0) {
+        this.init(notes, text);
+      }
+    }
+
+
+    StaveTie.prototype = {
+      init : function (notes, text) {
+        /**
+         * Notes is a struct that has:
+         *
+         *  {
+         *    first_note: Note,
+         *    last_note: Note,
+         *    first_indices: [n1, n2, n3],
+         *    last_indices: [n1, n2, n3]
+         *  }
+         *
+         **/
+        this.notes = notes;
+        this.context = null;
+        this.text = text;
+
+        this.render_options = {
+          cp1 : 8, // Curve control point 1
+          cp2 : 12, // Curve control point 2
+          text_shift_x : 0,
+          first_x_shift : 0,
+          last_x_shift : 0,
+          y_shift : 7,
+          tie_spacing : 0,
+          font : {
+            family : "Arial",
+            size : 10,
+            style : ""
+          }
+        };
+
+        this.font = this.render_options.font;
+        this.setNotes(notes);
+      },
+
+      setContext : function (context) {
+        this.context = context;
+        return this;
+      },
+      setFont : function (font) {
+        this.font = font;
+        return this;
+      },
+
+      /**
+       * Set the notes to attach this tie to.
+       *
+       * @param {!Object} notes The notes to tie up.
+       */
+      setNotes : function (notes) {
+        if (!notes.first_note && !notes.last_note) {
+          throw new Vex.RuntimeError("BadArguments", "Tie needs to have either first_note or last_note set.");
+        }
+
+        if (!notes.first_indices) {
+          notes.first_indices = [0];
+        }
+        if (!notes.last_indices) {
+          notes.last_indices = [0];
+        }
+
+        if (notes.first_indices.length != notes.last_indices.length) {
+          throw new Vex.RuntimeError("BadArguments", "Tied notes must have similar" + " index sizes");
+        }
+
+        // Success. Lets grab 'em notes.
+        this.first_note = notes.first_note;
+        this.first_indices = notes.first_indices;
+        this.last_note = notes.last_note;
+        this.last_indices = notes.last_indices;
+        return this;
+      },
+
+      /**
+       * @return {boolean} Returns true if this is a partial bar.
+       */
+      isPartial : function () {
+        return (!this.first_note || !this.last_note);
+      },
+
+      // START ADDITION
+      setDir : function (dir) {
+        this.curvedir = dir;
+      },
+
+      getDir : function () {
+        return this.curvedir;
+      },
+      // END ADDITION
+
+      renderTie : function (params) {
+        if (params.first_ys.length === 0 || params.last_ys.length === 0) {
+          throw new Vex.RERR("BadArguments", "No Y-values to render");
+        }
+
+        // START ADDITION
+        if (this.curvedir) {
+          params.direction = (this.curvedir === 'above') ? -1 : 1;
+        } else {
+          this.curvedir = params.direction;
+        }
+        // END ADDITION
+
+        var ctx = this.context;
+        var cp1 = this.render_options.cp1;
+        var cp2 = this.render_options.cp2;
+
+        if (Math.abs(params.last_x_px - params.first_x_px) < 10) {
+          cp1 = 2;
+          cp2 = 8;
+        }
+
+        var first_x_shift = this.render_options.first_x_shift;
+        var last_x_shift = this.render_options.last_x_shift;
+        var y_shift = this.render_options.y_shift * params.direction;
+
+        for (var i = 0; i < this.first_indices.length; ++i) {
+          var cp_x = ((params.last_x_px + last_x_shift) + (params.first_x_px + first_x_shift)) / 2;
+          var first_y_px = params.first_ys[this.first_indices[i]] + y_shift;
+          var last_y_px = params.last_ys[this.last_indices[i]] + y_shift;
+
+          if (isNaN(first_y_px) || isNaN(last_y_px)) {
+            throw new Vex.RERR("BadArguments", "Bad indices for tie rendering.");
+          }
+
+          var top_cp_y = ((first_y_px + last_y_px) / 2) + (cp1 * params.direction);
+          var bottom_cp_y = ((first_y_px + last_y_px) / 2) + (cp2 * params.direction);
+
+          ctx.beginPath();
+          ctx.moveTo(params.first_x_px + first_x_shift, first_y_px);
+          ctx.quadraticCurveTo(cp_x, top_cp_y, params.last_x_px + last_x_shift, last_y_px);
+          ctx.quadraticCurveTo(cp_x, bottom_cp_y, params.first_x_px + first_x_shift, first_y_px);
+
+          ctx.closePath();
+          ctx.fill();
+        }
+      },
+
+      renderText : function (first_x_px, last_x_px) {
+        if (!this.text) {
+          return;
+        }
+        var center_x = (first_x_px + last_x_px) / 2;
+        center_x -= this.context.measureText(this.text).width / 2;
+
+        this.context.save();
+        this.context.setFont(this.font.family, this.font.size, this.font.style);
+        this.context.fillText(this.text, center_x + this.render_options.text_shift_x, (this.first_note ||
+                                                                                       this.last_note).getStave().getYForTopText() -
+                                                                                      1);
+        this.context.restore();
+      },
+
+      draw : function () {
+        if (!this.context) {
+          throw new Vex.RERR("NoContext", "No context to render tie.");
+        }
+        var first_note = this.first_note;
+        var last_note = this.last_note;
+        var first_x_px, last_x_px, first_ys, last_ys, stem_direction;
+
+        if (first_note) {
+          first_x_px = first_note.getTieRightX() + this.render_options.tie_spacing;
+          stem_direction = first_note.getStemDirection();
+          first_ys = first_note.getYs();
+        } else {
+          first_x_px = last_note.getStave().getTieStartX();
+          first_ys = last_note.getYs();
+          this.first_indices = this.last_indices;
+        }
+
+        if (last_note) {
+          last_x_px = last_note.getTieLeftX() + this.render_options.tie_spacing;
+          stem_direction = last_note.getStemDirection();
+          last_ys = last_note.getYs();
+        } else {
+          last_x_px = first_note.getStave().getTieEndX();
+          last_ys = first_note.getYs();
+          this.last_indices = this.first_indices;
+        }
+
+        this.renderTie({
+          first_x_px : first_x_px,
+          last_x_px : last_x_px,
+          first_ys : first_ys,
+          last_ys : last_ys,
+          direction : stem_direction
+        });
+
+        this.renderText(first_x_px, last_x_px);
+        return true;
+      }
+    };
+
+    return StaveTie;
+  }());
+
+
+
+/**
+ * Changes:
+ * 1) set volta start x to measure start even if it's not the first stave modifier (e.g. when
+ * a new system starts with a volta
+ */
+
+
+
+  VF.Volta.prototype.draw = function (stave, x) {
+
+    x-=stave.getModifierXShift();
+
+    var Volta = VF.Volta;
+
+    if (!stave.context) throw new Vex.RERR("NoCanvasContext", "Can't draw stave without canvas context.");
+    var ctx = stave.context;
+    var width = stave.width;
+    var top_y = stave.getYForTopText(stave.options.num_lines) + this.y_shift;
+    var vert_height = 1.5 * stave.options.spacing_between_lines_px;
+    switch (this.volta) {
+      case Vex.Flow.Volta.type.BEGIN:
+        ctx.fillRect(this.x + x, top_y, 1, vert_height);
+        break;
+      case Vex.Flow.Volta.type.END:
+        width -= 5;
+        ctx.fillRect(this.x + x + width, top_y, 1, vert_height);
+        break;
+      case Vex.Flow.Volta.type.BEGIN_END:
+        width -= 3;
+        ctx.fillRect(this.x + x, top_y, 1, vert_height);
+        ctx.fillRect(this.x + x + width, top_y, 1, vert_height);
+        break;
+    }
+    // If the beginning of a volta, draw measure number
+    if (this.volta == Volta.type.BEGIN || this.volta == Volta.type.BEGIN_END) {
+      ctx.save();
+      ctx.setFont(this.font.family, this.font.size, this.font.weight);
+      ctx.fillText(this.number, this.x + x + 5, top_y + 15);
+      ctx.restore();
+    }
+    ctx.fillRect(this.x + x, top_y, width, 1);
+    return this;
+  };
+
+
+
+/**
+ * Modifications:
+ * 1) added arrow-less ROLL stroke type
+ */
+
+/**
+ * VexFlow extension to support tremolos not only on down- but also on up-stems
+ */
+
+
+
+  // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
+  // Author: Larry Kuhns
+  //
+  // ## Description
+  //
+  // This file implements the `Stroke` class which renders chord strokes
+  // that can be arpeggiated, brushed, rasquedo, etc.
+
+  Vex.Flow.Stroke = (function () {
+    function Stroke(type, options) {
+      if (arguments.length > 0) this.init(type, options);
+    }
+
+    Stroke.CATEGORY = "strokes";
+
+    Stroke.Type = {
+      ROLL : 0,
+      BRUSH_DOWN : 1,
+      BRUSH_UP : 2,
+      ROLL_DOWN : 3,        // Arpegiated chord
+      ROLL_UP : 4,          // Arpegiated chord
+      RASQUEDO_DOWN : 5,
+      RASQUEDO_UP : 6
+    };
+
+    var Modifier = Vex.Flow.Modifier;
+
+    // ## Static Methods
+
+    // Arrange strokes inside `ModifierContext`
+    Stroke.format = function (strokes, state) {
+      var left_shift = state.left_shift;
+      var stroke_spacing = 0;
+
+      if (!strokes || strokes.length === 0) return this;
+
+      var str_list = [];
+      var i, str, shift;
+      for (i = 0; i < strokes.length; ++i) {
+        str = strokes[i];
+        var note = str.getNote();
+        var props;
+        if (note instanceof Vex.Flow.StaveNote) {
+          props = note.getKeyProps()[str.getIndex()];
+          shift = (props.displaced ? note.getExtraLeftPx() : 0);
+          str_list.push({ line : props.line, shift : shift, str : str });
+        } else {
+          props = note.getPositions()[str.getIndex()];
+          str_list.push({ line : props.str, shift : 0, str : str });
+        }
+      }
+
+      var str_shift = left_shift;
+      var x_shift = 0;
+
+      // There can only be one stroke .. if more than one, they overlay each other
+      for (i = 0; i < str_list.length; ++i) {
+        str = str_list[i].str;
+        shift = str_list[i].shift;
+
+        str.setXShift(str_shift + shift);
+        x_shift = Math.max(str.getWidth() + stroke_spacing, x_shift);
+      }
+
+      state.left_shift += x_shift;
+      return true;
+    }
+
+    // ## Prototype Methods
+    Vex.Inherit(Stroke, Modifier, {
+      init : function (type, options) {
+        Stroke.superclass.init.call(this);
+
+        this.note = null;
+        this.options = Vex.Merge({}, options);
+
+        // multi voice - span stroke across all voices if true
+        this.all_voices = 'all_voices' in this.options ? this.options.all_voices : true;
+
+        // multi voice - end note of stroke, set in draw()
+        this.note_end = null;
+        this.index = null;
+        this.type = type;
+        this.position = Modifier.Position.LEFT;
+
+        this.render_options = {
+          font_scale : 38,
+          stroke_px : 3,
+          stroke_spacing : 10
+        };
+
+        this.font = {
+          family : "serif",
+          size : 10,
+          weight : "bold italic"
+        };
+
+        this.setXShift(0);
+        this.setWidth(10);
+      },
+
+      getPosition : function () {
+        return this.position;
+      },
+      addEndNote : function (note) {
+        this.note_end = note;
+        return this;
+      },
+
+      draw : function () {
+        if (!this.context) throw new Vex.RERR("NoContext", "Can't draw stroke without a context.");
+        if (!(this.note && (this.index != null))) {
+          throw new Vex.RERR("NoAttachedNote", "Can't draw stroke without a note and index.");
+        }
+        var start = this.note.getModifierStartXY(this.position, this.index);
+        var ys = this.note.getYs();
+        var topY = start.y;
+        var botY = start.y;
+        var x = start.x - 5;
+        var line_space = this.note.stave.options.spacing_between_lines_px;
+
+        var notes = this.getModifierContext().getModifiers(this.note.getCategory());
+        var i;
+        for (i = 0; i < notes.length; i++) {
+          ys = notes[i].getYs();
+          for (var n = 0; n < ys.length; n++) {
+            if (this.note == notes[i] || this.all_voices) {
+              topY = Vex.Min(topY, ys[n]);
+              botY = Vex.Max(botY, ys[n]);
+            }
+          }
+        }
+
+        var arrow, arrow_shift_x, arrow_y, text_shift_x, text_y;
+        switch (this.type) {
+          case Stroke.Type.BRUSH_DOWN:
+            arrow = "vc3";
+            arrow_shift_x = -3;
+            arrow_y = topY - (line_space / 2) + 10;
+            botY += (line_space / 2);
+            break;
+          case Stroke.Type.BRUSH_UP:
+            arrow = "v11";
+            arrow_shift_x = 0.5;
+            arrow_y = botY + (line_space / 2);
+            topY -= (line_space / 2);
+            break;
+          case Stroke.Type.ROLL:
+            topY += (line_space / 2);
+            if (this.note instanceof Vex.Flow.StaveNote && (botY - topY) % 2 !== 0) {
+              botY += 0.5 * line_space;
+            } else {
+              botY += line_space;
+            }
+            break;
+          case Stroke.Type.ROLL_DOWN:
+          case Stroke.Type.RASQUEDO_DOWN:
+            arrow = "vc3";
+            arrow_shift_x = -3;
+            text_shift_x = this.x_shift + arrow_shift_x - 2;
+            if (this.note instanceof Vex.Flow.StaveNote) {
+              topY += 1.5 * line_space;
+              if ((botY - topY) % 2 !== 0) {
+                botY += 0.5 * line_space;
+              } else {
+                botY += line_space;
+              }
+              arrow_y = topY - line_space;
+              text_y = botY + line_space + 2;
+            } else {
+              topY += 1.5 * line_space;
+              botY += line_space;
+              arrow_y = topY - 0.75 * line_space;
+              text_y = botY + 0.25 * line_space;
+            }
+            break;
+          case Stroke.Type.ROLL_UP:
+          case Stroke.Type.RASQUEDO_UP:
+            arrow = "v52";
+            arrow_shift_x = -4;
+            text_shift_x = this.x_shift + arrow_shift_x - 1;
+            if (this.note instanceof Vex.Flow.StaveNote) {
+              arrow_y = line_space / 2;
+              topY += 0.5 * line_space;
+              if ((botY - topY) % 2 === 0) {
+                botY += line_space / 2;
+              }
+              arrow_y = botY + 0.5 * line_space;
+              text_y = topY - 1.25 * line_space;
+            } else {
+              topY += 0.25 * line_space;
+              botY += 0.5 * line_space;
+              arrow_y = botY + 0.25 * line_space;
+              text_y = topY - line_space;
+            }
+            break;
+        }
+
+        // Draw the stroke
+        if (this.type == Stroke.Type.BRUSH_DOWN || this.type == Stroke.Type.BRUSH_UP) {
+          this.context.fillRect(x + this.x_shift, topY, 1, botY - topY);
+        } else {
+          if (this.note instanceof Vex.Flow.StaveNote) {
+            for (i = topY; i <= botY; i += line_space) {
+              Vex.Flow.renderGlyph(this.context, x + this.x_shift - 4, i, this.render_options.font_scale, "va3");
+            }
+          } else {
+            for (i = topY; i <= botY; i += 10) {
+              Vex.Flow.renderGlyph(this.context, x + this.x_shift - 4, i, this.render_options.font_scale, "va3");
+            }
+            if (this.type == Vex.Flow.Stroke.Type.RASQUEDO_DOWN) {
+              text_y = i + 0.25 * line_space;
+            }
+          }
+        }
+
+        // Draw the arrow head
+        if (this.type !== Stroke.Type.ROLL) {
+          Vex.Flow.renderGlyph(this.context, x + this.x_shift +
+                                             arrow_shift_x, arrow_y, this.render_options.font_scale, arrow);
+        }
+
+        // Draw the rasquedo "R"
+        if (this.type == Stroke.Type.RASQUEDO_DOWN || this.type == Stroke.Type.RASQUEDO_UP) {
+          this.context.save();
+          this.context.setFont(this.font.family, this.font.size, this.font.weight);
+          this.context.fillText("R", x + text_shift_x, text_y);
+          this.context.restore();
+        }
+      }
+    });
+
+    return Stroke;
+  }());
+
+
+/**
+ * VexFlow extension to support tremolos not only on down- but also on up-stems
+ */
+
+
+
+  VF.Tremolo.prototype.draw = function () {
+    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Tremolo without a context.");
+    if (!(this.note && (this.index != null))) {
+      throw new Vex.RERR("NoAttachedNote", "Can't draw Tremolo without a note and index.");
+    }
+
+
+    var stem = this.note.getStem();
+
+    var start, x, y;
+
+    if (this.note.duration === 'w') {
+      x = (stem.x_end + stem.x_begin) / 2;
+      if (stem.stem_direction === 1) {
+        y = stem.getExtents().topY - (this.y_spacing * this.num / 2) + stem.stem_extension;
+      } else {
+        start = this.note.getModifierStartXY(this.position, this.index);
+        y = start.y;
+      }
+    } else if (stem.stem_direction === 1) {
+      x = stem.x_end;
+      y = stem.getExtents().topY - (this.y_spacing * this.num / 2);
+    } else {
+      start = this.note.getModifierStartXY(this.position, this.index);
+      x = start.x; // or stem.x_begin
+      y = start.y;
+    }
+
+    x += this.shift_right;
+    for (var i = 0; i < this.num; ++i) {
+      Vex.Flow.renderGlyph(this.context, x, y, this.render_options.font_scale, this.code);
+      y += this.y_spacing;
+    }
+  };
+
+
+;
 
 
   var RuntimeError = function (message) {
@@ -17629,7 +18429,7 @@ Vex.Flow.TextDynamics = (function(){
     if (meiXmlDoc) {
       this.init(meiXmlDoc);
     }
-  }
+  };
   /**
    * @method init
    * Initializes a <code>MeiLib.MeiDoc</code> object.
@@ -17657,37 +18457,37 @@ Vex.Flow.TextDynamics = (function(){
     this.parseALTs();
     this.initAltgroups();
     this.initSectionView();
-  }
+  };
   /**
    * @method getRichScore
    */
   MeiLib.MeiDoc.prototype.getRichScore = function () {
     return this.rich_score;
-  }
+  };
   /**
    * @method getPlainScore
    */
   MeiLib.MeiDoc.prototype.getPlainScore = function () {
     return this.plain_score;
-  }
+  };
   /**
    * @method getALTs
    */
   MeiLib.MeiDoc.prototype.getALTs = function () {
     return this.ALTs;
-  }
+  };
   /**
    * @method getSourceList
    */
   MeiLib.MeiDoc.prototype.getSourceList = function () {
     return this.sourceList;
-  }
+  };
   /**
    * @method getEditorList
    */
   MeiLib.MeiDoc.prototype.getEditorList = function () {
     return this.editorList;
-  }
+  };
   /**
    * @method parseSourceList
    * Extracts information about the sources as defined in the MEI header.
@@ -17780,7 +18580,7 @@ Vex.Flow.TextDynamics = (function(){
       }
       this.ALTs[MeiLib.XMLID(app)] = AppsItem;
     }
-  }
+  };
   /**
    * @method initAltgroups
    */
@@ -17870,7 +18670,7 @@ Vex.Flow.TextDynamics = (function(){
       }
     }
     return result;
-  }
+  };
 
   MeiLib.MeiDoc.prototype.initSectionView = function (altReplacements) {
     altReplacements = altReplacements || {};
@@ -17900,7 +18700,7 @@ Vex.Flow.TextDynamics = (function(){
     var this_ALTs = this.ALTs;
     var xmlDoc = this.xmlDoc;
     var me = this;
-
+    var alt;
     var i, j;
     for (i = 0, j = alts.length; i < j; i++) {
       alt = alts[i];
@@ -18234,6 +19034,10 @@ Vex.Flow.TextDynamics = (function(){
       return obj;
     },
 
+    pListToArray : function (pList) {
+      return (pList !== null) ? pList.split(' ') : [];
+    },
+
     /**
      *
      */
@@ -18403,7 +19207,7 @@ Vex.Flow.TextDynamics = (function(){
       return tagName === 'clef';
     };
 
-    var IsSimpleEvent = function (tagName) {
+    var isSimpleEvent = function (tagName) {
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
     };
 
@@ -18453,7 +19257,7 @@ Vex.Flow.TextDynamics = (function(){
                                                                Util.serializeElement(chord));
       }
       return dotsMult * MeiLib.dur2beats(Number(dur), meter);
-    }
+    };
 
     var durationOf_Beam = function (beam, meter) {
       var acc = 0, i, j, childNodes, childNode;
@@ -18464,7 +19268,7 @@ Vex.Flow.TextDynamics = (function(){
         var tagName = childNode.localName;
         if (IsZeroDurEvent(childNode, tagName)) {
           dur_b = 0;
-        } else if (IsSimpleEvent(tagName)) {
+        } else if (isSimpleEvent(tagName)) {
           dur_b = durationOf_SimpleEvent(childNode, meter);
         } else if (tagName === 'chord') {
           dur_b = durationOf_Chord(childNode, meter);
@@ -18496,7 +19300,7 @@ Vex.Flow.TextDynamics = (function(){
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
     }
-    if (IsSimpleEvent(evnt_name)) {
+    if (isSimpleEvent(evnt_name)) {
       return durationOf_SimpleEvent(evnt, meter);
     }
     if (evnt_name === 'mRest') {
@@ -18514,7 +19318,7 @@ Vex.Flow.TextDynamics = (function(){
     return 0;
     //throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', "Not supported element: '" + evnt_name + "'");
 
-  }
+  };
   /**
    * @method tstamp2id
    * Find the event with the minimum distance from of the given timestamp.
@@ -18588,7 +19392,7 @@ Vex.Flow.TextDynamics = (function(){
       winner.setAttribute('xml:id', xml_id);
     }
     return xml_id;
-  }
+  };
   /**
    * @method XMLID
    * returns the xml:id attribute of an element; if there is none, the function
@@ -18603,7 +19407,7 @@ Vex.Flow.TextDynamics = (function(){
       elem.setAttribute('xml:id', xml_id);
     }
     return xml_id;
-  }
+  };
   /**
    * @method id2tstamp
    * Calculates a timestamp value for an event in a given context. (Event refers
@@ -18653,7 +19457,7 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.dur2beats = function (dur, meter) {
     return (meter.unit / dur);
-  }
+  };
   /**
    * @method beats2dur
    * Convert relative duration (nuber of beats) into absolute duration (e.g.
@@ -18666,7 +19470,7 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.beats2dur = function (beats, meter) {
     return (meter.unit / beats);
-  }
+  };
   /**
    * @method dotsMult
    * Converts the <b>dots</b> attribute value into a duration multiplier.
@@ -18811,6 +19615,152 @@ Vex.Flow.TextDynamics = (function(){
     return sumUpUntil_inNode(layer);
   };
 /*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+
+  var EventContext = function (notes_by_id, system_n, beamInfosToResolve) {
+
+    var me = this;
+
+    me.notes_by_id = notes_by_id;
+    me.system_n = system_n;
+    me.newBeamInfosToResolve = [];
+    me.clefCheckQueue = [];
+
+  };
+
+  EventContext.prototype = {
+
+    startNewStave : function(stave, stave_n) {
+      var me = this;
+
+      me.stave = stave;
+      me.stave_n = stave_n;
+
+      /**
+       * inBeamNo specifies the number of beams the current events are under
+       */
+      me.inBeamNo = 0;
+      /**
+       * hasStemDirInBeam specifies if a stem.dir has been specified in the current beam
+       */
+      me.hasStemDirInBeam = false;
+      me.hasSpaceInBeam = false;
+      /**
+       * Grace note or grace chord objects to be added to the next non-grace note or chord
+       * @property {Vex.Flow.StaveNote[]} graceNoteQueue
+       */
+      me.graceNoteQueue = [];
+      me.clefChangeInfo = null;
+
+      me.beamInfosToResolve = me.newBeamInfosToResolve;
+      me.newBeamInfosToResolve = [];
+    },
+
+    setLayerDir : function (layerDir) {
+      this.layerDir = layerDir;
+    },
+
+    getLayerDir : function () {
+      return this.layerDir;
+    },
+
+    setStaveN : function(n) {
+      this.stave_n = n;
+    },
+
+    setStave : function(stave) {
+      this.stave = stave;
+    },
+
+    getStave : function () {
+      return this.stave;
+    },
+
+    enterBeam : function () {
+      this.inBeamNo += 1;
+    },
+
+    exitBeam : function () {
+      var me = this;
+      me.inBeamNo -= 1;
+      if (me.inBeamNo === 0) {
+        me.hasStemDirInBeam = false;
+        me.hasSpaceInBeam = false;
+      }
+    },
+
+    addBeamInfoToResolve : function (element, vexNotes) {
+      this.newBeamInfosToResolve.push({
+        element : element,
+        vexNotes : vexNotes
+      });
+    },
+
+    shiftBeamInfoToResolve : function () {
+      return this.beamInfosToResolve.shift();
+    },
+
+    setSpaceInBeam : function (val) {
+      this.hasSpaceInBeam = val;
+    },
+
+    getSpaceInBeam : function () {
+      return this.hasSpaceInBeam;
+    },
+
+    setStemDirInBeam : function (val) {
+      this.hasStemDirInBeam = val;
+    },
+
+    getStemDirInBeam : function () {
+      return this.hasStemDirInBeam;
+    },
+
+    isInBeam : function (){
+      return this.inBeamNo > 0;
+    },
+
+    addEvent : function (xml_id, obj) {
+      var me = this;
+      obj.system = me.system_n;
+      obj.layerDir = me.layerDir;
+      me.notes_by_id[xml_id] = obj;
+    },
+
+    setClefChangeInfo : function (info) {
+      this.clefChangeInfo = info;
+    },
+
+    getClefChangeInfo : function () {
+      return this.clefChangeInfo;
+    },
+
+    addToClefCheckQueue : function (event) {
+      this.clefCheckQueue.push(event);
+    },
+
+    emptyClefCheckQueue : function () {
+      this.clefCheckQueue = [];
+    }
+
+  };
+/*
  * Component of MEItoVexFlow Author: Raffaele Viglianti, 2012
  *
  * Copyright © 2012, 2013 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
@@ -18933,6 +19883,56 @@ Vex.Flow.TextDynamics = (function(){
 
   };
 /*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  var Articulation = function (type) {
+    this.init(type);
+  };
+
+  Articulation.CATEGORY = "articulations";
+
+  Vex.Inherit(Articulation, VF.Articulation, {
+
+    init : function (type) {
+      Articulation.superclass.init.call(this, type);
+      this.meiElement = [];
+    },
+
+    addMeiElement : function (element) {
+      this.meiElement.push(element);
+      return this;
+    },
+
+    getMeiElement : function () {
+      return this.meiElement;
+    },
+
+    draw : function () {
+
+      if (this.position === null) {
+        this.position = (this.note.getStemDirection() === VF.StaveNote.STEM_DOWN) ? VF.Modifier.Position.ABOVE : VF.Modifier.Position.BELOW;
+      }
+
+      Articulation.superclass.draw.call(this);
+    }
+
+  });
+/*
  * MEItoVexFlow, EventUtil class
  * (based on meitovexflow.js)
  * Author of reworkings: Alexander Erhard
@@ -19042,21 +20042,54 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Element} element the articulation element
      */
     addArticulation : function (note, element) {
-      var articCode = Tables.articulations[element.getAttribute('artic')];
-      if (articCode) {
-        var vexArtic = new VF.Articulation(articCode).setMeiElement(element);
-        var place = element.getAttribute('place');
-        if (place) {
-          vexArtic.setPosition(Tables.positions[place]);
+      var i, j, k, articCode, vexArtic, articElement;
+
+      var articElement = element.getAttribute('artic');
+
+      if (articElement !== null) {
+
+        var artics = articElement.split(' ');
+
+        for (k=0;k<artics.length;k++) {
+
+          articCode = Tables.articulations[artics[k]];
+
+          if (articCode) {
+            vexArtic = null;
+            for (i = 0, j = note.modifiers.length; i < j; i++) {
+              if (note.modifiers[i].type === articCode) {
+                vexArtic = note.modifiers[i];
+                break;
+              }
+            }
+            if (vexArtic) {
+              vexArtic.addMeiElement(element);
+            } else {
+              var vexArtic = new Articulation(articCode).addMeiElement(element);
+              var place = element.getAttribute('place');
+              if (place) {
+                vexArtic.setPosition(Tables.positions[place]);
+              } else{
+                // sets position to null; null positions are processed in Articulation.draw()
+                vexArtic.setPosition(null);
+              }
+              note.addArticulation(0, vexArtic);
+            }
+          } else {
+            Logger.info('unknown @artic', 'The @artic attribute in ' + Util.serializeElement(element) +
+                                          ' is unknown. Ignoring articulation.');
+          }
         }
-        note.addArticulation(0, vexArtic);
       } else {
-        Logger.warn('unknown @artic', 'The @artic attribute in ' + Util.serializeElement(element) +
-                                      ' is unknown or undefined. Ignoring element.');
+        Logger.warn('Missing attribute', Util.serializeElement(element) +
+                                         ' does not have an @artic attribute. Ignoring articulation.');
       }
     },
 
-    addFermataAtt : function () {
+    addFermataAtt : function (note, element, place, index) {
+      var me = this;
+      var vexPlace = Tables.fermata[place];
+      me.addNewFermata(note, element, place, index, vexPlace);
     },
 
     /**
@@ -19068,9 +20101,25 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Number} index The index of the note in a chord (optional)
      */
     addFermata : function (note, element, place, index) {
-      var vexArtic = new VF.Articulation(Tables.fermata[place]);
+      var me = this, i, j, vexArtic = null, vexPlace;
+      vexPlace = Tables.fermata[place];
+      for (i = 0, j = note.modifiers.length; i < j; i++) {
+        if (note.modifiers[i].type === vexPlace) {
+          vexArtic = note.modifiers[i];
+          break;
+        }
+      }
+      if (vexArtic) {
+        vexArtic.addMeiElement(element);
+      } else {
+        me.addNewFermata(note, element, place, index, vexPlace);
+      }
+    },
+
+    addNewFermata : function (note, element, place, index, articCode) {
+      var vexArtic = new Articulation(articCode);
       vexArtic.setPosition(Tables.positions[place]);
-      vexArtic.setMeiElement(element);
+      vexArtic.addMeiElement(element);
       note.addArticulation(index || 0, vexArtic);
     },
 
@@ -19082,10 +20131,7 @@ Vex.Flow.TextDynamics = (function(){
         Logger.info('Not supported', 'The value of @stem.mod="' + stemMod + '" specified in ' +
                                      Util.serializeElement(element) + ' is not supported. Ignoring attribute');
       }
-
-
     },
-
 
     addClefModifier : function (vexNote, prop) {
       var clef = new VF.ClefNote(prop.type, 'small', prop.shift === -1 ? '8vb' : undefined);
@@ -19112,6 +20158,15 @@ Vex.Flow.TextDynamics = (function(){
         vexOptions.auto_stem = true;
         return false;
       }
+    },
+
+    setCueSize: function () {
+      this.render_options.glyph_font_scale = 22;
+      this.render_options.stem_height = 20;
+      this.render_options.stroke_px = 2;
+      this.glyph.head_width = 6;
+      this.buildNoteHeads();
+      this.width = 3;
     }
 
 
@@ -19150,6 +20205,9 @@ Vex.Flow.TextDynamics = (function(){
 
     VF.StaveNote.call(this, vexOptions);
 
+    if (atts.size === 'cue') {
+      EventUtil.setCueSize.call(this);
+    }
 
     dots = +atts.dots || 0;
     for (i = 0; i < dots; i += 1) {
@@ -19177,6 +20235,9 @@ Vex.Flow.TextDynamics = (function(){
 
     if (atts.accid) {
       EventUtil.processAttrAccid(atts.accid, this, 0);
+    }
+    if (atts.artic) {
+      EventUtil.addArticulation(me, element);
     }
     if (atts.ho) {
       EventUtil.processAttrHo(atts.ho, this, options.stave);
@@ -19255,6 +20316,9 @@ Vex.Flow.TextDynamics = (function(){
     if (atts.accid) {
       EventUtil.processAttrAccid(atts.accid, this, 0);
     }
+    if (atts.artic) {
+      EventUtil.addArticulation(me, element);
+    }
     if (atts.ho) {
       EventUtil.processAttrHo(atts.ho, this, options.stave);
     }
@@ -19288,73 +20352,81 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
-    var Chord = function (options) {
+  var Chord = function (options) {
 
-          var me = this, atts = options.atts, element = options.element;
-          var hasDots, durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
+    var me = this, atts = options.atts, element = options.element;
+    var durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
 
-          noteElements = options.noteElements;
+    noteElements = options.noteElements;
 
-          durAtt = atts.dur;
+    durAtt = atts.dur;
 
-          if (durAtt) {
-            duration = EventUtil.processAttsDuration(element, atts);
-            dots = +atts.dots || 0;
-            for (i = 0, j = noteElements.length; i < j; i += 1) {
-              keys.push(EventUtil.getVexPitch(noteElements[i]));
-            }
-          } else {
-            for (i = 0, j = noteElements.length; i < j; i += 1) {
-              durations.push(+noteElements[i].getAttribute('dur'));
-              dots =+noteElements[i].getAttribute('dots') || 0;
-              keys.push(EventUtil.getVexPitch(noteElements[i]));
-            }
-            duration = EventUtil.translateDuration(element, Math.max.apply(Math, durations));
-            for (i = 0; i < dots; i += 1) {
-              duration += 'd';
-            }
-          }
-
-
-          var vexOptions = {
-            keys : keys,
-            duration : duration,
-            clef : options.clef.type,
-            octave_shift : options.clef.shift
-          };
-
-          this.hasMeiStemDir = EventUtil.setStemDir(options, vexOptions);
-
-
-          VF.StaveNote.call(this, vexOptions);
-
-          for (i = 0; i < dots; i += 1) {
-            this.addDotToAll();
-          }
-
-          this.setStave(options.stave);
-
-          if (atts.ho) {
-            EventUtil.processAttrHo(atts.ho, me, options.stave);
-          }
-
-          var articElements = element.getElementsByTagName('artic');
-          for (i=0,j=articElements.length;i<j;i++) {
-            EventUtil.addArticulation(me, articElements[i]);
-          }
-
-          if (atts.fermata) {
-            EventUtil.addFermataAtt(me, element, atts.fermata);
-          }
-      if (atts['stem.mod']) {
-        EventUtil.addStemModifier(this, element, atts['stem.mod']);
+    if (durAtt) {
+      duration = EventUtil.processAttsDuration(element, atts);
+      dots = +atts.dots || 0;
+      for (i = 0, j = noteElements.length; i < j; i += 1) {
+        keys.push(EventUtil.getVexPitch(noteElements[i]));
       }
+    } else {
+      for (i = 0, j = noteElements.length; i < j; i += 1) {
+        durations.push(+noteElements[i].getAttribute('dur'));
+        dots = +noteElements[i].getAttribute('dots') || 0;
+        keys.push(EventUtil.getVexPitch(noteElements[i]));
+      }
+      duration = EventUtil.translateDuration(element, Math.max.apply(Math, durations));
+      for (i = 0; i < dots; i += 1) {
+        duration += 'd';
+      }
+    }
 
-        };
 
-    Chord.prototype = Object.create(VF.StaveNote.prototype);
+    var vexOptions = {
+      keys : keys,
+      duration : duration,
+      clef : options.clef.type,
+      octave_shift : options.clef.shift
+    };
 
-    Chord.prototype.beamable = true;
+    this.hasMeiStemDir = EventUtil.setStemDir(options, vexOptions);
+
+
+    VF.StaveNote.call(this, vexOptions);
+
+    if (atts.size === 'cue') {
+      EventUtil.setCueSize.call(this);
+    }
+
+
+    for (i = 0; i < dots; i += 1) {
+      this.addDotToAll();
+    }
+
+    this.setStave(options.stave);
+
+    if (atts.ho) {
+      EventUtil.processAttrHo(atts.ho, me, options.stave);
+    }
+
+    var articElements = element.getElementsByTagName('artic');
+    for (i = 0, j = articElements.length; i < j; i++) {
+      EventUtil.addArticulation(me, articElements[i]);
+    }
+    if (atts.artic) {
+      EventUtil.addArticulation(me, element);
+    }
+
+    if (atts.fermata) {
+      EventUtil.addFermataAtt(me, element, atts.fermata);
+    }
+    if (atts['stem.mod']) {
+      EventUtil.addStemModifier(this, element, atts['stem.mod']);
+    }
+
+  };
+
+  Chord.prototype = Object.create(VF.StaveNote.prototype);
+
+  Chord.prototype.beamable = true;
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
  *
@@ -19376,7 +20448,7 @@ Vex.Flow.TextDynamics = (function(){
 
   var GraceChord = function (options) {
     var me = this, atts = options.atts, element = options.element;
-    var hasDots, durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
+    var durAtt, durations = [], duration, keys = [], i, j, noteElements, dots;
 
     noteElements = options.noteElements;
 
@@ -19431,7 +20503,9 @@ Vex.Flow.TextDynamics = (function(){
     for (i=0,j=articElements.length;i<j;i++) {
       EventUtil.addArticulation(me, articElements[i]);
     }
-
+    if (atts.artic) {
+      EventUtil.addArticulation(me, element);
+    }
 
     if (atts.fermata) {
       EventUtil.addFermataAtt(me, element, atts.fermata);
@@ -19486,6 +20560,11 @@ Vex.Flow.TextDynamics = (function(){
 
 
     VF.StaveNote.call(this, vexOptions);
+
+    if (atts.size === 'cue') {
+      EventUtil.setCueSize.call(this);
+    }
+
 
     dots = +atts.dots || 0;
     for (i = 0; i < dots; i += 1) {
@@ -19573,6 +20652,11 @@ Vex.Flow.TextDynamics = (function(){
     }
 
     VF.StaveNote.call(this, vexOptions);
+
+    if (atts.size === 'cue') {
+      EventUtil.setCueSize.call(this);
+    }
+
 
     dots = +atts.dots || 0;
     for (i = 0; i < dots; i += 1) {
@@ -19691,7 +20775,7 @@ Vex.Flow.TextDynamics = (function(){
       return tagName === 'clef';
     };
 
-    var IsSimpleEvent = function (tagName) {
+    var isSimpleEvent = function (tagName) {
       return (tagName === 'note' || tagName === 'rest' || tagName === 'space');
     };
 
@@ -19741,7 +20825,7 @@ Vex.Flow.TextDynamics = (function(){
                                                                Util.serializeElement(chord));
       }
       return dotsMult * MeiLib.dur2beats(Number(dur), meter);
-    }
+    };
 
     var durationOf_Beam = function (beam, meter) {
       var acc = 0, i, j, childNodes, childNode;
@@ -19752,7 +20836,7 @@ Vex.Flow.TextDynamics = (function(){
         var tagName = childNode.localName;
         if (IsZeroDurEvent(childNode, tagName)) {
           dur_b = 0;
-        } else if (IsSimpleEvent(tagName)) {
+        } else if (isSimpleEvent(tagName)) {
           dur_b = durationOf_SimpleEvent(childNode, meter);
         } else if (tagName === 'chord') {
           dur_b = durationOf_Chord(childNode, meter);
@@ -19784,7 +20868,7 @@ Vex.Flow.TextDynamics = (function(){
     if (IsZeroDurEvent(evnt, evnt_name)) {
       return 0;
     }
-    if (IsSimpleEvent(evnt_name)) {
+    if (isSimpleEvent(evnt_name)) {
       return durationOf_SimpleEvent(evnt, meter);
     }
     if (evnt_name === 'mRest') {
@@ -19802,7 +20886,7 @@ Vex.Flow.TextDynamics = (function(){
     return 0;
     //throw new MeiLib.RuntimeError('MeiLib.durationOf:E05', "Not supported element: '" + evnt_name + "'");
 
-  }
+  };
   /**
    * @method tstamp2id
    * Find the event with the minimum distance from of the given timestamp.
@@ -19876,7 +20960,7 @@ Vex.Flow.TextDynamics = (function(){
       winner.setAttribute('xml:id', xml_id);
     }
     return xml_id;
-  }
+  };
   /**
    * @method XMLID
    * returns the xml:id attribute of an element; if there is none, the function
@@ -19891,7 +20975,7 @@ Vex.Flow.TextDynamics = (function(){
       elem.setAttribute('xml:id', xml_id);
     }
     return xml_id;
-  }
+  };
   /**
    * @method id2tstamp
    * Calculates a timestamp value for an event in a given context. (Event refers
@@ -19941,7 +21025,7 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.dur2beats = function (dur, meter) {
     return (meter.unit / dur);
-  }
+  };
   /**
    * @method beats2dur
    * Convert relative duration (nuber of beats) into absolute duration (e.g.
@@ -19954,7 +21038,7 @@ Vex.Flow.TextDynamics = (function(){
    */
   MeiLib.beats2dur = function (beats, meter) {
     return (meter.unit / beats);
-  }
+  };
   /**
    * @method dotsMult
    * Converts the <b>dots</b> attribute value into a duration multiplier.
@@ -20162,7 +21246,7 @@ Vex.Flow.TextDynamics = (function(){
      * @private
      */
     tryResolveReference : function () {
-      var tstamp, meicontext;
+      var tstamp;
       tstamp = this.tstamp;
       if (!tstamp) {
         throw new RuntimeError('tstamp must be set in order to resolve reference.');
@@ -20263,6 +21347,14 @@ Vex.Flow.TextDynamics = (function(){
      */
     setParams : function (params) {
       this.params = params;
+    },
+
+    setMeiElement : function (element) {
+      this.meiElement = element;
+    },
+
+    getMeiElement : function () {
+      return this.meiElement;
     },
 
     setFirstRef : function (first_ref) {
@@ -20386,10 +21478,14 @@ Vex.Flow.TextDynamics = (function(){
 
       // convert tstamp into startid in current measure
       var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
-        var i, j, element, eventLink, atts, startid, tstamp, endid, tstamp2, measures_ahead;
+        var tstamp;
 
         var stffinf = link_staveInfo(lnkelem);
         var stave = measureElement.querySelector('staff[n="' + stffinf.stave_n + '"]');
+        if (!stave) {
+          throw new RuntimeError('Cannot find staff @n="' + stffinf.stave_n + '" in ' +
+                                 Util.serializeElement(measureElement));
+        }
         var layer = stave.querySelector('layer[n="' + stffinf.layer_n + '"]');
         if (!layer) {
           var layer_candid = stave.getElementsByTagName('layer')[0];
@@ -20420,6 +21516,8 @@ Vex.Flow.TextDynamics = (function(){
         return tstamp2.substring(tstamp2.indexOf('+') + 1);
       };
 
+      var i, j, eventLink, element, atts, startid, tstamp, tstamp2, endid, measures_ahead;
+
       for (i = 0, j = link_elements.length; i < j; i++) {
         element = link_elements[i];
 
@@ -20430,6 +21528,7 @@ Vex.Flow.TextDynamics = (function(){
         me.validateAtts(atts);
 
         eventLink.setParams(atts);
+        eventLink.setMeiElement(element);
 
         // find startid for eventLink. if tstamp is provided in the
         // element, tstamp will be calculated.
@@ -20562,50 +21661,60 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note, vex_options, i, j, model;
-      vex_options = {
-        height : 10,
-        y_shift : 0,
-        left_shift_px : 0,
-        r_shift_px : 0
-      };
-      for (i=0,j=me.allModels.length;i<j;i++) {
+      var me = this, f_note, l_note, i, j, model;
+      for (i = 0, j = me.allModels.length; i < j; i++) {
         model = me.allModels[i];
         f_note = notes_by_id[model.getFirstId()] || {};
         l_note = notes_by_id[model.getLastId()] || {};
 
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
+          me.createSingleHairpin(f_note, {}, model.params, model.getMeiElement());
+          me.createSingleHairpin({}, l_note, model.params, model.getMeiElement());
         } else {
-          me.createSingleHairpin(f_note, l_note, model.params, vex_options);
+          me.createSingleHairpin(f_note, l_note, model.params, model.getMeiElement());
         }
       }
       return this;
     },
 
-    createSingleHairpin : function (f_note, l_note, params, vex_options) {
-      var me = this, place, type, hairpin;
+    createSingleHairpin : function (f_note, l_note, params, element) {
+      var me = this, place, type, vex_options, hairpin;
       place = Tables.positions[params.place];
       type = Tables.hairpins[params.form];
 
-      if (f_note.vexNote && l_note.vexNote) {
-        hairpin = new VF.StaveHairpin({
-          first_note : f_note.vexNote,
-          last_note : l_note.vexNote
-        }, type);
 
-        hairpin.setRenderOptions(vex_options);
-        hairpin.setPosition(place);
+      // TODO read from stave
+      var stave_spacing = 10;
 
-        me.allVexObjects.push(hairpin);
-      } else {
-        if (f_note.vexNote) {
-          Logger.warn('Missing target', 'Hairpin could not be rendered because second note could not be identified.');
-        } else if (l_note.vexNote) {
-          Logger.warn('Missing target', 'Hairpin could not be rendered because first note could not be identified.');
-        } else {
-          Logger.warn('Missing targets', 'Hairpin could not be rendered because first and second note could not be identified.');
+
+      if (!f_note.vexNote && !l_note.vexNote) {
+        var param, paramString = '';
+        for (param in params) {
+          paramString += param + '="' + params[param] + '" ';
         }
+        console.log(params);
+        Logger.warn('Hairpin could not be processed', 'No haipin start or hairpin end could be found. Hairpin parameters: ' +
+                                                      paramString + '. Skipping hairpin.');
+        return true;
       }
+
+      hairpin = new VF.StaveHairpin({
+        first_note : f_note.vexNote,
+        last_note : l_note.vexNote
+      }, type);
+
+      vex_options = {
+        height : stave_spacing * (parseFloat(params.opening) || 1),
+        y_shift : 0,
+        left_shift_px : 0,
+        right_shift_px : 0
+      };
+
+      hairpin.setRenderOptions(vex_options);
+      hairpin.setPosition(place);
+      hairpin.setMeiElement(element);
+
+      me.allVexObjects.push(hairpin);
 
     }
   });
@@ -20651,7 +21760,6 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     validateAtts : function () {
-      return;
     },
 
     // NB called from tie/slur attributes elements
@@ -20724,10 +21832,11 @@ Vex.Flow.TextDynamics = (function(){
           return true;
         }
 
+        // if the curve direction isn't specified in the model, calculate it:
         if (!model.params.curvedir) {
           var layerDir = f_note.layerDir || l_note.layerDir;
+          // if a layer direction is specified, take this as basis for the curve direction
           if (layerDir) {
-            // calculate default curve direction based on the relative layer
             model.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
             // if the tie links to a note in a chord, let the outer ties of the
@@ -20748,6 +21857,7 @@ Vex.Flow.TextDynamics = (function(){
           }
         }
 
+        // if the tied notes belong to different staves, render a tie to each of the staves:
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
           me.createSingleTie(f_note, {}, model.params);
           if (!model.params.curvedir) {
@@ -20755,6 +21865,7 @@ Vex.Flow.TextDynamics = (function(){
           }
           me.createSingleTie({}, l_note, model.params);
         } else {
+          // ... otherwise render only one tie:
           me.createSingleTie(f_note, l_note, model.params);
         }
       }
@@ -20819,7 +21930,6 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     validateAtts : function () {
-      return;
     },
 
     // NB called from slur attributes elements
@@ -20855,127 +21965,211 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note, i, j, model;
-      for (i=0,j=me.allModels.length;i<j;i++) {
+      var me = this, f_note, l_note, i, j, model, bezier, params;
+
+      for (i = 0, j = me.allModels.length; i < j; i++) {
         model = me.allModels[i];
+
+        params = model.params;
 
         var keysInChord;
         f_note = notes_by_id[model.getFirstId()] || {};
         l_note = notes_by_id[model.getLastId()] || {};
 
-
+        // Skip slurs where no vexNote could be found for both first and last note
         if (!f_note.vexNote && !l_note.vexNote) {
           var param, paramString = '';
-          for (param in model.params) {
-            paramString += param + '="' + model.params[param] + '" ';
+          for (param in params) {
+            paramString += param + '="' + params[param] + '" ';
           }
           console.log(model);
-          Logger.warn('Slur could not be processed', 'No slur start or slur end could be found. Slur parameters: ' + paramString + '. Skipping slur.');
+          Logger.warn('Slur could not be processed', 'No slur start or slur end could be found. Slur parameters: ' +
+                                                     paramString + '. Skipping slur.');
           return true;
         }
 
-        if (!model.params.curvedir) {
+        // if no @curvedir is specified, set @curvedir according to the layer direction or to
+        // the position of a note in a chord
+        if (!params.curvedir) {
           var layerDir = f_note.layerDir || l_note.layerDir;
           if (layerDir) {
             // calculate default curve direction based on the relative layer
-            model.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
+            params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
             // if the slur links to a note in a chord, let the outer slurs of the
             // chord point outwards
+
+
+            // TODO adjust to slurs!!
             if (f_note.vexNote) {
               keysInChord = f_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                model.params.curvedir =
+                params.curvedir =
                 (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
               }
-            } else if (l_note.vexNote) {
+            } else {
               keysInChord = l_note.vexNote.keys.length;
               if (keysInChord > 1) {
-                model.params.curvedir =
+                params.curvedir =
                 +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
               }
             }
           }
         }
 
-        if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
-          me.createSingleSlur(f_note, {}, model.params);
-          if (!model.params.curvedir) {
-            model.params.curvedir = (f_note.vexNote.getStemDirection() === -1) ? 'above' : 'below';
+
+        var slurOptions = {
+          y_shift_start : +params.startvo || undefined,
+          y_shift_end : +params.endvo || undefined
+
+        };
+
+        var firstStemDir, lastStemDir;
+        if (f_note.vexNote) firstStemDir = f_note.vexNote.getStemDirection();
+        if (l_note.vexNote) lastStemDir = l_note.vexNote.getStemDirection();
+
+
+        //bezier = params.bezier;
+        // ignore bezier for now!
+        bezier = null;
+        //      if (bezier) {
+        //        slurOptions.cps = me.bezierStringToCps(bezier);
+        //      } else {
+        //
+
+
+        if (params.curvedir) {
+          // CURVEDIR SPECIFIED
+
+          if ((params.curvedir === 'above' && lastStemDir === 1) ||
+              (params.curvedir === 'below' && lastStemDir === -1)) {
+            //        slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            slurOptions.invert = true;
           }
-          me.createSingleSlur({}, l_note, model.params);
+
+
+          // FIXED PLACE - SINGLE LAYER
+          if (f_note.vexNote && l_note.vexNote) {
+
+            var firstNoteLine = f_note.vexNote.getLineNumber();
+            var lastNoteLine = l_note.vexNote.getLineNumber();
+
+            var distance = firstNoteLine - lastNoteLine;
+
+//            console.log(f_note);
+//            console.log(f_note.vexNote.getLineNumber())
+//            console.log(l_note.vexNote.getLineNumber())
+//            console.log(distance);
+
+            //            if (distance > 2.5) {
+            //
+            //              if (firstStemDir !== lastStemDir) {
+            //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            //              }
+            //
+            //            }
+
+            // TODO improve: make Curvedir a number 1 / -1
+
+            if (firstStemDir !== lastStemDir) {
+              if ((distance < -0.5 && params.curvedir === 'above') || (distance > 0.5 && params.curvedir === 'below')) {
+                // first note noticeably lower than last note
+                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+              } else if ((distance > 0.5 && params.curvedir === 'above') ||
+                         (distance < -0.5 && params.curvedir === 'below')) {
+                // first note noticeably higher than last note
+                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+                //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+              }
+            } else {
+              if (slurOptions.invert === true) {
+                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+              } else {
+                //                slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+              }
+            }
+
+
+            //            if (distance < -2.5 && lastStemDir === 1) {
+            //              // first note noticeably lower than last note and last note pointing upwards
+            //              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            //            }
+
+          } else {
+
+            // set rules for the case when only first or last vexNote are specified
+
+          }
+
         } else {
-          me.createSingleSlur(f_note, l_note, model.params);
+          // NO CURVEDIR SPECIFIED
+
+
+          if (f_note.layerDir || l_note.layerDir) {
+            // NO FIXED PLACE - MULTI LAYER
+            slurOptions.invert = true;
+
+            if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
+              slurOptions.position = VF.Curve.Position.NEAR_TOP;
+
+              if (f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
+                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+              }
+
+            }
+          } else {
+            // NO FIXED PLACE - SINGLE LAYER
+
+            var firstNoteLine = f_note.vexNote.getLineNumber();
+            var lastNoteLine = l_note.vexNote.getLineNumber();
+
+            var distance = firstNoteLine - lastNoteLine;
+
+            if (firstStemDir !== lastStemDir) {
+              if ((distance < -0.5 && params.curvedir === 'above') || (distance > 0.5 && params.curvedir === 'below')) {
+                // first note noticeably lower than last note
+                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+              } else if ((distance > 0.5 && params.curvedir === 'above') ||
+                         (distance < -0.5 && params.curvedir === 'below')) {
+                // first note noticeably higher than last note
+                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+                //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+              }
+            } else {
+              if (slurOptions.invert === true) {
+                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+              } else {
+                //                slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+              }
+            }
+
+          }
+        }
+
+
+        if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
+          me.createSingleSlur(f_note, {}, {
+            y_shift_start : slurOptions.y_shift_start,
+            y_shift_end : slurOptions.y_shift_end,
+            invert: ((params.curvedir === 'above' && firstStemDir === 1) ||
+                     (params.curvedir === 'below' && firstStemDir === -1)),
+            position: slurOptions.position,
+            position_end : slurOptions.position
+          });
+
+          slurOptions.position = slurOptions.position_end;
+          me.createSingleSlur({}, l_note, slurOptions);
+        } else {
+          me.createSingleSlur(f_note, l_note, slurOptions);
         }
       }
       return this;
     },
 
-    // TODO auch noch unvollständige slurs testen
-
-    createSingleSlur : function (f_note, l_note, params) {
-      var me = this, vexSlur, bezier;
-
-      var slurOptions = {
-        y_shift_start : +params.startvo || undefined,
-        y_shift_end : +params.endvo || undefined
-
-      };
-
-      //bezier = params.bezier;
-      // ignore bezier for now!
-      bezier = null;
-
-      if (bezier) {
-        slurOptions.cps = me.bezierStringToCps(bezier);
-      } else {
-
-        // if one of the notes is in multi-voice stave ...
-        if (f_note.layerDir || l_note.layerDir) {
-          // invert the slur so it points outwards
-          slurOptions.invert = true;
-
-          if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
-            slurOptions.position = VF.Curve.Position.NEAR_TOP; // = 2 STEM END POSITION
-
-            if (f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
-              slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
-            }
-
-          }
-
-        } else {
-          if (f_note.vexNote && l_note.vexNote &&
-              f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
-
-            //            console.log(f_note.vexNote.getLineNumber());
-            //            console.log(l_note.vexNote.getLineNumber());
-            slurOptions.invert = true;
-            if (Math.abs(f_note.vexNote.getLineNumber() - l_note.vexNote.getLineNumber()) > 2.5 ) {
-
-              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-            }
-
-
-
-          }
-        }
-
-
-        //        vexSlur = new VF.Curve(f_note.vexNote, l_note.vexNote, {
-        //          position : 2
-        //        });
-        //        vexSlur = new VF.StaveTie({
-        //          first_note : f_note.vexNote,
-        //          last_note : l_note.vexNote,
-        //          first_indices : f_note.index,
-        //          last_indices : l_note.index
-        //        });
-        //        vexSlur.setDir(params.curvedir);
-        //        if (f_note.vexNote && f_note.vexNote.label === 'gracenote') {
-        //          vexSlur.render_options.first_x_shift = -5;
-        //        }
-      }
+    createSingleSlur : function (f_note, l_note, slurOptions) {
+      var me = this, vexSlur;
 
       vexSlur = new VF.Curve(f_note.vexNote, l_note.vexNote, slurOptions);
 
@@ -21164,6 +22358,121 @@ Vex.Flow.TextDynamics = (function(){
       return this.allModels;
     }
   };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  /**
+   * @class MEI2VF.Arpeggios
+   * @extend MEI2VF.EventPointerCollection
+   * @private
+   *
+   * @constructor
+   */
+  var Arpeggios = function (systemInfo) {
+    this.init(systemInfo);
+  };
+
+  Vex.Inherit(Arpeggios, EventPointerCollection, {
+
+    init : function (systemInfo, font) {
+      Arpeggios.superclass.init.call(this, systemInfo, font);
+    },
+
+    createInfos : function (elements, measureElement) {
+      var me = this, i, j, element, atts, startid, tstamp;
+
+      var link_staveInfo = function (lnkelem) {
+        return {
+          stave_n : lnkelem.getAttribute('staff') || '1',
+          layer_n : lnkelem.getAttribute('layer') || '1'
+        };
+      };
+
+      // convert tstamp into startid in current measure
+      var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
+        var stffinf = link_staveInfo(lnkelem);
+        var stave = measureElement.querySelector('staff[n="' + stffinf.stave_n + '"]');
+        if (!stave) {
+          throw new RuntimeError('Could not find staff @n="' + stffinf.stave_n + '" in ' +
+                                 Util.serializeElement(measureElement) + ' while processing ' + Util.serializeElement(lnkelem));
+        }
+        var layer = stave.querySelector('layer[n="' + stffinf.layer_n + '"]');
+        if (!layer) {
+          var layer_candid = stave.getElementsByTagName('layer')[0];
+          if (layer_candid && !layer_candid.hasAttribute('n')) {
+            layer = layer_candid;
+          }
+          if (!layer) {
+            throw new RuntimeError('Could not find layer @n="' + stffinf.layer_n + '" in ' +
+                                   Util.serializeElement(measureElement) + ' while processing ' + Util.serializeElement(lnkelem));
+          }
+        }
+        var staveInfo = me.systemInfo.getStaveInfo(stffinf.stave_n);
+        if (!staveInfo) {
+          throw new RuntimeError('Cannot determine staff definition.');
+        }
+        var meter = staveInfo.getTimeSpec();
+        if (!meter.count || !meter.unit) {
+          throw new RuntimeError('Cannot determine meter; missing or incorrect @meter.count or @meter.unit.');
+        }
+        return MeiLib.tstamp2id(tstamp, layer, meter);
+      };
+
+      for (i = 0, j = elements.length; i < j; i++) {
+        element = elements[i];
+
+        atts = Util.attsToObj(element);
+
+        var pList;
+        if (atts.plist) {
+          pList = Util.pListToArray(atts.plist);
+        }
+        
+        // TODO handle arpeggio over multiple notes / chords!
+
+        // for now, only look for the first id in the plist
+
+        if (pList && pList[0]) {
+          startid = pList[0].substring(1);
+        } else {
+          tstamp = atts.tstamp;
+          if (tstamp) {
+            startid = local_tstamp2id(tstamp, element, measureElement);
+          } else {
+            Logger.warn('@startid or @tstamp expected', Util.serializeElement(element) +
+                                                        ' could not be processed because neither @startid nor @tstamp are specified.');
+            return;
+          }
+        }
+        me.allModels.push({
+          element : element,
+          atts : atts,
+          startid : startid
+        });
+      }
+    },
+
+
+    addToNote : function(model, note) {
+      note.vexNote.addStroke(0, new VF.Stroke(0));
+    }
+
+  });
 /*
  * MEItoVexFlow, Directives class
  * (based on meitovexflow.js)
@@ -21637,12 +22946,18 @@ Vex.Flow.TextDynamics = (function(){
      * @returns {Verses}
      */
     format : function () {
-      var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding;
+      var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding, lowestTextLine;
 
       padding = 20;
 
+      me.font.size=15;
+
+      var spacing_between_lines = 10;
+      var height_in_lines = me.font.size / spacing_between_lines * 1.5;
+
       for (stave_n in me.systemVerses) {
         text_line = 0;
+        lowestTextLine = 0;
         lowestY = -20;
 
         for (verse_n in me.systemVerses[stave_n]) {
@@ -21652,12 +22967,15 @@ Vex.Flow.TextDynamics = (function(){
           for (i = 0, j = verse.length; i < j; i++) {
             verse[i].setTextLine(text_line);
             lowestY = Math.max(lowestY, verse[i].preProcess());
+
+//            lowestTextLine = Math.max(lowestTextLine, verse[i].text_line);
           }
           // second pass: set lowest y
           for (i = 0; i < j; i++) {
             verse[i].setY(lowestY);
+//            verse[i].setTextLine(lowestTextLine);
           }
-          text_line += 1;
+          lowestTextLine += height_in_lines;
         }
         me.lowestYs[stave_n] = lowestY;
 
@@ -21947,7 +23265,7 @@ Vex.Flow.TextDynamics = (function(){
    * @param {Object} cfg
    */
   var Stave = function (cfg) {
-    var me = this;
+    var me = this, leftBarline, rightBarline;
 
     me.init(0, cfg.y, 1000, {
       vertical_bar_width : 20, // 10 // Width around vertical bar end-marker
@@ -21958,10 +23276,17 @@ Vex.Flow.TextDynamics = (function(){
 
     me.setSystem(cfg.system);
 
-    var leftBarline = cfg.leftBarline;
-    var rightBarline = cfg.rightBarline;
+    if (cfg.barlineInfo) {
+      leftBarline = cfg.barlineInfo.leftBarline;
+      rightBarline = cfg.barlineInfo.rightBarline;
+    }
 
-    me.setBegBarType(leftBarline ? me.barlines[leftBarline] : me.barlines['invis']);
+    if (leftBarline) {
+      me.setBegBarType(me.barlines[leftBarline]);
+      me.leftBarlineElement = cfg.barlineInfo.leftBarlineElement;
+    } else {
+      me.setBegBarType(me.barlines['invis']);
+    }
     if (rightBarline) {
       me.setEndBarType(me.barlines[rightBarline]);
     }
@@ -21982,16 +23307,19 @@ Vex.Flow.TextDynamics = (function(){
       'invis' : VF.Barline.type.NONE
     },
 
-    addVoltaFromInfo : function (volta) {
-      if (volta.start) {
-        this.setVoltaType(VF.Volta.type.BEGIN, volta.start + '.', 30);
-      } else if (volta.end) {
-        //TODO: fix type.BEGIN and type.END interference in vexflow, then remove else!
-        //[think through in which cases we actually need type.END]
-        this.setVoltaType(VF.Volta.type.END, "", 30);
-      } else if (!volta.start && !volta.end) {
-        this.setVoltaType(VF.Volta.type.MID, "", 30);
+    addVoltaFromInfo : function (voltaInfo) {
+      var begin = voltaInfo.hasOwnProperty('start');
+      var end = voltaInfo.hasOwnProperty('end');
+      if (begin) {
+        this.setVoltaType((end) ? VF.Volta.type.BEGIN_END : VF.Volta.type.BEGIN, voltaInfo.start, 30);
+      } else {
+        this.setVoltaType((end) ? VF.Volta.type.END : VF.Volta.type.MID, "", 30);
       }
+      // TODO [think through in which cases we actually need type.END]
+      // 1) at the end of a composition
+      // 2) if the current volta is followed by another volta (type.MID might be sufficient when
+      // both volte are in the same system, but in cases where the first volta is at the end of
+      // a system, it erroneously remains 'open'
     },
 
     // FIXME check if deviation of clef.shift between clef and end clef is OK
@@ -22123,18 +23451,20 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     init : function (config) {
-      var me = this, vexType, topStave, bottomStave, vexConnector, label, labelMode, i, model;
+      var me = this, vexType, topStave, bottomStave, vexConnector, label, labelMode, i, model, leftBarline, rightBarline;
       var models = config.models;
       var staves = config.staves;
-      var barline_l = config.barline_l;
-      var barline_r = config.barline_r;
+      if (config.barlineInfo) {
+        leftBarline = config.barlineInfo.leftBarline;
+        rightBarline = config.barlineInfo.rightBarline;
+      }
       var system_n = config.system_n;
       labelMode = config.labelMode;
 
       for (i in models) {
         model = models[i];
 
-        vexType = (barline_r) ? me.vexTypesBarlineRight[barline_r] : me.vexTypes[model.symbol];
+        vexType = (rightBarline) ? me.vexTypesBarlineRight[rightBarline] : me.vexTypes[model.symbol];
         topStave = staves[model.top_stave_n];
         bottomStave = staves[model.bottom_stave_n];
 
@@ -22160,8 +23490,8 @@ Vex.Flow.TextDynamics = (function(){
           }
         }
 
-        if (barline_l) {
-          vexType = me.vexTypesBarlineLeft[barline_l];
+        if (leftBarline) {
+          vexType = me.vexTypesBarlineLeft[leftBarline];
           if (typeof vexType === 'number' && topStave && bottomStave) {
             vexConnector = new VF.StaveConnector(topStave, bottomStave);
             vexConnector.setType(vexType);
@@ -22291,16 +23621,6 @@ Vex.Flow.TextDynamics = (function(){
        * current measure
        */
       me.rehElements = config.rehElements;
-      /**
-       * @property {Number} maxNoteStartX the maximum note_start_x value of all
-       * Vex.Flow.Stave objects in the current measure
-       */
-      me.maxNoteStartX = 0;
-      /**
-       * @property {Number} maxEndModifierW the maximum width of the end
-       * modifiers in all Vex.Flow.Stave objects in the current measure
-       */
-      me.maxEndModifierW = 0;
       /**
        * @property {Number} meiW the width attribute of the measure element or
        * null if NaN
@@ -22432,19 +23752,53 @@ Vex.Flow.TextDynamics = (function(){
      * calculates the minimum width of the current measure
      */
     calculateMinWidth : function () {
-      var me = this;
-      me.calculateMaxNoteStartX();
-      me.calculateMaxEndModifierWidth();
-      me.calculateRepeatPadding();
+      var me = this, i, staves, stave, repeatPadding, maxNoteStartX=0, maxEndModifierW =0;
+
+      staves = me.staves;
+      i = staves.length;
+      while (i--) {
+        stave = staves[i];
+        if (stave) {
+          // max start modifier width
+          maxNoteStartX = Math.max(maxNoteStartX, stave.getNoteStartX());
+          // max end modifier width
+          maxEndModifierW = Math.max(maxEndModifierW, stave.getGlyphEndX() - stave.end_x);
+        }
+      }
+
+      /**
+       * @property {Number} maxNoteStartX the maximum note_start_x value of all
+       * Vex.Flow.Stave objects in the current measure
+       */
+      me.maxNoteStartX = maxNoteStartX;
+      /**
+       * @property {Number} maxEndModifierW the maximum width of the end
+       * modifiers in all Vex.Flow.Stave objects in the current measure
+       */
+      me.maxEndModifierW = maxEndModifierW;
+
+      // calculate additional padding (20px) if the staff does have a left REPEAT_BEGIN barline
+      // located to the right of other staff modifiers; 0px in all other cases.
+      stave = me.getFirstDefinedStave();
+      repeatPadding =
+      (stave.modifiers[0].barline == VF.Barline.type.REPEAT_BEGIN && stave.modifiers.length > 2) ? 20 : 0;
+
       /**
        * @property {Number} minVoicesW the minimum width of the voices in the
        * measure
        */
       me.minVoicesW = me.voices.preFormat();
+
+      me.voiceFillFactor = me.voices.getFillFactor();
+
       /**
        * @property {Number} minWidth the minimum width of the measure
        */
-      me.minWidth = me.maxNoteStartX + me.maxEndModifierW + me.minVoicesW + me.repeatPadding;
+      me.minWidth = maxNoteStartX + maxEndModifierW + repeatPadding + me.minVoicesW;
+    },
+
+    getVoiceFillFactor : function () {
+      return this.voiceFillFactor;
     },
 
     /**
@@ -22463,51 +23817,7 @@ Vex.Flow.TextDynamics = (function(){
 
     setFinalWidth : function (additionalWidth) {
       var me = this;
-      me.w = (me.meiW === null) ? me.minWidth + additionalWidth : me.meiW;
-    },
-
-    /**
-     * calculates the maximum note_start_x of all Vex.Flow.Stave objects in the
-     * current measure
-     */
-    calculateMaxNoteStartX : function () {
-      var me = this, i, staves, stave;
-      staves = me.staves;
-      i = staves.length;
-      while (i--) {
-        stave = staves[i];
-        if (stave) {
-          me.maxNoteStartX = Math.max(me.maxNoteStartX, stave.getNoteStartX());
-        }
-      }
-    },
-
-    calculateMaxEndModifierWidth : function () {
-      var me = this, i, staves, stave;
-      staves = me.staves;
-      i = staves.length;
-      while (i--) {
-        stave = staves[i];
-        if (stave) {
-          me.maxEndModifierW = Math.max(me.maxEndModifierW, stave.getGlyphEndX() - stave.end_x);
-        }
-      }
-    },
-
-    /**
-     * calculates additional start padding when there are repetition start bars
-     * in the current measure
-     */
-    calculateRepeatPadding : function () {
-      var me = this;
-      var stave = me.getFirstDefinedStave();
-      /**
-       * @property {Number} repeatPadding additional padding (20px) if the staff
-       * does have a left REPEAT_BEGIN barline located to the right of other
-       * staff modifiers; 0px in all other cases.
-       */
-      me.repeatPadding =
-      (stave.modifiers[0].barline == VF.Barline.type.REPEAT_BEGIN && stave.modifiers.length > 2) ? 20 : 0;
+      me.w = (me.meiW === null) ? me.minWidth + (additionalWidth * me.voiceFillFactor) : me.meiW;
     },
 
     /**
@@ -22644,6 +23954,10 @@ Vex.Flow.TextDynamics = (function(){
       this.lowestY = lowestY;
     },
 
+    getLowestY : function (lowestY) {
+      return this.lowestY;
+    },
+
     getCalculatedHeight : function () {
       return this.lowestY + this.pageBottomMar;
     }
@@ -22753,12 +24067,18 @@ Vex.Flow.TextDynamics = (function(){
      * @returns {Verses}
      */
     format : function () {
-      var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding;
+      var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding, lowestTextLine;
 
       padding = 20;
 
+      me.font.size=15;
+
+      var spacing_between_lines = 10;
+      var height_in_lines = me.font.size / spacing_between_lines * 1.5;
+
       for (stave_n in me.systemVerses) {
         text_line = 0;
+        lowestTextLine = 0;
         lowestY = -20;
 
         for (verse_n in me.systemVerses[stave_n]) {
@@ -22768,12 +24088,15 @@ Vex.Flow.TextDynamics = (function(){
           for (i = 0, j = verse.length; i < j; i++) {
             verse[i].setTextLine(text_line);
             lowestY = Math.max(lowestY, verse[i].preProcess());
+
+//            lowestTextLine = Math.max(lowestTextLine, verse[i].text_line);
           }
           // second pass: set lowest y
           for (i = 0; i < j; i++) {
             verse[i].setY(lowestY);
+//            verse[i].setTextLine(lowestTextLine);
           }
-          text_line += 1;
+          lowestTextLine += height_in_lines;
         }
         me.lowestYs[stave_n] = lowestY;
 
@@ -22965,17 +24288,17 @@ Vex.Flow.TextDynamics = (function(){
      * calculates the minimum width of all measures in a stave
      */
     calculateMinSystemWidth : function () {
-      var me = this, i, j, totalSpecifiedMeasureWidth = 0, singleAdditionalWidth, openWidthMeasureCount = 0;
+      var me = this, i, j, totalSpecifiedMeasureWidth = 0, voiceFillFactorSum = 0;
       for (i = 0, j = me.measures.length; i < j; i += 1) {
         if (me.measures[i].meiW === null) {
-          openWidthMeasureCount += 1;
           totalSpecifiedMeasureWidth += me.measures[i].getMinWidth();
+          voiceFillFactorSum += me.measures[i].getVoiceFillFactor();
         } else {
           totalSpecifiedMeasureWidth += me.measures[i].meiW;
         }
       }
       me.minSystemWidth = totalSpecifiedMeasureWidth;
-      me.openWidthMeasureCount = openWidthMeasureCount;
+      me.voiceFillFactorSum = voiceFillFactorSum;
     },
 
     /**
@@ -22986,7 +24309,7 @@ Vex.Flow.TextDynamics = (function(){
 
       var totalWidth = overrideWidth || me.coords.width;
 
-      singleAdditionalWidth = Math.floor((totalWidth - me.leftMar - me.minSystemWidth) / me.openWidthMeasureCount);
+      singleAdditionalWidth = Math.floor((totalWidth - me.leftMar - me.minSystemWidth) / me.voiceFillFactorSum);
 
       for (i = 0, j = me.measures.length; i < j; i += 1) {
         me.measures[i].setFinalWidth(singleAdditionalWidth);
@@ -23005,10 +24328,9 @@ Vex.Flow.TextDynamics = (function(){
 
     /**
      * formats the measures in the current system
-     * @param {Object} ctx the canvas context
      * @return {System} this
      */
-    format : function (ctx) {
+    format : function () {
       var me = this, i, j, measures, offsetX, labels;
       offsetX = me.coords.x + me.leftMar;
       measures = me.getMeasures();
@@ -23074,7 +24396,7 @@ Vex.Flow.TextDynamics = (function(){
  * the License.
  */
 /*
- * Contributors and reworking: Alexander Erhard, @davethehat
+ * Contributors and additions: Alexander Erhard, @davethehat
  */
 
 
@@ -23095,16 +24417,6 @@ Vex.Flow.TextDynamics = (function(){
   var StaveInfo = function (staffDef, scoreDef, w_clef, w_keysig, w_timesig) {
     var me = this;
     /**
-     * the most current scoreDef element.
-     * @private
-     */
-    me.scoreDef = scoreDef;
-    /**
-     * the most current staffDef element
-     * @private
-     */
-    me.staffDef = staffDef;
-    /**
      * @private
      */
     me.renderWith = {
@@ -23116,12 +24428,12 @@ Vex.Flow.TextDynamics = (function(){
      * the currently valid keySpec
      * @private
      */
-    me.keySpec = {key : 'C'}; // default key
+    me.keySpec = {key : 'C', meiElement : staffDef}; // default key
     /**
      * the currently valid timeSpec
      * @private
      */
-    me.timeSpec = null;
+    me.timeSpec = {};
     /**
      * the currently valid staff labels
      * @private
@@ -23136,17 +24448,13 @@ Vex.Flow.TextDynamics = (function(){
      * the currently valid clef
      * @private
      */
-    me.clef = null;
+    me.clef = {};
     /**
      * a copy of the start clef of a measure-stave; used when there are clef changes in multi-voice staves
      */
     me.startClefCopy = null;
 
-    me.updateKeySpec();
-    me.updateTimeSpec();
-    me.updateLabels();
-    me.updateSpacing();
-    me.updateClef(me.staffDef);
+    me.updateDef(staffDef, scoreDef, true);
   };
 
   StaveInfo.prototype = {
@@ -23169,56 +24477,118 @@ Vex.Flow.TextDynamics = (function(){
       perc : 'percussion'
     },
 
+    getCurrentScoreDef : function () {
+      return this.currentScoreDef;
+    },
+
     /**
-     * @private
+     * @public
+     * @param staffDef
+     * @param scoreDef
      */
-    updateTimeSpec : function () {
+    updateDef : function (staffDef, scoreDef, skipRenderWith) {
+      var me = this, clefDefiningElement, timeSigDefiningElement, keySigDefiningElement;
+
+      me.currentScoreDef = scoreDef;
+
+      var getDefiningElement = function (element1, element2, att) {
+        if (element1 && element1.hasAttribute(att)) {
+          return element1;
+        }
+        if (element2 && element2.hasAttribute(att)) {
+          return element2;
+        }
+      };
+
+      clefDefiningElement = getDefiningElement(staffDef, scoreDef, 'clef.shape');
+      keySigDefiningElement = getDefiningElement(staffDef, scoreDef, 'key.pname');
+      timeSigDefiningElement = getDefiningElement(staffDef, scoreDef, 'meter.count');
+
+      if (!skipRenderWith) {
+        me.updateRenderWith(clefDefiningElement, keySigDefiningElement, timeSigDefiningElement);
+      }
+
+      if (clefDefiningElement) me.updateClef(clefDefiningElement);
+      if (keySigDefiningElement) me.updateKeySpec(keySigDefiningElement);
+      if (timeSigDefiningElement) me.updateTimeSpec(timeSigDefiningElement);
+
+      // TODO currently, labels and spacing are only read from <staffDef>
+      if (staffDef) {
+        me.updateLabels(staffDef);
+        me.updateSpacing(staffDef);
+      }
+
+    },
+
+    /**
+     * updated the definition from a <scoreDef> only if the <scoreDef> hasn't been processed yet with a <staffDef>
+     * @param scoreDef
+     */
+    updateIfNew : function (scoreDef) {
       var me = this;
-      if (me.staffDef.hasAttribute('meter.count') && me.staffDef.hasAttribute('meter.unit')) {
-        me.timeSpec = {
-          count : +me.staffDef.getAttribute('meter.count'),
-          unit : +me.staffDef.getAttribute('meter.unit'),
-          sym : me.staffDef.getAttribute('meter.sym'),
-          meiElement : me.staffDef
-        };
-      } else if (me.scoreDef.hasAttribute('meter.count') && me.scoreDef.hasAttribute('meter.unit')) {
-        me.timeSpec = {
-          count : +me.scoreDef.getAttribute('meter.count'),
-          unit : +me.scoreDef.getAttribute('meter.unit'),
-          sym : me.scoreDef.getAttribute('meter.sym'),
-          meiElement : me.scoreDef
-        };
+      if (scoreDef !== me.currentScoreDef) {
+        me.updateDef(null, scoreDef);
       }
     },
 
     /**
      * @private
+     * @param newStaffDef
      */
-    updateKeySpec : function () {
-      var me = this;
-      if (me.staffDef.hasAttribute('key.pname')) {
-        me.keySpec = {
-          key : me.convertKeySpec(me.staffDef),
-          meiElement : me.staffDef
-        };
-      } else if (me.scoreDef.hasAttribute('key.pname')) {
-        me.keySpec = {
-          key : me.convertKeySpec(me.scoreDef),
-          meiElement : me.scoreDef
-        };
+    updateRenderWith : function (clefDefiningElement, keySigDefiningElement, timeSigDefiningElement) {
+      var me = this, result, hasEqualAtt;
+
+      result = {
+        clef : false,
+        keysig : false,
+        timesig : false
+      };
+
+      hasEqualAtt = function (currentElement, newElement, attr_name) {
+        return currentElement.getAttribute(attr_name) === newElement.getAttribute(attr_name);
+      };
+
+      var hasEqualClefAtt = function (currentElement, newElement, currentPrefix, newPrefix, attr_name) {
+        return currentElement.getAttribute(currentPrefix + attr_name) === newElement.getAttribute(newPrefix + attr_name);
+      };
+
+      var currentClefElement = me.clef.meiElement;
+      var currentKeySigElement = me.keySpec.meiElement;
+      var currentTimeSigElement = me.timeSpec.meiElement;
+
+      if (clefDefiningElement) {
+        var currentPrefix = (currentClefElement.localName === 'clef') ? '' : 'clef.';
+        var newPrefix = (clefDefiningElement.localName === 'clef') ? '' : 'clef.';
+        if (!hasEqualClefAtt(currentClefElement, clefDefiningElement, currentPrefix, newPrefix, 'shape') ||
+            !hasEqualClefAtt(currentClefElement, clefDefiningElement, currentPrefix, newPrefix, 'line')) {
+          result.clef = true;
+        }
       }
+
+      if (keySigDefiningElement && (!hasEqualAtt(currentKeySigElement, keySigDefiningElement, 'key.pname') ||
+                                    !hasEqualAtt(currentKeySigElement, keySigDefiningElement, 'key.accid') ||
+                                    !hasEqualAtt(currentKeySigElement, keySigDefiningElement, 'key.mode'))) {
+        result.keysig = true;
+      }
+      if (timeSigDefiningElement && (!hasEqualAtt(currentTimeSigElement, timeSigDefiningElement, 'meter.count') ||
+                                     !hasEqualAtt(currentTimeSigElement, timeSigDefiningElement, 'meter.unit') ||
+                                     !hasEqualAtt(currentTimeSigElement, timeSigDefiningElement, 'meter.sym'))) {
+        result.timesig = true;
+      }
+
+      me.renderWith = result;
     },
 
     /**
      * @private
      */
-    updateLabels : function () {
+    updateLabels : function (staffDef) {
       var me = this, label, labelAbbr;
-      label = me.staffDef.getAttribute('label');
+      label = staffDef.getAttribute('label');
       if (typeof label === 'string') {
         me.label = label;
       }
-      labelAbbr = me.staffDef.getAttribute('label.abbr');
+      labelAbbr = staffDef.getAttribute('label.abbr');
       if (typeof labelAbbr === 'string') {
         me.labelAbbr = labelAbbr;
       }
@@ -23227,104 +24597,13 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @private
      */
-    updateSpacing : function () {
+    updateSpacing : function (staffDef) {
       var me = this, spacing;
-      spacing = me.staffDef.getAttribute('spacing');
+      spacing = staffDef.getAttribute('spacing');
       if (spacing !== null && !isNaN(spacing)) {
         me.spacing = +spacing;
       }
       return me.spacing;
-    },
-
-    /**
-     * @public
-     */
-    forceSectionStartInfo : function () {
-      var me = this;
-      me.renderWith.clef = true;
-      me.renderWith.keysig = true;
-      me.renderWith.timesig = true;
-    },
-
-    /**
-     * @public
-     */
-    forceStaveStartInfo : function () {
-      var me = this;
-      me.renderWith.clef = true;
-      me.renderWith.keysig = true;
-    },
-
-    /**
-     * @public
-     */
-    showClefCheck : function () {
-      var me = this;
-      if (me.renderWith.clef && me.staffDef.getAttribute('clef.visible') !== 'false') {
-        me.renderWith.clef = false;
-        return true;
-      }
-    },
-
-    /**
-     * @public
-     */
-    showKeysigCheck : function () {
-      var me = this;
-      if (me.renderWith.keysig) {
-        me.renderWith.keysig = false;
-        if (me.staffDef.getAttribute('key.sig.show') === 'true' ||
-            me.scoreDef.getAttribute('key.sig.show') !== 'false') {
-          return true;
-        }
-      }
-    },
-
-    /**
-     * @public
-     */
-    showTimesigCheck : function () {
-      var me = this;
-      if (me.renderWith.timesig) {
-        me.renderWith.timesig = false;
-        if (me.staffDef.getAttribute('meter.rend') === 'norm' || me.scoreDef.getAttribute('meter.rend') !== 'invis') {
-          return true;
-        }
-      }
-    },
-
-    /**
-     * @public
-     * @param clefElement
-     */
-    clefChangeInMeasure : function (clefElement) {
-      var me = this;
-      if (!me.startClefCopy) {
-        me.startClefCopy = {
-          type : me.clef.type,
-          size : me.clef.size,
-          shift : me.clef.shift
-        };
-      }
-      me.updateClef(clefElement);
-      return me.clef;
-    },
-
-    /**
-     * @public
-     */
-    checkInitialClef : function () {
-      var me = this;
-      if (me.startClefCopy) {
-        me.clef = me.startClefCopy;
-      }
-    },
-
-    /**
-     * @public
-     */
-    removeStartClefCopy : function () {
-      this.startClefCopy = null;
     },
 
     /**
@@ -23340,9 +24619,8 @@ Vex.Flow.TextDynamics = (function(){
 
       clefShape = element.getAttribute(prefix + 'shape');
       if (!clefShape) {
-        Logger.warn('@clef.shape expected', 'No clef shape attribute found in ' +
-                                                   Util.serializeElement(element) +
-                                                   '. Setting default clef.shape "G".');
+        Logger.warn('@clef.shape expected', 'No clef shape attribute found in ' + Util.serializeElement(element) +
+                                            '. Setting default clef.shape "G".');
         clefShape = 'G';
       }
       clefType = clefShape + (element.getAttribute(prefix + 'line') || '');
@@ -23369,22 +24647,32 @@ Vex.Flow.TextDynamics = (function(){
           meiElement : null
         };
         Logger.warn('Not supported', 'Clef definition in ' + Util.serializeElement(element) +
-                                            ' is not supported. Setting default treble clef.');
+                                     ' is not supported. Setting default treble clef.');
       }
     },
 
     /**
-     * @public
+     * @private
      */
-    getClef : function () {
-      return this.clef;
+    updateTimeSpec : function (element) {
+      var me = this;
+      me.timeSpec = {
+        count : +element.getAttribute('meter.count'),
+        unit : +element.getAttribute('meter.unit'),
+        sym : element.getAttribute('meter.sym'),
+        meiElement : element
+      };
     },
 
     /**
-     * @public
+     * @private
      */
-    getKeySpec : function () {
-      return this.keySpec;
+    updateKeySpec : function (element) {
+      var me = this;
+      me.keySpec = {
+        key : me.convertKeySpec(element),
+        meiElement : element
+      };
     },
 
     /**
@@ -23406,8 +24694,8 @@ Vex.Flow.TextDynamics = (function(){
             break;
           default :
             Logger.warn('Not supported', 'expected to find value "s" or "f" instead of "' + key_accid +
-                                                '" in @key.accid of ' + Util.serializeElement(element) +
-                                                '. Ignoring processing of this attribute.');
+                                         '" in @key.accid of ' + Util.serializeElement(element) +
+                                         '. Ignoring processing of this attribute.');
         }
       }
       key_mode = element.getAttribute('key.mode');
@@ -23417,82 +24705,127 @@ Vex.Flow.TextDynamics = (function(){
       return keyname;
     },
 
+
+    /**
+     * @public
+     * @param clefElement
+     */
+    clefChangeInMeasure : function (clefElement) {
+      var me = this;
+      if (!me.startClefCopy) {
+        me.startClefCopy = {
+          type : me.clef.type,
+          size : me.clef.size,
+          shift : me.clef.shift
+        };
+      }
+      me.updateClef(clefElement);
+      return me.clef;
+    },
+
+    /**
+     * called at the beginning of each layer. Sets the clef to the initial clef of the stave and saves
+     * any existing clef to this.changedClef
+     * @public
+     */
+    checkInitialClef : function () {
+      var me = this;
+      if (me.startClefCopy) {
+        me.changedClef = me.clef;
+        me.clef = me.startClefCopy;
+      }
+    },
+
+    /**
+     * called after the last layer. Removes this.startClefCopy and sets the current clef to the last
+     * clef change
+     * @public
+     */
+    finalizeClefInfo : function () {
+      var me = this;
+      if (me.changedClef) {
+        me.clef = me.changedClef;
+        me.changedClef = null;
+      }
+      me.startClefCopy = null;
+    },
+
+    /**
+     * @public
+     */
+    forceSectionStartInfo : function () {
+      this.renderWith = {
+        clef: true,
+        keysig:true,
+        timesig: true
+      }
+    },
+
+    /**
+     * @public
+     */
+    forceStaveStartInfo : function () {
+      var me = this;
+      me.renderWith.clef = true;
+      me.renderWith.keysig = true;
+    },
+
+    /**
+     * @public
+     */
+    showClefCheck : function () {
+      var me = this;
+      if (me.renderWith.clef && me.clef.meiElement && me.clef.meiElement.getAttribute('clef.visible') !== 'false') {
+        me.renderWith.clef = false;
+        return true;
+      }
+    },
+
+    /**
+     * @public
+     */
+    showKeysigCheck : function () {
+      var me = this;
+      if (me.renderWith.keysig && me.keySpec.meiElement && me.keySpec.meiElement.getAttribute('key.sig.show') !== 'false') {
+        me.renderWith.keysig = false;
+        return true;
+      }
+    },
+
+    /**
+     * @public
+     */
+    showTimesigCheck : function () {
+      var me = this;
+      if (me.renderWith.timesig) {
+        me.renderWith.timesig = false;
+        if (me.timeSpec.meiElement && me.timeSpec.meiElement.getAttribute('meter.rend') !== 'invis') {
+          return true;
+        }
+      }
+    },
+
+    /**
+     * @public
+     */
+    getClef : function () {
+      return this.clef;
+    },
+
+    /**
+     * @public
+     */
+    getKeySpec : function () {
+      return this.keySpec;
+    },
+
+    /**
+     * @public
+     */
     getTimeSpec : function () {
       return this.timeSpec;
-    },
-
-    /**
-     * @private
-     * @param newStaffDef
-     */
-    updateRenderWith : function (newStaffDef) {
-      var me = this, result, hasEqualAtt;
-
-      result = {
-        clef : false,
-        keysig : false,
-        timesig : false
-      };
-
-      // if (Object.keys(newStaffDef).length === 0) {
-      // return result;
-      // }
-
-      hasEqualAtt = function (attr_name) {
-        return me.staffDef.getAttribute(attr_name) === newStaffDef.getAttribute(attr_name);
-      };
-
-      if (!hasEqualAtt('clef.shape') || !hasEqualAtt('clef.line')) {
-        result.clef = true;
-      }
-      if ((!hasEqualAtt('key.pname') || !hasEqualAtt('key.accid') || !hasEqualAtt('key.mode'))) {
-        result.keysig = true;
-      }
-      if (!hasEqualAtt('meter.count') || !hasEqualAtt('meter.unit')) {
-        result.timesig = true;
-      }
-
-      me.renderWith = result;
-    },
-
-    /**
-     * @public
-     * @param staffDef
-     * @param scoreDef
-     */
-    updateDef : function (staffDef, scoreDef) {
-      var me = this;
-      me.updateRenderWith(staffDef);
-      me.staffDef = staffDef;
-      me.scoreDef = scoreDef;
-      me.updateKeySpec();
-      me.updateTimeSpec();
-      me.updateLabels();
-      me.updateSpacing();
-      if (staffDef.hasAttribute('clef.shape')) {
-        me.updateClef(staffDef);
-      }
-    },
-
-    /**
-     * @public
-     * @param scoreDef
-     */
-    overrideWithScoreDef : function (scoreDef) {
-      var me = this;
-
-      me.scoreDef = scoreDef;
-
-      if (me.scoreDef.hasAttribute('meter.count') && me.scoreDef.hasAttribute('meter.unit')) {
-        me.timeSpec = {
-          count : +me.scoreDef.getAttribute('meter.count'),
-          unit : +me.scoreDef.getAttribute('meter.unit'),
-          sym : me.scoreDef.getAttribute('meter.sym'),
-          meiElement : scoreDef
-        };
-        me.renderWith.timesig = true;
-      }
     }
+
   };
 /*
  * MEItoVexFlow, SystemInfo class
@@ -23527,7 +24860,6 @@ Vex.Flow.TextDynamics = (function(){
 
    */
   var SystemInfo = function () {
-    return;
   };
 
   SystemInfo.prototype = {
@@ -23684,7 +25016,7 @@ Vex.Flow.TextDynamics = (function(){
      *
      */
     processScoreDef : function (scoredef) {
-      var me = this, i, j, children, systemLeftmar, hasChild = false;
+      var me = this, i, j, children, systemLeftmar;
       me.scoreDefElement = scoredef;
       systemLeftmar = parseFloat(me.scoreDefElement.getAttribute('system.leftmar'));
       if (!isNaN(systemLeftmar)) {
@@ -23695,25 +25027,22 @@ Vex.Flow.TextDynamics = (function(){
       for (i = 0, j = children.length; i < j; i += 1) {
         if (children[i].nodeType === 1) {
           me.processScoreDef_child(children[i]);
-          hasChild = true;
         }
       }
 
-      if (!hasChild) {
-        me.updateStaffDefs(scoredef);
-      }
+      me.updateStaffDefs(scoredef);
 
     },
 
     /**
-     * TODO CHANGE
+     * process scoreDef in all system which didn't get updated by a staffDef child of the current scoreDef
      * @param scoredef
      */
     updateStaffDefs : function (scoredef) {
       var me = this, i = me.currentStaveInfos.length;
       while (i--) {
-        if (me.currentStaveInfos[i]) {
-          me.currentStaveInfos[i].overrideWithScoreDef(scoredef);
+        if (me.currentStaveInfos[i] && me.currentStaveInfos[i].getCurrentScoreDef() !== scoredef) {
+          me.currentStaveInfos[i].updateDef(null, scoredef);
         }
       }
     },
@@ -23739,6 +25068,10 @@ Vex.Flow.TextDynamics = (function(){
           me.processStaffGrp(element);
           break;
         case 'pgHead' :
+          me.processPgHead(element);
+          break;
+        case 'pgFoot' :
+          me.processPgFoot(element);
           break;
         default :
           Logger.info('Not supported', 'Element <' + element.localName +
@@ -23746,6 +25079,15 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
+    processPgHead : function (element) {
+      Logger.info('Not supported', 'Element <' + element.localName +
+                                   '> is not supported in <scoreDef>. Ignoring element.');
+    },
+
+    processPgFoot : function (element) {
+      Logger.info('Not supported', 'Element <' + element.localName +
+                                   '> is not supported in <scoreDef>. Ignoring element.');
+    },
 
     /**
      *
@@ -23794,7 +25136,7 @@ Vex.Flow.TextDynamics = (function(){
       var me = this, stave_n, myAncestorSymbols;
       switch (element.localName) {
         case 'staffDef' :
-          stave_n = me.processStaffDef(element);
+          stave_n = me.processStaffDef(element, me.scoreDefElement);
           return {
             first_n : stave_n,
             last_n : stave_n
@@ -23815,15 +25157,15 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Element} element
      * @return {Number} the staff number of the staffDef
      */
-    processStaffDef : function (element) {
+    processStaffDef : function (element, scoreDef) {
       var me = this, stave_n, staveInfo;
       stave_n = parseInt(element.getAttribute('n'), 10);
       if (!isNaN(stave_n)) {
         staveInfo = me.currentStaveInfos[stave_n];
         if (staveInfo) {
-          staveInfo.updateDef(element, me.scoreDefElement);
+          staveInfo.updateDef(element, scoreDef);
         } else {
-          me.currentStaveInfos[stave_n] = new StaveInfo(element, me.scoreDefElement, true, true, true);
+          me.currentStaveInfos[stave_n] = new StaveInfo(element, scoreDef, true, true, true);
         }
         return stave_n;
       } else {
@@ -23918,22 +25260,37 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     preFormat : function () {
-      var me = this, all, stave_n, i;
+      var me = this, all, stave_n, i, voice;
       all = me.all_voices;
       me.vexVoices = [];
       me.vexVoicesStaffWise = {};
       i = all.length;
+
       while (i--) {
-        me.vexVoices.push(all[i].voice);
+        voice = all[i].voice;
+        me.vexVoices.push(voice);
         stave_n = all[i].stave_n;
         if (me.vexVoicesStaffWise[stave_n]) {
-          me.vexVoicesStaffWise[stave_n].push(all[i].voice);
+          me.vexVoicesStaffWise[stave_n].push(voice);
         } else {
-          me.vexVoicesStaffWise[stave_n] = [all[i].voice];
+          me.vexVoicesStaffWise[stave_n] = [voice];
         }
       }
+
       me.formatter.preCalculateMinTotalWidth(me.vexVoices);
       return me.formatter.getMinTotalWidth();
+    },
+
+    // TODO it might be necessary to calculate this for every voice
+    // TODO also check if this works well with mRests!
+    /**
+     * returns how much of the total tick count in the measure is actually used by the first voice
+     * return {Number}
+     */
+    getFillFactor : function () {
+      var voice = this.vexVoices[0], ticksUsed;
+      ticksUsed = voice.getTicksUsed().numerator;
+      return (ticksUsed === 0) ? 1 : ticksUsed / voice.getTotalTicks().numerator;
     },
 
     /**
@@ -23947,7 +25304,7 @@ Vex.Flow.TextDynamics = (function(){
       for (i in me.vexVoicesStaffWise) {
         alignRests = (me.vexVoicesStaffWise[i].length > 1);
         f.joinVoices(me.vexVoicesStaffWise[i]);
-        if (alignRests) f.alignRests(me.vexVoicesStaffWise[i],{align_rests : alignRests});
+        if (alignRests) f.alignRests(me.vexVoicesStaffWise[i], {align_rests : alignRests});
       }
 
       var justifyWidth = stave.getNoteEndX() - stave.getNoteStartX() - 10;
@@ -23955,30 +25312,60 @@ Vex.Flow.TextDynamics = (function(){
       f.preFormat(justifyWidth, stave.getContext(), me.vexVoices, null);
     },
 
-//    getStaveLowestY : function (stave_n) {
-//      var me=this, i, j, voices, lowestY = 0;
-//      voices = me.vexVoicesStaffWise[stave_n];
-//      if (voices) {
-//        console.log(voices);
-//        for (i=0,j=voices.length;i<j;i++) {
-//          lowestY = Math.max(lowestY, voices[i].boundingBox.y + voices[i].boundingBox.h);
-//        }
-//        return lowestY;
-//      }
-//    },
+    //    getStaveLowestY : function (stave_n) {
+    //      var me=this, i, j, voices, lowestY = 0;
+    //      voices = me.vexVoicesStaffWise[stave_n];
+    //      if (voices) {
+    //        console.log(voices);
+    //        for (i=0,j=voices.length;i<j;i++) {
+    //          lowestY = Math.max(lowestY, voices[i].boundingBox.y + voices[i].boundingBox.h);
+    //        }
+    //        return lowestY;
+    //      }
+    //    },
 
     draw : function (context, staves) {
       var i, staveVoice, all_voices = this.all_voices;
       for (i = 0; i < all_voices.length; ++i) {
         staveVoice = all_voices[i];
-        staveVoice.voice.draw(context, staves[staveVoice.stave_n]);
+
+        this.drawVoice.call(staveVoice.voice, context);
+        //        staveVoice.voice.draw(context, staves[staveVoice.stave_n]);
       }
+    },
+
+    // modified version of VF.Voice.draw() which calls setStave with the voice's stave as parameter
+    drawVoice : function (context) {
+      var boundingBox = null;
+      for (var i = 0; i < this.tickables.length; ++i) {
+        var tickable = this.tickables[i];
+
+        tickable.setStave(tickable.getStave());
+
+        if (!tickable.getStave()) {
+          throw new Vex.RuntimeError("MissingStave", "The voice cannot draw tickables without staves.");
+        }
+
+        if (i === 0) boundingBox = tickable.getBoundingBox();
+
+        if (i > 0 && boundingBox) {
+          var tickable_bb = tickable.getBoundingBox();
+          if (tickable_bb) boundingBox.mergeWith(tickable_bb);
+        }
+
+        tickable.setContext(context);
+        tickable.draw();
+      }
+
+      this.boundingBox = boundingBox;
     }
+
+
   };
 /*
  * MEItoVexFlow, Converter class
  * (based on meitovexflow.js)
- * Reworkings: Alexander Erhard
+ * Rearrangements and additions: Alexander Erhard
  *
  * Copyright © 2014 Richard Lewis, Raffaele Viglianti, Zoltan Komives,
  * University of Maryland
@@ -24099,10 +25486,6 @@ Vex.Flow.TextDynamics = (function(){
        */
       autoStaveConnectorLine : true,
       /**
-       * @cfg {Boolean} renderFermataAttributes Specifies if fermata attributes should
-       * be rendered. Defaults to `true`
-       */
-      /**
        * @cfg {"full"/"abbr"/null} labelMode Specifies the way voice labels are
        * added
        * to staves. Values:
@@ -24134,7 +25517,7 @@ Vex.Flow.TextDynamics = (function(){
        */
       lyricsFont : {
         family : 'Times',
-        size : 13,
+        size : 15,
         spacing : 1.3
       },
       /**
@@ -24155,7 +25538,7 @@ Vex.Flow.TextDynamics = (function(){
        */
       dynamFont : {
         family : 'Times',
-        size : 18,
+        size : 17.5,
         weight : 'bold italic'
       },
       /**
@@ -24190,9 +25573,6 @@ Vex.Flow.TextDynamics = (function(){
 
       me.pageInfo = new PageInfo(me.cfg);
 
-      if (me.cfg.renderFermataAttributes === true) {
-        EventUtil.addFermataAtt = EventUtil.addFermata;
-      }
       switch (me.cfg.processSb) {
         case 'pb' :
           me.onSb = me.setPendingPageBreak;
@@ -24251,6 +25631,8 @@ Vex.Flow.TextDynamics = (function(){
        * @property {Vex.Flow.Beam[]} allBeams
        */
       me.allBeams = [];
+      me.allBeamSpans = [];
+      me.allTupletSpans = [];
       /**
        * Contains all Vex.Flow.Tuplet objects. Data is just pushed in
        * and later processed as a whole, so the array index is
@@ -24264,6 +25646,12 @@ Vex.Flow.TextDynamics = (function(){
        * @property {MEI2VF.Dynamics} dynamics
        */
       me.dynamics = new Dynamics(me.systemInfo, me.cfg.dynamFont);
+      /**
+       * an instance of MEI2VF.Arpeggios dealing with and storing all
+       * arpeggios found in the MEI document
+       * @property {Arpeggios} arpeggios
+       */
+      me.arpeggios = new Arpeggios(me.systemInfo);
       /**
        * an instance of MEI2VF.Directives dealing with and storing all
        * directives found in the MEI document
@@ -24311,11 +25699,6 @@ Vex.Flow.TextDynamics = (function(){
        */
       me.notes_by_id = {};
       /**
-       * an array of Beams across staves
-       * @property {Object} interStaveBeamInfos
-       */
-      me.beamInfosToResolve = [];
-      /**
        * the number of the current system
        * @property {Number} currentSystem_n
        */
@@ -24340,9 +25723,9 @@ Vex.Flow.TextDynamics = (function(){
        * measure
        *
        * If null, no volta is rendered
-       * @property {Object} currentVoltaType
+       * @property {Object} voltaInfo
        */
-      me.currentVoltaType = null;
+      me.voltaInfo = null;
       return me;
     },
 
@@ -24352,12 +25735,15 @@ Vex.Flow.TextDynamics = (function(){
      * be processed further or drawn immediately to a canvas via {@link #draw}.
      * @method process
      * @chainable
-     * @param {XMLDocument} xmlDoc an XML document or element containing the MEI music to render
+     * @param {XMLDocument|Element} xmlDoc an XML document or element containing the MEI music to render
      * @return {Converter} this
      */
     process : function (xmlDoc) {
       var me = this;
       me.reset();
+
+      //      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
+      //      me.processSections(xmlDoc);
 
       if (xmlDoc.localName === 'score') {
         me.processScoreChildren(xmlDoc);
@@ -24365,21 +25751,176 @@ Vex.Flow.TextDynamics = (function(){
         me.processScoreChildren(xmlDoc.querySelector('score'));
       }
 
-      //      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
-      //      me.processSections(xmlDoc);
-      me.directives.createVexFromInfos(me.notes_by_id);
+      me.arpeggios.createVexFromInfos(me.notes_by_id);
       me.dynamics.createVexFromInfos(me.notes_by_id);
-      me.fermatas.createVexFromInfos(me.notes_by_id);
       me.ornaments.createVexFromInfos(me.notes_by_id);
+      me.directives.createVexFromInfos(me.notes_by_id);
+      me.fermatas.createVexFromInfos(me.notes_by_id);
       me.ties.createVexFromInfos(me.notes_by_id);
       me.slurs.createVexFromInfos(me.notes_by_id);
       me.hairpins.createVexFromInfos(me.notes_by_id);
 
+      me.resolveTupletSpans();
+      me.resolveBeamSpans();
+
       return me;
     },
 
+    resolveBeamSpans : function () {
+      var me = this;
+      var spanObjectCreator = function (notes, voices, element) {
+        me.allBeams.push(new VF.Beam(notes, false));
+      };
+      me.resolveSpans(me.allBeamSpans, spanObjectCreator, null);
+    },
 
-    format: function (ctx) {
+    resolveTupletSpans : function () {
+      var me = this;
+
+      var fragmentPostProcessor = function (element, slice) {
+        new VF.Tuplet(slice, {
+          num_notes : parseInt(element.getAttribute('num'), 10) || 3,
+          beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
+        })
+      };
+
+      var spanObjectCreator = function (notes, voices, element) {
+        var tickables, tuplet, voice;
+
+        tuplet = new VF.Tuplet(notes, {
+          num_notes : parseInt(element.getAttribute('num'), 10) || 3,
+          beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
+        });
+
+        if (element.getAttribute('num.format') === 'ratio') {
+          tuplet.setRatioed(true);
+        }
+
+        tuplet.setBracketed(element.getAttribute('bracket.visible') === 'true');
+
+        var bracketPlace = element.getAttribute('bracket.place');
+        if (bracketPlace) {
+          tuplet.setTupletLocation((bracketPlace === 'above') ? 1 : -1);
+        }
+
+        me.allTuplets.push(tuplet);
+
+        // TODO make this more efficient
+        for (m = 0, n = voices.length; m < n; m++) {
+          voice = voices[m];
+          tickables = voice.tickables;
+          var v = voice;
+          v.ticksUsed = new Vex.Flow.Fraction(0, 1);
+          voice.tickables = [];
+          voice.addTickables(tickables);
+        }
+      };
+
+      me.resolveSpans(me.allTupletSpans, spanObjectCreator, fragmentPostProcessor);
+    },
+
+
+    resolveSpans : function (elements, spanObjectCreator, fragmentPostProcessor) {
+      var me = this, i, j, elements, idString, element, notes;
+
+      for (i = 0, j = elements.length; i < j; i++) {
+        notes = [];
+        element = elements[i];
+        var pList = element.getAttribute('plist');
+        var pListArray = Util.pListToArray(pList);
+
+        var startIdAtt = element.getAttribute('startid');
+        var endIdAtt = element.getAttribute('endid');
+        if (startIdAtt !== null || endIdAtt !== null) {
+          // insert startid and endid to the plist if they're not already there
+          if (pListArray[0] !== startIdAtt) {
+            pListArray.unshift(startIdAtt);
+          }
+          if (pListArray[pListArray.length - 1] !== endIdAtt) {
+            pListArray.push(endIdAtt);
+          }
+          var voices = [];
+          var firstMeasure;
+          var noteObjects = pListArray.map(function (item, index) {
+            var obj = me.notes_by_id[item.substring(1)];
+            if (!obj) {
+              throw new RuntimeError('Reference "' + item + '" given in ' + Util.serializeElement(element) +
+                                     ' not found.')
+            }
+            var voice = obj.vexNote.voice;
+            if (index === 0) {
+              firstMeasure = $(obj.meiNote).closest('measure').get(0);
+            }
+            var voiceIndex = voices.indexOf(voice);
+            if (voiceIndex === -1) {
+              // voice index remains -1 if the note is not in the start measure; it will not get
+              // included then when adding spaces
+              if (!firstMeasure || $(obj.meiNote).closest('measure').get(0) === firstMeasure) {
+                voiceIndex = voices.push(voice) - 1;
+              }
+            }
+            return {
+              obj : obj,
+              voiceIndex : voiceIndex,
+              vexNote : obj.vexNote
+            };
+          });
+
+          var newSpace;
+
+          var createSpaceFrom = function (vexNote, stave) {
+            var gn = new VF.GhostNote(vexNote.getDuration());
+
+            // TODO handle dots
+            gn.setStave(stave);
+            return gn;
+          };
+
+          var notes = noteObjects.map(function (item) {
+            return item.vexNote;
+          });
+
+          var newVoiceSegment;
+          var indicesInVoice;
+
+          if (voices.length > 1) {
+            // create spaces in voices
+
+            for (var m = 0, n = voices.length; m < n; m++) {
+              newVoiceSegment = [];
+              indicesInVoice = [];
+              for (var o = 0, p = noteObjects.length; o < p; o++) {
+                if (noteObjects[o].voiceIndex === m) {
+                  newVoiceSegment[o] = noteObjects[o].vexNote;
+                  indicesInVoice.push(voices[m].tickables.indexOf(noteObjects[o].vexNote));
+                } else if (noteObjects[o].voiceIndex !== -1) {
+
+                  // TODO handle this later for each measure!!!
+                  newSpace = createSpaceFrom(noteObjects[o].vexNote, voices[m].tickables[0].stave);
+                  newVoiceSegment[o] = newSpace;
+                }
+              }
+
+              var t = voices[m].tickables;
+              if (m !== 0 && typeof fragmentPostProcessor === 'function') {
+                fragmentPostProcessor(element, newVoiceSegment);
+              }
+              voices[m].tickables =
+              t.slice(0, indicesInVoice[0]).concat(newVoiceSegment).concat(t.slice(indicesInVoice[indicesInVoice.length -
+                                                                                                  1] + 1));
+            }
+          }
+
+          spanObjectCreator(notes, voices, element);
+
+        } else {
+          Logger.warn('Missing attributes', 'Could not process ' + Util.serializeElement(element) +
+                                            ', because @startid or @endid is missing.')
+        }
+      }
+    },
+
+    format : function (ctx) {
       var me = this;
       me.formatSystems(me.systems, ctx);
     },
@@ -24517,12 +26058,17 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     processScoreChildren : function (score) {
-      var me = this, i, j, childNodes;
+      var me = this, i, j, childNodes, sectionContext;
+
+      sectionContext = {
+        voltaInfo : null
+      };
+
       if (score) {
         childNodes = score.childNodes;
         for (i = 0, j = childNodes.length; i < j; i++) {
           if (childNodes[i].nodeType === 1) {
-            me.processScoreChild(childNodes[i]);
+            me.processScoreChild(childNodes[i], sectionContext);
           }
         }
       } else {
@@ -24530,23 +26076,23 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    processScoreChild : function (element) {
+    processScoreChild : function (element, sectionContext) {
       var me = this;
       switch (element.localName) {
         case 'scoreDef' :
           me.systemInfo.processScoreDef(element);
           break;
         case 'staffDef' :
-          me.systemInfo.processStaffDef(element);
+          me.systemInfo.processStaffDef(element, null);
           break;
         case 'pb' :
           me.onPb(element);
           break;
         case 'ending' :
-          me.processEnding(element);
+          me.processEnding(element, sectionContext);
           break;
         case 'section' :
-          me.processSection(element);
+          me.processSection(element, sectionContext);
           break;
         default :
           Logger.info('Not supported', 'Element ' + Util.serializeElement(element) +
@@ -24568,11 +26114,11 @@ Vex.Flow.TextDynamics = (function(){
     /**
      *@method processSection
      */
-    processSection : function (element) {
+    processSection : function (element, sectionContext) {
       var me = this, i, j, sectionChildren = element.childNodes;
       for (i = 0, j = sectionChildren.length; i < j; i += 1) {
         if (sectionChildren[i].nodeType === 1) {
-          me.processSectionChild(sectionChildren[i]);
+          me.processSectionChild(sectionChildren[i], sectionContext);
         }
       }
     },
@@ -24580,8 +26126,12 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processEnding
      */
-    processEnding : function (element) {
-      var me = this, isFirst = true, next, childNode;
+    processEnding : function (element, sectionContext) {
+      var me = this, next, childNode, voltaInfo, endVoltaHere;
+
+      voltaInfo = sectionContext.voltaInfo;
+
+      endVoltaHere = (voltaInfo === null);
 
       var getNext = function (node) {
         var nextSibling = node.nextSibling;
@@ -24596,20 +26146,31 @@ Vex.Flow.TextDynamics = (function(){
         childNode = getNext(childNode);
       }
 
+      // TODO take into account that section children may be other elements than measures;
+      // in this case, the last measure wouldn't be the last child element in the list!!
+
       while (childNode) {
         next = getNext(childNode);
-        if (isFirst) {
-          me.currentVoltaType = {start : element.getAttribute('n')};
-          isFirst = false;
+        // modify volta information only on measure elements
+        if (childNode.localName === 'measure') {
+          if (sectionContext.voltaInfo === null) {
+            sectionContext.voltaInfo = {
+              start : element.getAttribute('n')
+            };
+          } else {
+            delete sectionContext.voltaInfo.start;
+          }
+          if (!next && endVoltaHere) {
+            sectionContext.voltaInfo.end = true;
+          }
+        } else if (childNode.localName === 'ending' || childNode.localName === 'section') {
+          Logger.info('Not supported', Util.serializeElement(childNode) + ' is not supported as a child of ' +
+                                       Util.serializeElement(element) + '. Trying to process it anyway.');
         }
-        if (!next) {
-          me.currentVoltaType.end = true;
-        }
-        me.processSectionChild(childNode);
-
+        me.processSectionChild(childNode, sectionContext);
         childNode = next;
       }
-      me.currentVoltaType = null;
+      if (endVoltaHere) sectionContext.voltaInfo = null;
     },
 
     /**
@@ -24623,17 +26184,17 @@ Vex.Flow.TextDynamics = (function(){
      * <b>sb</b>
      * @method processSectionChild
      */
-    processSectionChild : function (element) {
+    processSectionChild : function (element, sectionContext) {
       var me = this;
       switch (element.localName) {
         case 'measure' :
-          me.processMeasure(element);
+          me.processMeasure(element, sectionContext);
           break;
         case 'scoreDef' :
           me.systemInfo.processScoreDef(element);
           break;
         case 'staffDef' :
-          me.systemInfo.processStaffDef(element);
+          me.systemInfo.processStaffDef(element, null);
           break;
         case 'pb' :
           me.onPb(element);
@@ -24642,10 +26203,10 @@ Vex.Flow.TextDynamics = (function(){
           me.onSb(element);
           break;
         case 'ending' :
-          me.processEnding(element);
+          me.processEnding(element, sectionContext);
           break;
         case 'section' :
-          me.processSection(element);
+          me.processSection(element, sectionContext);
           break;
         default :
           Logger.info('Not supported', 'Element ' + Util.serializeElement(element) +
@@ -24672,11 +26233,10 @@ Vex.Flow.TextDynamics = (function(){
      * @method processMeasure
      * @param {Element} element the MEI measure element
      */
-    processMeasure : function (element) {
-      var me = this, atSystemStart, left_barline, right_barline, system, system_n, childNodes;
+    processMeasure : function (element, sectionContext) {
+      var me = this, atSystemStart, system, system_n, childNodes;
 
       if (me.pendingSectionBreak || me.pendingSystemBreak) {
-        system_n = me.systems.length;
         system = me.createNewSystem();
         atSystemStart = true;
       } else {
@@ -24687,10 +26247,26 @@ Vex.Flow.TextDynamics = (function(){
 
       Logger.debug('Converter.processMeasure()', '{enter}');
 
-      left_barline = element.getAttribute('left');
-      right_barline = element.getAttribute('right');
+      var barlineInfo = {
+        leftBarline : element.getAttribute('left'),
+        rightBarline : element.getAttribute('right')
+      };
 
-      var staveElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], rehElements = [], ornamentElements = [], i, j;
+
+      // VexFlow doesn't support repetition starts at the end of staves -> pass
+      // the value of @right to the following measure if @left isn't specified in it
+      if (sectionContext.leftBarlineElement && !barlineInfo.leftBarline) {
+        barlineInfo.leftBarline = sectionContext.leftBarlineElement.getAttribute('right');
+        barlineInfo.leftBarlineElement = sectionContext.leftBarlineElement;
+        sectionContext.leftBarlineElement = null;
+      }
+      if (barlineInfo.rightBarline === 'rptstart') {
+        barlineInfo.rightBarline = null;
+        sectionContext.leftBarlineElement = element;
+      }
+
+
+      var staveElements = [], arpegElements = [], dirElements = [], slurElements = [], tieElements = [], hairpinElements = [], tempoElements = [], dynamElements = [], fermataElements = [], rehElements = [], ornamentElements = [], i, j;
 
       childNodes = element.childNodes;
       for (i = 0, j = childNodes.length; i < j; i++) {
@@ -24702,6 +26278,9 @@ Vex.Flow.TextDynamics = (function(){
             staveElements.push(childNodes[i]);
             break;
           case 'dir':
+            dirElements.push(childNodes[i]);
+            break;
+          case 'harm':
             dirElements.push(childNodes[i]);
             break;
           case 'tie':
@@ -24719,6 +26298,9 @@ Vex.Flow.TextDynamics = (function(){
           case 'dynam':
             dynamElements.push(childNodes[i]);
             break;
+          case 'arpeg':
+            arpegElements.push(childNodes[i]);
+            break;
           case 'fermata':
             fermataElements.push(childNodes[i]);
             break;
@@ -24730,6 +26312,12 @@ Vex.Flow.TextDynamics = (function(){
           case 'reh':
             rehElements.push(childNodes[i]);
             break;
+          case 'beamSpan':
+            me.allBeamSpans.push(childNodes[i]);
+            break;
+          case 'tupletSpan':
+            me.allTupletSpans.push(childNodes[i]);
+            break;
           default:
             Logger.info('Not supported', '<' + childNodes[i].localName + '> is not supported as child of <measure>.');
             break;
@@ -24739,17 +26327,24 @@ Vex.Flow.TextDynamics = (function(){
       // the stave objects will be stored in two places:
       // 1) in each MEI2VF.Measure
       // 2) in MEI2VF.Converter.allVexMeasureStaves
-      var staves = me.initializeStavesInMeasure(system, staveElements, left_barline, right_barline, atSystemStart);
+      var staves = me.initializeStavesInMeasure(system, staveElements, barlineInfo, atSystemStart, sectionContext);
       var measureIndex = me.allVexMeasureStaves.push(staves) - 1;
 
       var currentStaveVoices = new StaveVoices();
 
+      var eventContext = new EventContext(me.notes_by_id, me.currentSystem_n);
+
       for (i = 0, j = staveElements.length; i < j; i++) {
-        me.processStaveEvents(staves, staveElements[i], measureIndex, currentStaveVoices);
+        me.processStaveEvents(staves, staveElements[i], measureIndex, currentStaveVoices, eventContext);
       }
 
-      me.directives.createInfos(dirElements, element);
+      if (eventContext.clefCheckQueue.length !== 0) {
+        me.processClefCheckQueue(eventContext);
+      }
+
       me.dynamics.createInfos(dynamElements, element);
+      me.arpeggios.createInfos(arpegElements, element);
+      me.directives.createInfos(dirElements, element);
       me.fermatas.createInfos(fermataElements, element);
       me.ornaments.createInfos(ornamentElements, element);
       me.ties.createInfos(tieElements, element, measureIndex, me.systemInfo);
@@ -24770,8 +26365,7 @@ Vex.Flow.TextDynamics = (function(){
         inlineConnectorCfg : {
           models : me.systemInfo.inlineConnectorInfos,
           staves : staves,
-          barline_l : left_barline,
-          barline_r : right_barline
+          barlineInfo : barlineInfo
         },
         tempoElements : tempoElements,
         rehElements : rehElements,
@@ -24780,22 +26374,47 @@ Vex.Flow.TextDynamics = (function(){
       });
 
       system.addMeasure(measure);
+    },
 
-//      measure.calculateMinWidth();
+    processClefCheckQueue : function (eventContext) {
+
+
+      var i, j, event, events = eventContext.clefCheckQueue;
+      for (i = 0, j = events.length; i < j; i++) {
+        event = events[i];
+        if (event.clef !== event.stave.clef) {
+
+          // TODO check if there is a clef change in any of the voices in the other system
+          // and adjust accordingly determine the position
+          event.clef = event.stave.clef;
+
+          //          console.log(event.clef);
+          //          console.log(event.stave.clef);
+
+          event.keyProps = [];
+          event.calculateKeyProps();
+          event.buildNoteHeads();
+          event.buildStem();
+        }
+      }
+
+      eventContext.emptyClefCheckQueue();
+
 
     },
 
+
     /**
      * @method initializeStavesInMeasure
-     * @param {MEI2VF.System} system the current system
+     * @param {System} system the current system
      * @param {Element[]} staveElements all stave elements in the current
      * measure
-     * @param {String} left_barline the left barline
-     * @param {String} right_barline the right barline
+     * @param {Object} barlineInfo information about the barlines to render to the measure
      * @param {Boolean} atSystemStart indicates if the current measure is the system's start measure
+     * @param {Object} sectionContext an object containing section child context information
      */
-    initializeStavesInMeasure : function (system, staveElements, left_barline, right_barline, atSystemStart) {
-      var me = this, i, j, stave, stave_n, staves, isFirstVolta = true, clefOffsets = {}, maxClefOffset = 0, keySigOffsets = {}, maxKeySigOffset = 0, precedingMeasureStaves, newClef, currentStaveInfo, element, padding;
+    initializeStavesInMeasure : function (system, staveElements, barlineInfo, atSystemStart, sectionContext) {
+      var me = this, i, j, stave, stave_n, staves, isFirstStaveInMeasure = true, clefOffsets = {}, maxClefOffset = 0, keySigOffsets = {}, maxKeySigOffset = 0, precedingMeasureStaves, newClef, currentStaveInfo, padding;
 
       staves = [];
 
@@ -24816,15 +26435,15 @@ Vex.Flow.TextDynamics = (function(){
         stave = new Stave({
           system : system,
           y : system.getStaveYs()[stave_n],
-          leftBarline : left_barline,
-          rightBarline : right_barline
+          barlineInfo : barlineInfo
         });
         staves[stave_n] = stave;
 
-        var currentVoltaType = me.currentVoltaType;
-        if (isFirstVolta && currentVoltaType) {
-          stave.addVoltaFromInfo(currentVoltaType);
+        if (isFirstStaveInMeasure && sectionContext.voltaInfo) {
+          stave.addVoltaFromInfo(sectionContext.voltaInfo);
+          isFirstStaveInMeasure = false;
         }
+
         if (precedingMeasureStaves && precedingMeasureStaves[stave_n]) {
           currentStaveInfo = me.systemInfo.getStaveInfo(stave_n);
           newClef = currentStaveInfo.getClef();
@@ -24846,7 +26465,6 @@ Vex.Flow.TextDynamics = (function(){
           clefOffsets[stave_n] = stave.getModifierXShift();
           maxClefOffset = Math.max(maxClefOffset, clefOffsets[stave_n]);
         }
-        isFirstVolta = false;
       }
 
       // second run: add key signatures; if the clefOffset of a stave is less than
@@ -24921,58 +26539,37 @@ Vex.Flow.TextDynamics = (function(){
      * @param {MEI2VF.StaveVoices} currentStaveVoices The current StaveVoices
      * object
      */
-    processStaveEvents : function (staves, staveElement, measureIndex, currentStaveVoices) {
-      var me = this, stave, stave_n, readEvents, layerElements, i, j, k, l, childElements, vexNotes, staveInfo, event;
+    processStaveEvents : function (staves, staveElement, measureIndex, currentStaveVoices, eventContext) {
+      var me = this, stave, stave_n, layerElements, i, j, vexNotes, staveInfo;
 
       stave_n = parseInt(staveElement.getAttribute('n'), 10) || 1;
       stave = staves[stave_n];
+
+      eventContext.startNewStave(stave, stave_n);
 
       staveInfo = me.systemInfo.getStaveInfo(stave_n);
       var meter = staveInfo.getTimeSpec();
 
       layerElements = staveElement.getElementsByTagName('layer');
 
-      var context = {
-        /**
-         * inBeamNo specifies the number of beams the current events are under
-         */
-        inBeamNo : 0,
-        /**
-         * hasStemDirInBeam specifies if a stem.dir has been specified in the current beam
-         */
-        hasStemDirInBeam : false,
-        /**
-         * Grace note or grace chord objects to be added to the next non-grace note or chord
-         * @property {Vex.Flow.StaveNote[]} graceNoteQueue
-         */
-        graceNoteQueue : [],
-        currentClefChangeProperty : null,
-        notes_by_id : me.notes_by_id,
-        currentSystem_n : me.currentSystem_n,
-        stave : stave,
-        stave_n : stave_n,
-        beamInfosToResolve : me.beamInfosToResolve,
-        newBeamInfosToResolve : []
-      };
-
       for (i = 0, j = layerElements.length; i < j; i++) {
-        context.layerDir =
-        (j > 1) ? (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null;
+        eventContext.setLayerDir((j > 1) ?
+                                 (i === 0 ? VF.StaveNote.STEM_UP : i === j - 1 ? VF.StaveNote.STEM_DOWN : null) : null);
         me.resolveUnresolvedTimestamps(layerElements[i], stave_n, measureIndex, meter);
         staveInfo.checkInitialClef();
 
-        vexNotes = me.processNoteLikeChildren(context, layerElements[i], staveInfo);
+        vexNotes = me.processNoteLikeChildren(eventContext, layerElements[i], staveInfo);
         currentStaveVoices.addVoice(me.createVexVoice(vexNotes, meter), stave_n);
       }
 
-      // if there is a clef not yet attached to a note (i.e. the last clef), add it to the last voice
-      if (context.currentClefChangeProperty) {
-        stave.addEndClefFromInfo(context.currentClefChangeProperty);
-        context.currentClefChangeProperty = null;
+      // if there is a clef not yet attached to a note (i.e. the last clef), add it as a stave end modifier
+      if (eventContext.clefChangeInfo) {
+        stave.addEndClefFromInfo(eventContext.clefChangeInfo);
+        eventContext.setClefChangeInfo(null);
       }
 
-      me.beamInfosToResolve = context.newBeamInfosToResolve;
-      staveInfo.removeStartClefCopy();
+      staveInfo.finalizeClefInfo();
+
     },
 
     /**
@@ -25022,13 +26619,13 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    processNoteLikeChildren : function (context, element, staveInfo) {
+    processNoteLikeChildren : function (eventContext, element, staveInfo) {
       var me = this, vexNotes = [], k, l, processingResults;
 
       var childElements = element.childNodes;
       for (k = 0, l = childElements.length; k < l; k++) {
         if (childElements[k].nodeType === 1) {
-          processingResults = me.processNoteLikeElement(context, childElements[k], staveInfo);
+          processingResults = me.processNoteLikeElement(eventContext, childElements[k], staveInfo);
           if (processingResults) {
             if (Array.isArray(processingResults)) {
               vexNotes = vexNotes.concat(processingResults);
@@ -25046,50 +26643,47 @@ Vex.Flow.TextDynamics = (function(){
      * function
      *
      * @method processNoteLikeElement
-     * @param {Element} element the element to process
-     * @param {MEI2VF.Stave} stave the containing stave
-     * @param {Number} stave_n the number of the containing stave
-     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
-     * layer
-     * @param {MEI2VF.StaveInfo} staveInfo the stave info object
+     * @param {Object} eventContext the layer context object
+     * @param {Element} element the MEI element
+     * @param {StaveInfo} staveInfo
      */
-    processNoteLikeElement : function (context, element, staveInfo) {
+    processNoteLikeElement : function (eventContext, element, staveInfo) {
       var me = this;
       switch (element.localName) {
         case 'rest' :
-          return me.processRest(context, element, staveInfo);
+          return me.processRest(eventContext, element, staveInfo);
         case 'mRest' :
-          return me.processMRest(context, element, staveInfo);
+          return me.processMRest(eventContext, element, staveInfo);
         case 'space' :
-          return me.processSpace(context, element);
+          return me.processSpace(eventContext, element);
         case 'note' :
-          return me.processNote(context, element, staveInfo);
+          return me.processNote(eventContext, element, staveInfo);
         case 'beam' :
-          return me.processBeam(context, element, staveInfo);
+          return me.processBeam(eventContext, element, staveInfo);
         case 'tuplet' :
-          return me.processTuplet(context, element, staveInfo);
+          return me.processTuplet(eventContext, element, staveInfo);
         case 'chord' :
-          return me.processChord(context, element, staveInfo);
+          return me.processChord(eventContext, element, staveInfo);
         case 'clef' :
-          return me.processClef(context, element, staveInfo);
+          return me.processClef(eventContext, element, staveInfo);
         case 'bTrem' :
-          return me.processBTrem(context, element, staveInfo);
+          return me.processBTrem(eventContext, element, staveInfo);
         case 'anchoredText' :
-          me.processAnchoredText(context, element, staveInfo);
+          me.processAnchoredText(eventContext, element, staveInfo);
           return;
         default :
           Logger.info('Not supported', 'Element "' + element.localName + '" is not supported. Ignoring element.');
       }
     },
 
-    processAnchoredText : function (context, element, staveInfo) {
+    processAnchoredText : function (eventContext, element, staveInfo) {
     },
 
     /**
      * @method processNote
      */
-    processNote : function (context, element, staveInfo) {
-      var me = this, xml_id, mei_tie, mei_slur, mei_stave_n, atts, note_opts, note, clef, vexPitch;
+    processNote : function (eventContext, element, staveInfo) {
+      var me = this, xml_id, mei_tie, mei_slur, atts, note_opts, note, clef, vexPitch, stave, stave_n, otherStave;
 
       atts = Util.attsToObj(element);
 
@@ -25098,43 +26692,47 @@ Vex.Flow.TextDynamics = (function(){
 
       xml_id = MeiLib.XMLID(element);
 
+      atts.staff = parseInt(atts.staff);
+
       try {
 
         vexPitch = EventUtil.getVexPitch(element);
 
-        //        mei_stave_n = +atts.staff || stave_n;
-        //        if (mei_stave_n !== stave_n) {
-        //          var otherStave = me.allVexMeasureStaves[me.allVexMeasureStaves.length - 1][mei_stave_n];
-        //          if (otherStave) {
-        //            stave = otherStave;
-        //            clef = me.systemInfo.getClef(stave_n);
-        //          } else {
-        //            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + mei_stave_n +
-        //                                           '" specified in ' + Util.serializeElement(element) +
-        //                                           '". Adding note to current stave.');
-        //          }
-        //        }
-
-        if (!clef) {
-          clef = staveInfo.getClef();
+        if (atts.staff) {
+          otherStave = me.allVexMeasureStaves[me.allVexMeasureStaves.length - 1][atts.staff];
+          if (otherStave) {
+            stave = otherStave;
+            clef = me.systemInfo.getClef(atts.staff);
+          } else {
+            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + atts.staff +
+                                           '" specified in ' + Util.serializeElement(element) +
+                                           '". Adding note to current stave.');
+          }
         }
+
+        if (!clef) clef = staveInfo.getClef();
+        if (!stave) stave = eventContext.getStave();
 
         note_opts = {
           vexPitch : vexPitch,
           clef : clef,
           element : element,
           atts : atts,
-          stave : context.stave,
-          layerDir : context.layerDir
+          stave : stave,
+          layerDir : eventContext.getLayerDir()
         };
 
         note = (atts.grace) ? new GraceNote(note_opts) : new Note(note_opts);
 
-        if (note.hasMeiStemDir && context.inBeamNo > 0) {
-          context.hasStemDirInBeam = true;
+        if (otherStave) {
+          eventContext.addToClefCheckQueue(note);
         }
 
-        me.processSyllables(note, element, context.stave_n);
+        if (note.hasMeiStemDir && eventContext.isInBeam()) {
+          eventContext.setStemDirInBeam(true);
+        }
+
+        me.processSyllables(note, element, eventContext.stave_n);
 
 
         //        // FIXME For now, we'll remove any child nodes of <note>
@@ -25143,31 +26741,29 @@ Vex.Flow.TextDynamics = (function(){
         //        }
 
         if (mei_tie) {
-          me.processAttrTie(mei_tie, xml_id, vexPitch, context.stave_n);
+          me.processAttrTie(mei_tie, xml_id, vexPitch, atts.staff || eventContext.stave_n);
         }
         if (mei_slur) {
           me.processSlurAttribute(mei_slur, xml_id);
         }
 
-        context.notes_by_id[xml_id] = {
+        eventContext.addEvent(xml_id, {
           meiNote : element,
-          vexNote : note,
-          system : context.currentSystem_n,
-          layerDir : context.layerDir
-        };
+          vexNote : note
+        });
 
-        if (context.currentClefChangeProperty) {
-          EventUtil.addClefModifier(note, context.currentClefChangeProperty);
-          context.currentClefChangeProperty = null;
+        if (eventContext.clefChangeInfo) {
+          EventUtil.addClefModifier(note, eventContext.clefChangeInfo);
+          eventContext.setClefChangeInfo(null);
         }
 
         if (atts.grace) {
-          context.graceNoteQueue.push(note);
+          eventContext.graceNoteQueue.push(note);
           return;
         } else {
-          if (context.graceNoteQueue.length > 0) {
-            note.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
-            context.graceNoteQueue = [];
+          if (eventContext.graceNoteQueue.length > 0) {
+            note.addModifier(0, new VF.GraceNoteGroup(eventContext.graceNoteQueue, false).beamNotes());
+            eventContext.graceNoteQueue = [];
           }
         }
         return note;
@@ -25180,8 +26776,8 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processChord
      */
-    processChord : function (context, element, staveInfo) {
-      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j, mei_tie, mei_slur;
+    processChord : function (eventContext, element, staveInfo) {
+      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j, mei_tie, mei_slur, clef, stave, otherStave;
 
       noteElements = element.getElementsByTagName('note');
 
@@ -25192,58 +26788,81 @@ Vex.Flow.TextDynamics = (function(){
 
       xml_id = MeiLib.XMLID(element);
 
+      atts.staff = parseInt(atts.staff);
+
       try {
+
+        if (atts.staff) {
+          otherStave = me.allVexMeasureStaves[me.allVexMeasureStaves.length - 1][atts.staff];
+          if (otherStave) {
+            stave = otherStave;
+
+            // TODO take clef changes in a stave into account. It might be necessary to calculate the
+            // actual clef to use if there is a clef change in the measure
+            clef = me.systemInfo.getClef(atts.staff);
+          } else {
+            Logger.warn('Staff not found', 'No stave could be found which corresponds to @staff="' + atts.staff +
+                                           '" specified in ' + Util.serializeElement(element) +
+                                           '". Adding note to current stave.');
+          }
+        }
+
+        if (!clef) clef = staveInfo.getClef();
+        if (!stave) stave = eventContext.getStave();
+
 
         chord_opts = {
           noteElements : noteElements,
-          clef : staveInfo.getClef(),
-          stave : context.stave,
+          clef : clef,
+          stave : stave,
           element : element,
           atts : atts,
-          layerDir : context.layerDir
+          layerDir : eventContext.getLayerDir()
         };
 
         chord = (atts.grace) ? new GraceChord(chord_opts) : new Chord(chord_opts);
 
-        if (chord.hasMeiStemDir && context.inBeamNo > 0) {
-          context.hasStemDirInBeam = true;
+        if (otherStave) {
+          eventContext.addToClefCheckQueue(chord);
+        }
+
+        if (chord.hasMeiStemDir && eventContext.isInBeam()) {
+          eventContext.setStemDirInBeam(true);
         }
 
         var allNoteIndices = [];
 
         for (i = 0, j = noteElements.length; i < j; i++) {
-          me.processNoteInChord(context, i, noteElements[i], element, chord);
+          me.processNoteInChord(eventContext, i, noteElements[i], element, chord);
           allNoteIndices.push(i);
         }
 
         // TODO tie attribute on chord should render a tie on each note
-        //        if (mei_tie) {
-        //          me.processAttrTie(mei_tie, xml_id, vexPitch, context.stave_n);
-        //        }
+        //                if (mei_tie) {
+        //                  me.processAttrTie(mei_tie, xml_id, vexPitch, atts.staff || eventContext.stave_n);
+        //                }
         if (mei_slur) {
           me.processSlurAttribute(mei_slur, xml_id);
         }
 
-        context.notes_by_id[xml_id] = {
+        eventContext.addEvent(xml_id, {
           meiNote : element,
           vexNote : chord,
-          index : allNoteIndices,
-          system : context.currentSystem_n,
-          layerDir : context.layerDir
-        };
+          index : allNoteIndices
+        });
 
-        if (context.currentClefChangeProperty) {
-          EventUtil.addClefModifier(chord, context.currentClefChangeProperty);
-          context.currentClefChangeProperty = null;
+        if (eventContext.clefChangeInfo) {
+          EventUtil.addClefModifier(chord, eventContext.clefChangeInfo);
+          eventContext.setClefChangeInfo(null);
         }
 
         if (atts.grace) {
-          context.graceNoteQueue.push(chord);
+          eventContext.graceNoteQueue.push(chord);
           return;
         } else {
-          if (context.graceNoteQueue.length > 0) {
-            chord.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
-            context.graceNoteQueue = [];
+          if (eventContext.graceNoteQueue.length > 0) {
+            chord.addModifier(0, new VF.GraceNoteGroup(eventContext.graceNoteQueue, false).beamNotes());
+            eventContext.graceNoteQueue = [];
           }
         }
         return chord;
@@ -25259,7 +26878,7 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processNoteInChord
      */
-    processNoteInChord : function (context, chordIndex, element, chordElement, chord) {
+    processNoteInChord : function (eventContext, chordIndex, element, chordElement, chord) {
       var me = this, i, j, atts, xml_id;
 
       atts = Util.attsToObj(element);
@@ -25269,19 +26888,17 @@ Vex.Flow.TextDynamics = (function(){
       xml_id = MeiLib.XMLID(element);
 
       if (atts.tie) {
-        me.processAttrTie(atts.tie, xml_id, vexPitch, context.stave_n);
+        me.processAttrTie(atts.tie, xml_id, vexPitch, parseInt(atts.staff) || eventContext.stave_n);
       }
       if (atts.slur) {
         me.processSlurAttribute(atts.slur, xml_id);
       }
 
-      context.notes_by_id[xml_id] = {
+      eventContext.addEvent(xml_id, {
         meiNote : chordElement,
         vexNote : chord,
-        index : [chordIndex],
-        system : context.currentSystem_n,
-        layerDir : context.layerDir
-      };
+        index : [chordIndex]
+      });
 
       var childNodes = element.childNodes;
       for (i = 0, j = childNodes.length; i < j; i++) {
@@ -25308,34 +26925,33 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processRest
      */
-    processRest : function (context, element, staveInfo) {
+    processRest : function (eventContext, element, staveInfo) {
       var rest, xml_id;
       try {
 
         rest = new Rest({
           element : element,
-          stave : context.stave,
+          stave : eventContext.getStave(),
           clef : (element.hasAttribute('ploc') && element.hasAttribute('oloc')) ? staveInfo.getClef() : null
         });
 
         xml_id = MeiLib.XMLID(element);
 
-        if (context.currentClefChangeProperty) {
-          EventUtil.addClefModifier(rest, context.currentClefChangeProperty);
-          context.currentClefChangeProperty = null;
+        if (eventContext.clefChangeInfo) {
+          EventUtil.addClefModifier(rest, eventContext.clefChangeInfo);
+          eventContext.setClefChangeInfo(null);
         }
 
-        if (context.graceNoteQueue.length > 0) {
-          rest.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
-          context.graceNoteQueue = [];
+        if (eventContext.graceNoteQueue.length > 0) {
+          rest.addModifier(0, new VF.GraceNoteGroup(eventContext.graceNoteQueue, false).beamNotes());
+          eventContext.graceNoteQueue = [];
         }
 
 
-        context.notes_by_id[xml_id] = {
+        eventContext.addEvent(xml_id, {
           meiNote : element,
-          vexNote : rest,
-          system : context.currentSystem_n
-        };
+          vexNote : rest
+        });
         return rest;
       } catch (e) {
         throw new RuntimeError('An error occurred processing ' + Util.serializeElement(element) + ': "' + e.toString());
@@ -25345,14 +26961,14 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processMRest
      */
-    processMRest : function (context, element, staveInfo) {
+    processMRest : function (eventContext, element, staveInfo) {
       var mRest, xml_id;
 
       try {
         var mRestOpts = {
           meter : staveInfo.getTimeSpec(),
           element : element,
-          stave : context.stave,
+          stave : eventContext.getStave(),
           clef : (element.hasAttribute('ploc') && element.hasAttribute('oloc')) ? staveInfo.getClef() : null
         };
 
@@ -25360,16 +26976,15 @@ Vex.Flow.TextDynamics = (function(){
 
         xml_id = MeiLib.XMLID(element);
 
-        if (context.graceNoteQueue.length > 0) {
-          mRest.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
-          context.graceNoteQueue = [];
+        if (eventContext.graceNoteQueue.length > 0) {
+          mRest.addModifier(0, new VF.GraceNoteGroup(eventContext.graceNoteQueue, false).beamNotes());
+          eventContext.graceNoteQueue = [];
         }
 
-        context.notes_by_id[xml_id] = {
+        eventContext.addEvent(xml_id, {
           meiNote : element,
-          vexNote : mRest,
-          system : context.currentSystem_n
-        };
+          vexNote : mRest
+        });
         return mRest;
       } catch (e) {
         throw new RuntimeError('An error occurred processing ' + Util.serializeElement(element) + ': "' + e.toString());
@@ -25379,19 +26994,19 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * @method processSpace
      */
-    processSpace : function (context, element) {
+    processSpace : function (eventContext, element) {
       var space = null;
       if (element.hasAttribute('dur')) {
         try {
-          space = new Space({ element : element, stave : context.stave });
+          space = new Space({ element : element, stave : eventContext.getStave() });
 
-          if (context.inBeamNo > 0) {
-            context.hasSpaceInBeam = true;
+          if (eventContext.isInBeam()) {
+            eventContext.setSpaceInBeam(true);
           }
 
-          if (context.graceNoteQueue.length > 0) {
-            space.addModifier(0, new VF.GraceNoteGroup(context.graceNoteQueue, false).beamNotes());
-            context.graceNoteQueue = [];
+          if (eventContext.graceNoteQueue.length > 0) {
+            space.addModifier(0, new VF.GraceNoteGroup(eventContext.graceNoteQueue, false).beamNotes());
+            eventContext.graceNoteQueue = [];
           }
 
         } catch (e) {
@@ -25407,91 +27022,86 @@ Vex.Flow.TextDynamics = (function(){
 
     /**
      * @method processClef
+     * @param {Object} eventContext the layer context object
      * @param {Element} element the MEI clef element
-     * @param {Stave} stave the containing stave
-     * @param {Number} stave_n the number of the containing stave
-     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
-     * layer
-     * @param {StaveInfo} staveInfo the stave info object
+     * @param {StaveInfo} staveInfo
+
      */
-    processClef : function (context, element, staveInfo) {
-      context.currentClefChangeProperty = staveInfo.clefChangeInMeasure(element);
+    processClef : function (eventContext, element, staveInfo) {
+      eventContext.setClefChangeInfo(staveInfo.clefChangeInMeasure(element));
     },
 
     /**
      * @method processBTrem
-     * @param {Element} element the element
-     * @param {MEI2VF.Stave} stave the containing stave
-     * @param {Number} stave_n the number of the containing stave
-     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
-     * @param {MEI2VF.StaveInfo} staveInfo
+     * @param {Object} eventContext the layer context object
+     * @param {Element} element the MEI bTrem element
+     * @param {StaveInfo} staveInfo
      */
-    processBTrem : function (context, element, staveInfo) {
+    processBTrem : function (eventContext, element, staveInfo) {
       var me = this;
 
       Logger.info('Not implemented', 'Element <bTrem> not implemented. Processing child nodes.');
 
-      return me.processNoteLikeChildren(context, element, staveInfo);
+      return me.processNoteLikeChildren(eventContext, element, staveInfo);
 
     },
 
     /**
      * @method processBeam
+     * @param {Object} eventContext the layer context object
      * @param {Element} element the MEI beam element
-     * @param {MEI2VF.Stave} stave the containing stave
-     * @param {Number} stave_n the number of the containing stave
-     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current layer
-     * @param {MEI2VF.StaveInfo} staveInfo
+     * @param {StaveInfo} staveInfo
      */
-    processBeam : function (context, element, staveInfo) {
-      var me = this, vexNotes, childElements, k, l, filteredElements;
-      context.inBeamNo += 1;
+    processBeam : function (eventContext, element, staveInfo) {
+      var me = this, vexNotes, filteredVexNotes, i, j, otherBeamNotes;
+      eventContext.enterBeam();
 
-      vexNotes = me.processNoteLikeChildren(context, element, staveInfo);
+      vexNotes = me.processNoteLikeChildren(eventContext, element, staveInfo);
 
-      if (context.spaceInBeam) {
-        if (context.beamInfosToResolve.length !== 0) {
-          var otherBeamNotes = context.beamInfosToResolve.shift();
+      if (eventContext.getSpaceInBeam() === true) {
+        otherBeamNotes = eventContext.shiftBeamInfoToResolve();
+        if (otherBeamNotes !== undefined) {
           var combinedVexNotes = [];
-          for (var i = 0, j = vexNotes.length; i < j; i++) {
+          j = vexNotes.length;
+          if (j !== otherBeamNotes.vexNotes.length) {
+            Logger.warn('Beam content mismatch', Util.serializeElement(element) + ' and ' +
+                                                 Util.serializeElement(otherBeamNotes.element) +
+                                                 ' could not be combined, because their content does not match.');
+          }
+          for (i = 0; i < j; i++) {
             if (vexNotes[i] instanceof Space) {
               combinedVexNotes.push(otherBeamNotes.vexNotes[i]);
             } else {
               combinedVexNotes.push(vexNotes[i]);
             }
           }
-          filteredElements = combinedVexNotes.filter(function (element) {
-            return element.beamable === true;
+          filteredVexNotes = combinedVexNotes.filter(function (element) {
+            return element && element.beamable === true;
           });
+
         } else {
-          context.newBeamInfosToResolve.push({
-            element : element,
-            vexNotes : vexNotes
-          })
+          eventContext.addBeamInfoToResolve(element, vexNotes);
         }
 
       } else {
-        // TODO remove filter later and modify beam object to skip objects other than note and clef
-        filteredElements = vexNotes.filter(function (element) {
+        filteredVexNotes = vexNotes.filter(function (element) {
           return element.beamable === true;
         });
       }
 
-      if (filteredElements && filteredElements.length > 1) {
+      if (filteredVexNotes && filteredVexNotes.length > 1) {
         try {
           // set autostem parameter of VF.Beam to true if neither layerDir nor any stem direction in the beam is specified
-          me.allBeams.push(new VF.Beam(filteredElements, !context.layerDir && !context.hasStemDirInBeam));
+          me.allBeams.push(new VF.Beam(filteredVexNotes, !eventContext.getLayerDir() &&
+                                                         eventContext.getStemDirInBeam() === false));
         } catch (e) {
           Logger.error('VexFlow Error', 'An error occurred processing ' + Util.serializeElement(element) + ': "' +
                                         e.toString() + '". Ignoring beam.');
         }
       }
 
-      context.inBeamNo -= 1;
-      if (context.inBeamNo === 0) {
-        context.hasStemDirInBeam = false;
-        context.hasSpaceInBeam = false;
-      }
+      eventContext.exitBeam();
+
       return vexNotes;
     },
 
@@ -25506,17 +27116,14 @@ Vex.Flow.TextDynamics = (function(){
      * - bracket.place (auto if not specified)
      *
      * @method processTuplet
+     * @param {Object} eventContext the layer context object
      * @param {Element} element the MEI tuplet element
-     * @param {MEI2VF.Stave} stave the containing stave
-     * @param {Number} stave_n the number of the containing stave
-     * @param {VF.StaveNote.STEM_UP|VF.StaveNote.STEM_DOWN|null} layerDir the direction of the current
-     * layer
      * @param {MEI2VF.StaveInfo} staveInfo the stave info object
      */
-    processTuplet : function (context, element, staveInfo) {
+    processTuplet : function (eventContext, element, staveInfo) {
       var me = this, vexNotes, tuplet, bracketPlace;
 
-      vexNotes = me.processNoteLikeChildren(context, element, staveInfo);
+      vexNotes = me.processNoteLikeChildren(eventContext, element, staveInfo);
 
       if (vexNotes.length === 0) {
         Logger.warn('Missing content', 'Not content found in ' + Util.serializeElement(element) +
@@ -25655,7 +27262,7 @@ Vex.Flow.TextDynamics = (function(){
         // calculate the width of all systems based on the final width of the system with the
         // largest minSystemWidth and the default space to be added to each measure
         var totalSystemWidth = totalMinSystemWidth +
-                               (systems[broadestSystemN].openWidthMeasureCount * me.cfg.defaultSpacingInMeasure);
+                               (systems[broadestSystemN].voiceFillFactorSum * me.cfg.defaultSpacingInMeasure);
         me.pageInfo.setPrintSpaceWidth(totalSystemWidth);
 
         for (i = 0; i < j; i++) {
@@ -25677,11 +27284,11 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     drawSystems : function (systems, ctx) {
-      var me = this, i, j;
+      var i, j;
       j = systems.length;
-        for (i = 0; i < j; i++) {
-          systems[i].draw(ctx);
-        }
+      for (i = 0; i < j; i++) {
+        systems[i].draw(ctx);
+      }
     }
 
   };
@@ -25824,7 +27431,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createLayers : function (cfg) {
-      var me = this, canvases = '', element, ctx, i, j, div, layers, hasVexLayer = false, canvasTemplate;
+      var me = this, element, ctx, i, j, layers, hasVexLayer = false;
 
       me.scale = cfg.pageScale;
 
@@ -26027,6 +27634,7 @@ Vex.Flow.TextDynamics = (function(){
       me.variantAreas = [];
       me.anchoredTextAreas = [];
       me.pgHeadAreas = [];
+      me.hairpinAreas = [];
 
       var areaCollectionsByCategory = me.groupByContentCategory(areaCollections);
 
@@ -26048,6 +27656,9 @@ Vex.Flow.TextDynamics = (function(){
 
       me.extractAndAddAreas(areaCollectionsByCategory['notes'], me.noteAreas, function () {
         me.calculateNoteAreas();
+      });
+      me.extractAndAddAreas(areaCollectionsByCategory['hairpins'], me.noteAreas, function () {
+        me.calculateHairpinAreas();
       });
       me.extractAndAddAreas(areaCollectionsByCategory['anchoredTexts'], me.anchoredTextAreas, function () {
         me.calculateAnchoredTextAreas();
@@ -26074,6 +27685,7 @@ Vex.Flow.TextDynamics = (function(){
       var areaCategories = {
         measures : [],
         //        layers:[],
+        hairpins : [],
         variants : [],
         notes : [],
         barlines : [],
@@ -26160,7 +27772,8 @@ Vex.Flow.TextDynamics = (function(){
 
       if (stave.modifiers[0].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[0].x -
-                                                             8, staveY, 16, staveH, meiElement, 1));
+                                                             8, staveY, 16, staveH, stave.leftBarlineElement ||
+                                                                                    meiElement, 1));
       }
       if (stave.modifiers[1].barline !== 7) {
         me.barlineAreas.push(me.createNoteAreaObj('barline', stave.modifiers[1].x -
@@ -26169,10 +27782,10 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     calculateStaveModifierAreas : function (stave, y, h) {
-      var me = this, modifiers = stave.modifiers, i, j, category, x, w;
+      var me = this, i, j, x, w;
       j = stave.glyphs.length;
       x = stave.getGlyphStartX();
-      var glyph, glyphXW = [], glyphXWindex = 0;
+      var glyph;
 
       var codes = {
         v18 : 'meiKeySpecElement',
@@ -26209,8 +27822,22 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
+    calculateHairpinAreas : function () {
+      var me = this, i, hairpin, x, y, w, h;
+      var hairpins = me.viewer.converter.hairpins.allVexObjects;
+      for (i in hairpins) {
+        hairpin = hairpins[i];
+        x = hairpin.x - 5;
+        y = hairpin.y - 5;
+        w = hairpin.x1 - hairpin.x + 5;
+        h = hairpin.height + 10;
+        me.noteAreas.push(me.createNoteAreaObj('note', x, y, w, h, hairpin.getMeiElement(), i));
+      }
+    },
+
+
     calculateNoteAreas : function () {
-      var me = this, i, j, k, l, note, box, x, y, w, h, metrics, meiElement;
+      var me = this, i, note, box, x, y, w, h, meiElement;
       var notes = me.viewer.converter.getNotes();
       for (i in notes) {
         note = notes[i].vexNote;
@@ -26250,22 +27877,28 @@ Vex.Flow.TextDynamics = (function(){
 
     calculatePgHeadAreas : function () {
       var me = this, i, j, texts;
-      if (me.viewer.pgHead) {
-        var textsByLine = me.viewer.pgHead.getTextsByLine();
-        j = textsByLine.length;
-        while (j--) {
-          texts = textsByLine[j];
-          i = texts.length;
-          while (i--) {
-            me.pgHeadAreas.push(texts[i].getArea());
+
+      var calculate = function (obj) {
+        if (obj) {
+          var textsByLine = obj.getTextsByLine();
+          j = textsByLine.length;
+          while (j--) {
+            texts = textsByLine[j];
+            i = texts.length;
+            while (i--) {
+              me.pgHeadAreas.push(texts[i].getArea());
+            }
           }
         }
-      }
-//      console.log(me.pgHeadAreas);
+      };
+
+      calculate(me.viewer.pgHead);
+      calculate(me.viewer.pgFoot);
+
     },
 
     calculateNoteModifierAreas : function (note) {
-      var me = this, modifiers = note.modifiers, i, category, x, y, w, h, areas = [];
+      var me = this, modifiers = note.modifiers, i, category, x, y, w, h;
       i = modifiers.length;
       while (i--) {
         category = modifiers[i].getCategory();
@@ -26312,7 +27945,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     calculateNoteArea : function (notes, xmlid) {
-      var me = this, i, j, k, l, note, box, x, y, w, h;
+      var note, box, x, y, w, h;
 
       note = notes[xmlid].vexNote;
       box = note.getBoundingBox();
@@ -26361,7 +27994,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     getVariantCoordinates : function (meiDoc) {
-      var me = this, i, j, appObject, idsInAlternative, area, areas, surroundingArea;
+      var me = this, i, j, appObject, idsInAlternative, area, areas;
 
       // loop through all meilib app objects
       for (i in meiDoc.ALTs) {
@@ -26384,7 +28017,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
 
-    getIdsInAlternative : function (meiDoc, appObject, selectedSource) {
+    getIdsInAlternative : function (meiDoc, appObject) {
       var i, j, selectedAlternElement, id, descendantIds = {}, defaultAltern;
 
       defaultAltern = appObject.getDefaultItem();
@@ -26406,7 +28039,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
     getIdCoordinates : function (xmlid, localName) {
-      var me = this, area;
+      var me = this;
       switch (localName) {
         case 'note':
           return me.calculateNoteArea(me.viewer.converter.getNotes(), xmlid);
@@ -26509,7 +28142,8 @@ Vex.Flow.TextDynamics = (function(){
       var me = this, ctx = me.ctx, atts = me.atts;
 
       scale = scale || 1;
-      me.h = atts.fontsize / scale;
+//      me.h = fontsize * scale;
+      me.h = atts.fontsize * 2;
 
       this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + (me.h) + 'px ' + atts.fontfamily;
       ctx.font = this.font;
@@ -26569,8 +28203,9 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * Creates a model object from an element and adds it to {@link #allTexts}
      * @param {Element} element
+     * @stave {Stave}
      */
-    addText : function (element, stave, stave_n, layerDir, staveInfo) {
+    addText : function (element, stave) {
       var me = this;
       var text = new Text(element, {
         fontfamily : me.font.family,
@@ -26599,11 +28234,8 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     draw : function () {
-      var me = this, x, y, stave, ctx = me.ctx;
+      var me = this, stave, ctx = me.ctx;
       $.each(me.allTexts, function () {
-
-        console.log(this)
-
 
         if (!this.y) {
           stave = this.getContainer();
@@ -26703,6 +28335,7 @@ Vex.Flow.TextDynamics = (function(){
       var me = this;
 
       me.scale = scale;
+//      me.defaultFontSize = 12;
       me.defaultFontSize = 12;
       me.lineHeight = 1.3;
 
@@ -26817,19 +28450,22 @@ Vex.Flow.TextDynamics = (function(){
 
     preFormat : function (ctx) {
       var me = this, maxFontSizeInLine, i, j, k, l, textLine, text;
-      var currentCoords = me.currentCoords;
+//      var currentCoords = me.currentCoords;
+
+      var lowestY = me.currentCoords.y;
+
       for (i = 0, j = me.textsByLine.length; i < j; i++) {
         textLine = me.textsByLine[i];
         maxFontSizeInLine = 0;
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
           text.setContext(ctx).preProcess(me.scale);
-          text.setY(currentCoords.y + text.h);
+          text.setY(lowestY + text.h);
           maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
         }
-        currentCoords.y += maxFontSizeInLine * me.lineHeight;
+        lowestY += maxFontSizeInLine * me.lineHeight;
       }
-      me.lowestY = currentCoords.y;
+      me.lowestY = lowestY;
     },
 
 
@@ -26847,7 +28483,7 @@ Vex.Flow.TextDynamics = (function(){
 
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
-          text.setContext(me.ctx).preProcess(me.scale);
+//          text.setContext(me.ctx).preProcess(me.scale);
           text.setTextAlign('left');
           switch (text.atts.halign) {
             case 'center' :
@@ -26888,13 +28524,13 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     drawRightAlignedTexts : function (rightTexts, currentCoords) {
-      var me = this, maxH = 0, offsetX = 0, obj, i;
+      var maxH = 0, offsetX = 0, obj, i;
       i = rightTexts.length;
       while (i--) {
         obj = rightTexts[i];
         offsetX += obj.w;
         obj.setX(currentCoords.x + currentCoords.w - offsetX);
-        obj.setY(currentCoords.y + obj.h);
+//        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         maxH = Math.max(obj.h, maxH);
       }
@@ -26902,10 +28538,10 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     drawLeftAlignedTexts : function (leftTexts, currentCoords) {
-      var me = this, maxH = 0, offsetX = 0;
+      var maxH = 0, offsetX = 0;
       $.each(leftTexts, function (i, obj) {
         obj.setX(currentCoords.x + offsetX);
-        obj.setY(currentCoords.y + obj.h);
+//        obj.setY(currentCoords.y + obj.h);
         obj.draw();
         offsetX += obj.w;
         maxH = Math.max(obj.h, maxH);
@@ -26950,7 +28586,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     resolveSameAs : function (element) {
-      this.copyElements(element, 'sameas');
+//      this.copyElements(element, 'sameas');
     },
 
     resolveCopyOf : function (element) {
@@ -26985,7 +28621,8 @@ Vex.Flow.TextDynamics = (function(){
     /**
      * checks if descendants of the provided element have xml:ids; adds xml:ids
      * if they are missing
-     * @param {Element} options The pre-processing options
+     * @param {Element} element
+     * @param {Object} option The pre-processing option
      */
     addXmlIdPrefix : function (element, option) {
       var i, items = element.getElementsByTagName("*"), prefix = option[1];
@@ -27001,8 +28638,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param element
      */
     processDefs : function (element) {
-      var me = this, i, keys;
-      keys = {
+      var keys = {
         s : [
           'c',
           'g',
@@ -27050,7 +28686,7 @@ Vex.Flow.TextDynamics = (function(){
       };
 
       var process = function (items, keys) {
-        var i, keySig, n, acc, found;
+        var i, keySig, n, acc, found, key;
         for (i = items.length; i--;) {
           if (items[i].hasAttribute('key.sig')) {
             keySig = items[i].getAttribute('key.sig');
@@ -27177,8 +28813,8 @@ Vex.Flow.TextDynamics = (function(){
       /**
        * @cfg {Object[]} layers The canvas layers. (optional)
        *
-       * Can be either a subclass of {@link MSV.AreaCollection} like
-       * {@link MSV.DefaultAreaCollection} or, to specify the layer to contain
+       * Can be either a subclass of {@link AbstractAreaCollection} like
+       * {@link DefaultAreaCollection} or, to specify the layer to contain
        * the VexFlow output, an object with the property `type` with the value `vex`.
        * The first layer will be the bottom-most, the last one the top-most.
        * If no VexFlow layer is specified, a VexFlow Layer gets added automatically
@@ -27188,7 +28824,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     init : function (config) {
-      var me = this, xmlDoc, firstScoreDef, cfg, canvas, ctx, meiDoc, layers;
+      var me = this, xmlDoc, firstScoreDef, meiDoc, layers;
 
       if (!config) {
         throw new RuntimeError('No config passed to Viewer.');
@@ -27223,7 +28859,6 @@ Vex.Flow.TextDynamics = (function(){
       }
 
 
-
       var height, width;
 
       // if height is specified don't return the calculated height to get same behavior as width
@@ -27240,11 +28875,6 @@ Vex.Flow.TextDynamics = (function(){
 
       me.UI.setSize(height, width, me.cfg.pageScale);
 
-      if (me.pgHead) {
-        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgHead.setContext(layers[me.UI.vexLayerIndex].ctx).draw();
-      }
-
       me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
@@ -27254,7 +28884,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     registerMouseHandlers : function (UI, layers) {
-      var me = this, i, layer;
+      var i, layer;
       i = layers.length;
       while (i--) {
         layer = layers[i];
@@ -27272,7 +28902,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     convertMEI : function (xmlDoc, vexCtx) {
-      var me = this;
+      var me = this, pgHeadLowestY;
       /**
        * @property {MEI2VF.Converter} converter the MEI2VF converter
        */
@@ -27283,30 +28913,46 @@ Vex.Flow.TextDynamics = (function(){
         me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
       };
 
-
-      var headEl = xmlDoc.getElementsByTagName('pgHead')[0];
-
-      if (me.cfg.processPgHead && headEl) {
-
-        var printSpace = me.converter.pageInfo.getPrintSpace();
-
-        me.pgHead = new PgHead(headEl, {
-          x : printSpace.left,
-          y : me.converter.pageInfo.pageTopMar,
-          w : printSpace.width
-        }, me.cfg.pageScale);
-
-        me.pgHead.preFormat(vexCtx);
-
-        if (me.pgHead.lowestY) {
-          printSpace.top = me.pgHead.lowestY / me.cfg.pageScale;
+      me.converter.systemInfo.processPgHead = function (element) {
+        if (me.cfg.processPgHead && !me.pgHead) {
+          var printSpace = me.converter.pageInfo.getPrintSpace();
+          me.pgHead = new PgHead(element, {
+            // TODO remove x, y, w !?
+            x : printSpace.left,
+            y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
+            w : printSpace.width
+          }, me.cfg.pageScale);
+          me.pgHead.preFormat(vexCtx);
+          pgHeadLowestY = me.pgHead.getLowestY();
+          if (pgHeadLowestY) {
+            // round the y value in order to prevent blurred staff lines on the canvas
+            printSpace.top = Math.ceil(pgHeadLowestY) + 30;
+          }
         }
-      }
+      };
+
+      var pgFootElement;
+
+      me.converter.systemInfo.processPgFoot = function (element) {
+        if (me.cfg.processPgHead) {
+          pgFootElement = element;
+        }
+      };
+
 
       me.converter.process(xmlDoc);
       me.converter.format(vexCtx);
 
-
+      if (pgFootElement) {
+        var printSpace = me.converter.pageInfo.getPrintSpace();
+        me.pgFoot = new PgHead(pgFootElement, {
+          x : printSpace.left,
+          y : me.converter.pageInfo.getLowestY() + 80,
+          w : printSpace.width
+        }, me.cfg.pageScale);
+        me.pgFoot.preFormat(vexCtx);
+        me.converter.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.converter.pageInfo.pageBottomMar);
+      }
 
       if (me.cfg.autoMeasureNumbers) {
         me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
@@ -27316,6 +28962,17 @@ Vex.Flow.TextDynamics = (function(){
 
     drawMEI : function (ctx) {
       var me = this;
+
+      if (me.pgHead) {
+        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
+        me.pgHead.setContext(ctx).draw();
+      }
+
+      if (me.pgFoot) {
+        me.pgFoot.setWidth(me.converter.pageInfo.getPrintSpace().width);
+        me.pgFoot.setContext(ctx).draw();
+      }
+
       me.converter.draw(ctx);
       me.anchoredTexts.setContext(ctx).draw();
     }
@@ -27533,7 +29190,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Object} area The area to highlight.
      */
     setHighlight : function (area) {
-      var me = this, M = Math;
+      var me = this;
       me.roundRect(me.ctx, area.x, area.y, area.w, area.h, 5, true, false);
       me.currentHighlight = area;
     },
@@ -27587,7 +29244,7 @@ Vex.Flow.TextDynamics = (function(){
      * is in none of the highlighter's areas.
      */
     getAreaFromPoint : function (point) {
-      var me = this, areas, i, inArea = false;
+      var me = this, areas, i;
       areas = me.areas;
       i = areas.length;
       while (i--) {
@@ -27691,11 +29348,13 @@ Vex.Flow.TextDynamics = (function(){
       }
     }
 
-    var is_above = (this.position === Modifier.Position.ABOVE) ? true : false;
+    var is_above = (this.position === Modifier.Position.ABOVE);
     var note_line = this.note.getLineNumber(is_above);
 
     // Beamed stems are longer than quarter note stems.
-    if (!is_on_head && this.note.beam) line_spacing += 0.5;
+    if (!is_on_head && this.note.beam) {
+      line_spacing = this.note.beam.beam_count * 0.5;
+    }
 
     // If articulation will overlap a line, reposition it.
     if (needsLineAdjustment(this, note_line, line_spacing)) line_spacing += 0.5;
