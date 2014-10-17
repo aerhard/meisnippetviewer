@@ -31,7 +31,8 @@ $.get('{{ site.baseurl }}/xml/Joplin_Elite_Syncopations.xml', function (meiCode)
           target : $('#music'),
           labelMode : 'full',
           autoStaveConnectorLine: true,
-          pageScale:0.5, 
+          pageScale:0.6,
+           pageWidth: 1500,
           staveSpacing: 80
         });
 }, 'xml');

@@ -233,7 +233,7 @@ xmlns="http://www.music-encoding.org/ns/mei" xmlns:mei="http://www.music-encodin
 		<body>
 			<mdiv>
 				<score>
-					<scoreDef key.pname="c" key.mode="major" music.size="16.2" 
+					<scoreDef key.pname="c" key.mode="major" music.size="16.2"
 					page.width="1600" page.leftmar="100" page.rightmar="100" page.scale="60%">
 						<pgHead>
 							<title type="main">
