@@ -29,7 +29,7 @@ Inspector.prototype = {
 
         var elementOffset = $(element).offset();
         // note: "this.scale" refers to the scale property in the AreaCollection object
-        me.tooltip.enterNote(info, elementOffset.left + (noteArea.ctx.x * this.scale), elementOffset.top +
+        me.tooltip.showNoteInfo(info, elementOffset.left + (noteArea.ctx.x * this.scale), elementOffset.top +
                                                                                        (noteArea.ctx.y1 * this.scale) +
                                                                                        20);
       },
@@ -83,7 +83,7 @@ Inspector.prototype = {
         this.show.apply(this, arguments);
       },
 
-      enterNote : function () {
+      showNoteInfo : function () {
         this.noteTooltipActive = true;
         this.show.apply(this, arguments);
       },
