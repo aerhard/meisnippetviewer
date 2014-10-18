@@ -16,18 +16,14 @@
  */
 define([
   'jquery',
-  'vexflow',
   'meilib/MeiLib',
-  'mei2vf/Converter',
+  'msv/core/ExtendedConverter',
   'msv/core/Document',
   'common/RuntimeError',
   'msv/core/UI',
   'msv/areas/AreaHelper',
-  'msv/mei2text/AnchoredTexts',
-  'msv/mei2text/MeasureNumbers',
-  'msv/mei2text/PgHead',
   'msv/pre/PreProcessor'
-], function ($, VF, MeiLib, Converter, Document, RuntimeError, UI, AreaHelper, AnchoredTexts, MeasureNumbers, PgHead, PreProcessor) {
+], function ($, MeiLib, ExtendedConverter, Document, RuntimeError, UI, AreaHelper, PreProcessor) {
   /**
    * @exports core/Viewer
    */
@@ -41,65 +37,22 @@ define([
      * MEI2VF.Converter}
    */
   var Viewer = function (config) {
-    this.init(config);
+    if (config) {
+      this.init(config);
+    }
   };
 
   Viewer.prototype = {
 
     defaults : {
       /**
-       * @cfg {Number} pageScale The page scale (set 1 for 100%, 0.5 for 50%
-       * etc.)
-       */
-      pageScale : 1,
-      /**
-       * @cfg {Number} pageHeight The height of the page. Null for auto height
-       */
-      pageHeight : null,
-      /**
-       * @cfg {Number} pageWidth The width of the page. Null for auth width
-       */
-      pageWidth : null,
-      /**
-       * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
-       * automatically be added to each system start
-       */
-      autoMeasureNumbers : false,
-      /**
-       * @cfg {Object} measureNumberFont The measure number font
-       * @cfg {String} measureNumberFont.family the font family
-       * @cfg {Number} measureNumberFont.size the font size
-       * @cfg {String} measureNumberFont.weight the font weight
-       */
-      measureNumberFont : {
-        family : 'Times',
-        size : 14,
-        weight : 'Italic'
-      },
-      /**
-       * @cfg {Object} anchoredTextFont The anchored text font
-       * @cfg {String} anchoredTextFont.family the font family
-       * @cfg {Number} anchoredTextFont.size the font size
-       * @cfg {String} anchoredTextFont.weight the font weight
-       */
-      anchoredTextFont : {
-        family : 'Times',
-        size : 22,
-        weight : ''
-      },
-      /**
        * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used to pre-process the input XML document. Necessary when there are variants in the MEI document.
        */
       useMeiLib : false,
       /**
-       * @cfg (Boolean) processPgHead Specifies if pgHead elemements should be rendered
-       */
-      processPgHead : true,
-      /**
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
-        'resolveSameAs',
         'resolveCopyOf',
         [
           'addXmlIdPrefix',
@@ -124,11 +77,11 @@ define([
       var me = this, xmlDoc, firstScoreDef, meiDoc, layers;
 
       if (!config) {
-        throw new RuntimeError('No config passed to Viewer.');
+        throw new RuntimeError('No config passed to init function.');
       }
 
       if (!config.data) {
-        throw new RuntimeError('No XML document passed to Viewer.');
+        throw new RuntimeError('No XML document passed to init function.');
       }
 
       xmlDoc = Document.initXmlDoc(config.data);
@@ -144,134 +97,39 @@ define([
         PreProcessor.process(xmlDoc, me.cfg.preProcess);
       }
 
+      me.converter = new ExtendedConverter(me.cfg);
       me.UI = new UI();
-      layers = me.UI.createLayers(me.cfg);
 
+
+      me.converter.reset();
       if (me.cfg.useMeiLib) {
         meiDoc = new MeiLib.MeiDoc(xmlDoc);
-        //        meiDoc.initSectionView();
-        me.convertMEI(meiDoc.sectionview_score, layers[me.UI.vexLayerIndex].ctx);
+        me.converter.process(meiDoc.sectionview_score);
       } else {
-        me.convertMEI(xmlDoc, layers[me.UI.vexLayerIndex].ctx);
+        me.converter.process(xmlDoc);
       }
 
+      layers = me.UI.createLayers(me.cfg, me.converter.cfg.pageScale);
+      me.converter.format(layers[me.UI.vexLayerIndex].ctx);
 
-      var height, width;
+      var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
+      var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
 
-      // if height is specified don't return the calculated height to get same behavior as width
-      if (me.cfg.pageHeight) {
-        height = me.cfg.pageHeight;
-      } else {
-        height = me.converter.pageInfo.getCalculatedHeight();
-      }
-      if (me.converter.pageInfo.hasCalculatedWidth()) {
-        width = me.converter.pageInfo.getCalculatedWidth();
-      } else {
-        width = me.cfg.pageWidth;
-      }
+//      me.UI.setSize(500, 800, 1);
 
-      me.UI.setSize(height, width, me.cfg.pageScale);
+            me.UI.setSize(height, width, me.converter.cfg.pageScale);
 
-      me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
+      me.converter.draw(layers[me.UI.vexLayerIndex].ctx);
 
       me.areaHelper = new AreaHelper(me);
       me.areaHelper.setAreas(meiDoc, layers);
 
-      me.registerMouseHandlers(me.UI, layers);
+      me.UI.registerMouseHandlers();
     },
 
-    registerMouseHandlers : function (UI, layers) {
-      var i, layer;
-      i = layers.length;
-      while (i--) {
-        layer = layers[i];
-        if (layer.type === 'highlighter') {
-          if (layer.clickHandler) {
-            UI.registerMouseClickHandler(layer);
-          }
-          if (layer.highlightMode === 'hover' || (layer.mouseEnterHandler && layer.mouseLeaveHandler)) {
-            UI.registerMouseMoveHandler(layer);
-          }
-        }
-      }
-      UI.listenMouseClick();
-      UI.listenMouseMove();
-    },
-
-    convertMEI : function (xmlDoc, vexCtx) {
-      var me = this, pgHeadLowestY;
-      /**
-       * @property {MEI2VF.Converter} converter the MEI2VF converter
-       */
-      me.converter = new Converter(me.cfg);
-
-      me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
-      me.converter.processAnchoredText = function (element, stave, stave_n, layerDir, staveInfo) {
-        me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
-      };
-
-      me.converter.systemInfo.processPgHead = function (element) {
-        if (me.cfg.processPgHead && !me.pgHead) {
-          var printSpace = me.converter.pageInfo.getPrintSpace();
-          me.pgHead = new PgHead(element, {
-            // TODO remove x, y, w !?
-            x : printSpace.left,
-            y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
-            w : printSpace.width
-          }, me.cfg.pageScale);
-          me.pgHead.preFormat(vexCtx);
-          pgHeadLowestY = me.pgHead.getLowestY();
-          if (pgHeadLowestY) {
-            // round the y value in order to prevent blurred staff lines on the canvas
-            printSpace.top = Math.ceil(pgHeadLowestY) + 30;
-          }
-        }
-      };
-
-      var pgFootElement;
-
-      me.converter.systemInfo.processPgFoot = function (element) {
-        if (me.cfg.processPgHead) {
-          pgFootElement = element;
-        }
-      };
-
-
-      me.converter.process(xmlDoc);
-      me.converter.format(vexCtx);
-
-      if (pgFootElement) {
-        var printSpace = me.converter.pageInfo.getPrintSpace();
-        me.pgFoot = new PgHead(pgFootElement, {
-          x : printSpace.left,
-          y : me.converter.pageInfo.getLowestY() + 80,
-          w : printSpace.width
-        }, me.cfg.pageScale);
-        me.pgFoot.preFormat(vexCtx);
-        me.converter.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.converter.pageInfo.pageBottomMar);
-      }
-
-      if (me.cfg.autoMeasureNumbers) {
-        me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
-        me.measureNumbers.addToSystemStarts(me.converter.getSystems());
-      }
-    },
-
-    drawMEI : function (ctx) {
+    zoom : function (scale) {
       var me = this;
-
-      if (me.pgHead) {
-        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgHead.setContext(ctx).draw();
-      }
-
-      if (me.pgFoot) {
-        me.pgFoot.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgFoot.setContext(ctx).draw();
-      }
-
-      me.converter.draw(ctx);
-      me.anchoredTexts.setContext(ctx).draw();
+      me.UI.zoom(scale, me.converter.draw, me.converter);
     }
 
   };

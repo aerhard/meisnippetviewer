@@ -68,10 +68,43 @@ define([
       }
     },
 
-    createLayers : function (cfg) {
+    zoom : function (scale, drawFn, scope) {
+      var me = this, canvas, ctx, i, j;
+
+      for (i = 0, j = me.layers.length; i < j; i++) {
+        canvas = me.layers[i].element;
+        ctx = me.layers[i].ctx;
+        ctx.scale(scale, scale);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      me.scale *=scale;
+
+      if (scope && typeof drawFn === 'function') {
+        drawFn.call(scope, me.layers[me.vexLayerIndex].ctx);
+      }
+
+
+      //  var scaleFactor = 1.1;
+      //  var zoom = function(clicks){
+      //    var pt = ctx.transformedPoint(lastX,lastY);
+      //    ctx.translate(pt.x,pt.y);
+      //    var factor = Math.pow(scaleFactor,clicks);
+      //    ctx.scale(factor,factor);
+      //    ctx.translate(-pt.x,-pt.y);
+      //    redraw();
+      //  }
+
+    },
+
+
+    createLayers : function (cfg, scale) {
       var me = this, element, ctx, i, j, layers, hasVexLayer = false;
 
-      me.scale = cfg.pageScale;
+      me.scale = scale;
 
       // unwrap target if it's a jQuery object
       var target = cfg.target[0] || cfg.target;
@@ -161,18 +194,18 @@ define([
       return new VF.Renderer(canvas, backend || VF.Renderer.Backends.CANVAS).getContext();
     },
 
-//    scaleContext : function (ctx, cfg) {
-//      var me = this, paper, w, h;
-//      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
-//        //        paper = ctx.paper;
-//        //        h = cfg.pageHeight;
-//        //        w = cfg.pageWidth;
-//        //        paper.setSize(w * scale, h * scale);
-//        //        paper.setViewBox(0, 0, w, h);
-//      } else {
-//        ctx.scale(me.scale, me.scale);
-//      }
-//    },
+    //    scaleContext : function (ctx, cfg) {
+    //      var me = this, paper, w, h;
+    //      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
+    //        //        paper = ctx.paper;
+    //        //        h = cfg.pageHeight;
+    //        //        w = cfg.pageWidth;
+    //        //        paper.setSize(w * scale, h * scale);
+    //        //        paper.setViewBox(0, 0, w, h);
+    //      } else {
+    //        ctx.scale(me.scale, me.scale);
+    //      }
+    //    },
 
     registerMouseClickHandler : function (handler) {
       var me = this;
@@ -230,6 +263,24 @@ define([
           }
         }
       });
+    },
+
+    registerMouseHandlers : function () {
+      var i, layer, me = this, layers = me.layers;
+      i = layers.length;
+      while (i--) {
+        layer = layers[i];
+        if (layer.type === 'highlighter') {
+          if (layer.clickHandler) {
+            me.registerMouseClickHandler(layer);
+          }
+          if (layer.highlightMode === 'hover' || (layer.mouseEnterHandler && layer.mouseLeaveHandler)) {
+            me.registerMouseMoveHandler(layer);
+          }
+        }
+      }
+      me.listenMouseClick();
+      me.listenMouseMove();
     }
 
   };

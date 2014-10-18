@@ -274,7 +274,7 @@ define([
 
     calculateAnchoredTextAreas : function () {
       var me = this, i;
-      var texts = me.viewer.anchoredTexts.getAll();
+      var texts = me.viewer.converter.anchoredTexts.getAll();
       i = texts.length;
       while (i--) {
         me.anchoredTextAreas.push(texts[i].getArea());
@@ -298,8 +298,8 @@ define([
         }
       };
 
-      calculate(me.viewer.pgHead);
-      calculate(me.viewer.pgFoot);
+      calculate(me.viewer.converter.pgHead);
+      calculate(me.viewer.converter.pgFoot);
 
     },
 

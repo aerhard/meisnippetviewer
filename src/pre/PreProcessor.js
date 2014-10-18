@@ -36,14 +36,9 @@ define([
       }
     },
 
-    resolveSameAs : function (element) {
-//      this.copyElements(element, 'sameas');
-    },
-
     resolveCopyOf : function (element) {
       this.copyElements(element, 'copyof');
     },
-
 
     copyElements : function (element, attName) {
       var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;

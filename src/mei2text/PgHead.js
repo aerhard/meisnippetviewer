@@ -83,6 +83,10 @@ define([
 
     },
 
+    setY : function(y) {
+      this.currentCoords.y = y;
+    },
+
     setWidth: function(width){
       this.currentCoords.w = width;
     },
@@ -153,7 +157,8 @@ define([
       return this;
     },
 
-    preFormat : function (ctx) {
+    // TODO rename to calculateY
+    preFormat : function () {
       var me = this, maxFontSizeInLine, i, j, k, l, textLine, text;
 //      var currentCoords = me.currentCoords;
 
@@ -164,7 +169,8 @@ define([
         maxFontSizeInLine = 0;
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
-          text.setContext(ctx).preProcess(me.scale);
+//          text.setContext(ctx).preProcess(me.scale);
+          text.h = text.atts.fontsize * 2;
           text.setY(lowestY + text.h);
           maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
         }
@@ -188,7 +194,7 @@ define([
 
         for (k = 0, l = textLine.length; k < l; k++) {
           text = textLine[k];
-//          text.setContext(me.ctx).preProcess(me.scale);
+          text.setContext(me.ctx).preProcess(me.scale);
           text.setTextAlign('left');
           switch (text.atts.halign) {
             case 'center' :
