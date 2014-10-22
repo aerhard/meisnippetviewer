@@ -125,8 +125,6 @@ define([
       var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
       var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
 
-
-
 //            me.UI.setSize(400, 800, 1);
       me.UI.setSize(height, width, me.converter.cfg.pageScale);
 
@@ -141,7 +139,22 @@ define([
 
     zoom : function (scale) {
       var me = this;
-      me.UI.zoom(scale);
+//      me.UI.zoom(scale);
+
+
+      me.converter.cfg.pageScale += scale;
+
+      var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
+      var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
+
+//      height*= scale;
+//      width *= scale;
+
+      //            me.UI.setSize(400, 800, 1);
+      me.UI.setSize(height, width, me.converter.cfg.pageScale);
+
+      me.converter.draw(me.UI.layers[me.UI.vexLayerIndex].ctx);
+
     }
 
   };
