@@ -15,10 +15,8 @@
  *
  */
 define([
-  'jquery',
-  'vexflow',
   'msv/mei2text/Text'
-], function ($, VF, Text) {
+], function (Text) {
   /**
    * @exports mei2text/AnchoredTexts
    */
@@ -77,23 +75,24 @@ define([
     },
 
     draw : function () {
-      var me = this, stave, ctx = me.ctx;
-      $.each(me.allTexts, function () {
+      var me = this, stave, ctx = me.ctx, i, j, text;
 
-        if (!this.y) {
-          stave = this.getContainer();
-          this.setY(stave.getYForLine(3) - 4 + (+this.atts.vo * stave.getSpacingBetweenLines() / 2 || 0));
+      for (i=0,j=me.allTexts.length;i<j;i++) {
+        text = me.allTexts[i];
+
+        if (!text.y) {
+          stave = text.getContainer();
+          text.setY(stave.getYForLine(3) - 4 + (+text.atts.vo * stave.getSpacingBetweenLines() / 2 || 0));
         }
-        if (!this.x) {
+        if (!text.x) {
           if (!stave) {
-            stave = this.getContainer();
+            stave = text.getContainer();
           }
-          this.setX(stave.getGlyphStartX() + (+this.atts.ho * stave.getSpacingBetweenLines() / 2 || 0));
+          text.setX(stave.getGlyphStartX() + (+text.atts.ho * stave.getSpacingBetweenLines() / 2 || 0));
         }
 
-        this.setContext(ctx).preProcess().draw();
-
-      });
+        text.setContext(ctx).preProcess().draw();
+      }
     }
   };
 

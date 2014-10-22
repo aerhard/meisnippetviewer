@@ -15,7 +15,7 @@
  *
  */
 define([
-  'jquery',
+  'common/Util',
   'meilib/MeiLib',
   'msv/core/ExtendedConverter',
   'msv/core/Document',
@@ -23,7 +23,7 @@ define([
   'msv/core/UI',
   'msv/areas/AreaHelper',
   'msv/pre/PreProcessor'
-], function ($, MeiLib, ExtendedConverter, Document, RuntimeError, UI, AreaHelper, PreProcessor) {
+], function (Util, MeiLib, ExtendedConverter, Document, RuntimeError, UI, AreaHelper, PreProcessor) {
   /**
    * @exports core/Viewer
    */
@@ -91,7 +91,7 @@ define([
         throw new RuntimeError('No <scoreDef> found in config.data.');
       }
 
-      me.cfg = $.extend(true, {}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
+      me.cfg = Util.extend({}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
 
       if (me.cfg.preProcess) {
         PreProcessor.process(xmlDoc, me.cfg.preProcess);
@@ -99,6 +99,13 @@ define([
 
       me.converter = new ExtendedConverter(me.cfg);
       me.UI = new UI();
+
+      // TODO improve
+      me.UI.redraw = function() {
+        me.converter.draw(this.layers[this.vexLayerIndex].ctx);
+//        me.converter.draw(this.layers[this.vexLayerIndex].ctx, Math.round((1/this.scale)*2)/2);
+//        me.converter.draw(this.layers[this.vexLayerIndex].ctx, Math.floor(1/this.scale) || 1);
+      };
 
 
       me.converter.reset();
@@ -110,16 +117,21 @@ define([
       }
 
       layers = me.UI.createLayers(me.cfg, me.converter.cfg.pageScale);
+
+//      layers = me.UI.createLayers(me.cfg, 1);
+
       me.converter.format(layers[me.UI.vexLayerIndex].ctx);
 
       var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
       var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
 
-//      me.UI.setSize(500, 800, 1);
 
-            me.UI.setSize(height, width, me.converter.cfg.pageScale);
+
+//            me.UI.setSize(400, 800, 1);
+      me.UI.setSize(height, width, me.converter.cfg.pageScale);
 
       me.converter.draw(layers[me.UI.vexLayerIndex].ctx);
+//      me.UI.zoom(-4)
 
       me.areaHelper = new AreaHelper(me);
       me.areaHelper.setAreas(meiDoc, layers);
@@ -129,7 +141,7 @@ define([
 
     zoom : function (scale) {
       var me = this;
-      me.UI.zoom(scale, me.converter.draw, me.converter);
+      me.UI.zoom(scale);
     }
 
   };

@@ -15,15 +15,13 @@
  *
  */
 define([
-  'jquery',
   'vexflow',
-  'meilib/MeiLib',
   'mei2vf/Converter',
-  'common/RuntimeError',
+  'mei2vf/stave/Stave',
   'msv/mei2text/AnchoredTexts',
   'msv/mei2text/MeasureNumbers',
   'msv/mei2text/PgHead'
-], function ($, VF, MeiLib, Converter, RuntimeError, AnchoredTexts, MeasureNumbers, PgHead) {
+], function (VF, Converter, Stave, AnchoredTexts, MeasureNumbers, PgHead) {
 
   var ExtendedConverter = function (config) {
     this.init();
@@ -76,6 +74,8 @@ define([
       /**
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
+
+      Stave.prototype.lineColor = '#000000';
     },
 
 
@@ -88,13 +88,9 @@ define([
         me.systemInfo.processPgHead = function (element) {
           if (!me.pgHead) {
             var printSpace = me.pageInfo.getPrintSpace();
-            me.pgHead = new PgHead(element, {
-              // TODO remove x, y, w !?
-              x : printSpace.left,
-              w : printSpace.width
-            }, me.cfg.pageScale);
-            me.pgHead.setY(me.pageInfo.pageTopMar + 90); // increase top padding for header
-            me.pgHead.preFormat();
+            me.pgHead = new PgHead(me.cfg.pageScale);
+            me.pgHead.processElement(element);
+            me.pgHead.setStartXY(printSpace.left, me.pageInfo.pageTopMar + 90); // increase top padding for header
             pgHeadLowestY = me.pgHead.getLowestY();
             if (pgHeadLowestY) {
               // round the y value in order to prevent blurred staff lines on the canvas
@@ -105,14 +101,9 @@ define([
 
         me.systemInfo.processPgFoot = function (element) {
           if (!me.pgFoot) {
-            var printSpace = me.pageInfo.getPrintSpace();
-            me.pgFoot = new PgHead(element, {
-              x : printSpace.left,
-              w : printSpace.width
-            }, me.cfg.pageScale);
-
+            me.pgFoot = new PgHead(me.cfg.pageScale);
+            me.pgFoot.processElement(element);
           }
-          
         };
 
       }
@@ -127,16 +118,15 @@ define([
     },
 
     format: function (ctx) {
-      var me = this;
+      var me = this, printSpace = me.pageInfo.getPrintSpace();;
       ExtendedConverter.superclass.format.call(me, ctx);
       if (me.pgHead) {
-        me.pgHead.setWidth(me.pageInfo.getPrintSpace().width);
+        me.pgHead.setWidth(printSpace.width);
       }
       if (me.pgFoot) {
-        me.pgFoot.setY(me.pageInfo.getLowestY() + 80);
-        me.pgFoot.preFormat();
+        me.pgFoot.setStartXY(printSpace.left, me.pageInfo.getLowestY() + 80);
         me.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.pageInfo.pageBottomMar);
-        me.pgFoot.setWidth(me.pageInfo.getPrintSpace().width);
+        me.pgFoot.setWidth(printSpace.width);
       }
     },
 
@@ -151,8 +141,15 @@ define([
       this.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
     },
 
-    draw : function (ctx) {
+
+    draw : function (ctx, customStaveThickness) {
       var me = this;
+
+      if (customStaveThickness) {
+        console.log('setting thickness to '+customStaveThickness)
+        VF.Stave.prototype.renderingLineThickness = customStaveThickness;
+      }
+
       ExtendedConverter.superclass.draw.call(me, ctx);
       if (me.pgHead) {
         me.pgHead.setContext(ctx).draw();
@@ -162,8 +159,6 @@ define([
       }
       me.anchoredTexts.setContext(ctx).draw();
     }
-
-
 
   });
 

@@ -3,9 +3,7 @@ define([
   'common/Logger',
   'msv/core/Viewer',
   'msv/areas/AbstractAreaCollection',
-  'msv/areas/DefaultAreaCollection',
-  'msv/core/overrides',
-  'common/Util'
+  'msv/areas/DefaultAreaCollection'
 ], function (vf_overrides, Logger, Viewer, AbstractAreaCollection, DefaultAreaCollection, overrides, Util) {
 
   window.MSV = {
