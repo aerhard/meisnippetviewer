@@ -44,6 +44,8 @@ define([
 
       var me = this, i, j, h, w, canvas;
 
+      me.scale = scale;
+
       h = height * scale;
       w = width * scale;
 
