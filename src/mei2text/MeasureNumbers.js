@@ -15,7 +15,8 @@
  *
  */
 define([
-], function () {
+  'vexflow'
+], function (VF) {
   /**
    * @exports mei2text/MeasureNumbers
    */
@@ -33,13 +34,30 @@ define([
   MeasureNumbers.prototype = {
 
     addToSystemStarts : function (systems) {
-      var me = this, i, measure, n;
+      var me = this, i, measure, stave, volta, n;
       i = systems.length;
       while (i--) {
         measure = systems[i].getMeasure(0);
-        n = measure.getNAttr();
-        if (parseInt(n, 10) > 1) {
-          measure.getFirstDefinedStave().setMeasure(n).font = me.font;
+        stave = measure.getFirstDefinedStave();
+        if (measure && stave) {
+          n = measure.getNAttr();
+
+          // don't render measure numbers 0 and 1
+          if (parseInt(n, 10) > 1) {
+            volta = me.getStaveVolta(stave.modifiers);
+            if (volta) volta.setShiftY(volta.y_shift - me.font.size);
+
+            stave.setMeasure(n).font = me.font;
+          }
+        }
+      }
+    },
+
+    getStaveVolta : function (staveModifiers) {
+      var i, j;
+      for (i=2,j=staveModifiers.length;i<j;i++) {
+        if (staveModifiers[i] instanceof VF.Volta) {
+          return staveModifiers[i];
         }
       }
     }
