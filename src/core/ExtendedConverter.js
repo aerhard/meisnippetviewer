@@ -118,7 +118,7 @@ define([
     },
 
     format: function (ctx) {
-      var me = this, printSpace = me.pageInfo.getPrintSpace();;
+      var me = this, printSpace = me.pageInfo.getPrintSpace();
       ExtendedConverter.superclass.format.call(me, ctx);
       if (me.pgHead) {
         me.pgHead.setWidth(printSpace.width);
@@ -142,13 +142,8 @@ define([
     },
 
 
-    draw : function (ctx, customStaveThickness) {
+    draw : function (ctx) {
       var me = this;
-
-      if (customStaveThickness) {
-        console.log('setting thickness to '+customStaveThickness)
-        VF.Stave.prototype.renderingLineThickness = customStaveThickness;
-      }
 
       ExtendedConverter.superclass.draw.call(me, ctx);
       if (me.pgHead) {

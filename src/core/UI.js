@@ -25,7 +25,7 @@ define([
    */
 
   /**
-   * @class MSV.UI
+   * @class UI
    */
   var UI = function () {
     this.init();

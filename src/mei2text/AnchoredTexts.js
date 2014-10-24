@@ -44,7 +44,7 @@ define([
     /**
      * Creates a model object from an element and adds it to {@link #allTexts}
      * @param {Element} element
-     * @stave {Stave}
+     * @stave {Stave} stave
      */
     addText : function (element, stave) {
       var me = this;

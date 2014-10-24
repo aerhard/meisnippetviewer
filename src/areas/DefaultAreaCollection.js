@@ -23,7 +23,7 @@ define([
    */
 
   /**
-   * @class MSV.DefaultAreaCollection
+   * @class DefaultAreaCollection
    */
   var DefaultAreaCollection = function (config) {
     this.init(config);

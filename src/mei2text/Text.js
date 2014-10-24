@@ -86,11 +86,9 @@ define([
       return this;
     },
 
-    preProcess : function (scale) {
+    preProcess : function () {
       var me = this, ctx = me.ctx, atts = me.atts;
 
-      scale = scale || 1;
-//      me.h = fontsize * scale;
       me.h = atts.fontsize * 2;
 
       this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + (me.h) + 'px ' + atts.fontfamily;

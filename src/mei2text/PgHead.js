@@ -25,7 +25,7 @@ define([
    */
 
   /**
-   * @class MEI2TEXT.PgHead
+   * @class PgHead
    * @private
    *
    * @constructor

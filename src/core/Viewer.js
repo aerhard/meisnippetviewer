@@ -29,7 +29,7 @@ define([
    */
 
   /**
-   * @class MSV.Viewer
+   * @class Viewer
    *
    * @constructor
    * @param {Object} config For a full list, see the config options of the

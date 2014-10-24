@@ -203,7 +203,7 @@ define([
         v8 : 'meiClefElement'
       };
 
-      for (var i = 0; i < j; i++) {
+      for (i = 0; i < j; i++) {
         glyph = stave.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
@@ -216,7 +216,6 @@ define([
 
       j = stave.end_glyphs.length;
       x = stave.getGlyphEndX();
-      var glyph;
       for (i = 0; i < j; i++) {
         glyph = stave.end_glyphs[i];
         if (glyph.code) {
