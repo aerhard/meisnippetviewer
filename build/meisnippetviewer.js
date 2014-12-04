@@ -14635,6 +14635,8 @@ Vex.Flow.TextDynamics = (function(){
  * 1) draw(): let left justified notes align with note heads on the left
  * 2) format(): take text height into account when calculating text_line
  * 3) format(): increase text_lines of annotations separately for top, bottom and the rest
+ * 4) draw(): Fixed that annotations below stem-less notes with outside of the staff system didn't get
+ * shifted with their note
  */
 
 
@@ -14653,12 +14655,9 @@ Vex.Flow.TextDynamics = (function(){
     if (!annotations || annotations.length === 0) return false;
 
     var text_line = state.text_line;
-    var max_width = 0;
-
     var top_text_line = state.top_text_line;
-    if (top_text_line === undefined) top_text_line = text_line;
     var bottom_text_line = state.bottom_text_line;
-    if (bottom_text_line === undefined) bottom_text_line = text_line;
+    var max_width = 0;
 
     // TODO get this from the stave
     var spacing_between_lines = 10;
@@ -14669,7 +14668,7 @@ Vex.Flow.TextDynamics = (function(){
     for (var i = 0; i < annotations.length; ++i) {
       var annotation = annotations[i];
 
-      height_in_lines = annotation.font.size / spacing_between_lines * 1.5;
+      height_in_lines = (annotation.font.size / spacing_between_lines) * 1.5;
 
       if (annotation.vert_justification === 1) {
         annotation.setTextLine(top_text_line);
@@ -14678,6 +14677,7 @@ Vex.Flow.TextDynamics = (function(){
         annotation.setTextLine(bottom_text_line);
         bottom_text_line += height_in_lines;
       } else {
+
         annotation.setTextLine(text_line);
         text_line += height_in_lines;
       }
@@ -14687,8 +14687,13 @@ Vex.Flow.TextDynamics = (function(){
 
     state.left_shift += width / 2;
     state.right_shift += width / 2;
+
+    state.text_line = text_line;
+    state.top_text_line = top_text_line;
+    state.bottom_text_line = bottom_text_line;
+
     return true;
-  }
+  };
 
 
   VF.Annotation.prototype.draw = function () {
@@ -14739,14 +14744,14 @@ Vex.Flow.TextDynamics = (function(){
     }
     spacing = stave.getSpacingBetweenLines();
 
-    // TODO check - spacing is not initialized when has_stem is false. does it need a default value
-    // or is has_stem always true?
-
     if (this.vert_justification == Annotation.VerticalJustify.BOTTOM) {
       y = stave.getYForBottomText(this.text_line);
+      //console.log('y ' +this.text_line);
       if (has_stem) {
         var stem_base = (this.note.getStemDirection() === 1 ? stem_ext.baseY : stem_ext.topY);
-        y = Math.max(y, stem_base + (spacing * ((this.text_line) + 2)));
+        y = Math.max(y, stem_base + 7 + (spacing * ((this.text_line) + 2)));
+      } else {
+        y = Math.max(y, this.note.getYs()[0] + 7 + (spacing * ((this.text_line) + 2)));
       }
 
     } else if (this.vert_justification == Annotation.VerticalJustify.CENTER) {
@@ -14755,9 +14760,9 @@ Vex.Flow.TextDynamics = (function(){
       y = yt + ( yb - yt ) / 2 + text_height / 2;
 
     } else if (this.vert_justification == Annotation.VerticalJustify.TOP) {
-      y = Math.min(stave.getYForTopText(this.text_line), this.note.getYs()[0] - 10);
+      y = Math.min(stave.getYForTopText(this.text_line), this.note.getYs()[0] - text_height);
       if (has_stem) {
-        y = Math.min(y, (stem_ext.topY - 5) - (spacing * this.text_line));
+        y = Math.min(y, (stem_ext.topY - 7) - (spacing * this.text_line));
       }
     } else /* CENTER_STEM */{
       var extents = this.note.getStemExtents();
@@ -14771,6 +14776,14 @@ Vex.Flow.TextDynamics = (function(){
     this.text_height = text_height;
     this.text_width = text_width;
     // END ADDITION
+
+    //var context = this.context;
+    //context.save();
+    //context.beginPath();
+    //context.rect(x, y-this.text_height, this.text_width, this.text_height);
+    //context.fillStyle = 'rgba(0, 0, 255, 0.5)';
+    //context.fill();
+    //context.restore();
 
 
     this.context.fillText(this.text, x, y);
@@ -14795,10 +14808,9 @@ Vex.Flow.TextDynamics = (function(){
     if (!articulations || articulations.length === 0) return false;
 
     var text_line = state.text_line;
+    var top_text_line = state.top_text_line;
+    var bottom_text_line = state.bottom_text_line;
     var max_width = 0;
-
-    var top_text_line = text_line;
-    var bottom_text_line = text_line;
 
     // Format Articulations
     var width;
@@ -14830,10 +14842,127 @@ Vex.Flow.TextDynamics = (function(){
     state.bottom_text_line = bottom_text_line;
 
     return true;
-  }
+  };
 
 
-;
+  VF.Articulation.prototype.draw = function () {
+    var Modifier = VF.Modifier;
+    var L = function () {
+    };
+    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Articulation without a context.");
+    if (!(this.note && (this.index !== null))) {
+      throw new Vex.RERR("NoAttachedNote", "Can't draw Articulation without a note and index.");
+    }
+
+    var stem_direction = this.note.getStemDirection();
+    var stave = this.note.getStave();
+
+    var is_on_head = (this.position === Modifier.Position.ABOVE && stem_direction === VF.StaveNote.STEM_DOWN) ||
+                     (this.position === Modifier.Position.BELOW && stem_direction === VF.StaveNote.STEM_UP);
+
+    var needsLineAdjustment = function (articulation, note_line, line_spacing) {
+      var offset_direction = (articulation.position === Modifier.Position.ABOVE) ? 1 : -1;
+      if (!is_on_head && !articulation.getNote().hasStem()) {
+        // Add stem length, inless it's on a whole note
+        note_line += offset_direction * 3.5;
+      }
+
+      var articulation_line = note_line + (offset_direction * line_spacing);
+
+      return (articulation_line >= 1 && articulation_line <= 5 && articulation_line % 1 === 0);
+    };
+
+    // Articulations are centered over/under the note head.
+    var start = this.note.getModifierStartXY(this.position, this.index);
+    var glyph_y = start.y;
+    var shiftY = 0;
+    var line_spacing = 1;
+    var spacing = stave.getSpacingBetweenLines();
+    var is_tabnote = this.note.getCategory() === 'tabnotes';
+    var stem_ext = this.note.getStem().getExtents();
+
+    var top = stem_ext.topY;
+    var bottom = stem_ext.baseY;
+
+    if (stem_direction === VF.StaveNote.STEM_DOWN) {
+      top = stem_ext.baseY;
+      bottom = stem_ext.topY;
+    }
+
+    // TabNotes don't have stems attached to them. Tab stems are rendered
+    // outside the stave.
+    if (is_tabnote) {
+      if (this.note.hasStem()) {
+        if (stem_direction === VF.StaveNote.STEM_UP) {
+          bottom = stave.getYForBottomText(this.text_line - 2);
+        } else if (stem_direction === VF.StaveNote.STEM_DOWN) {
+          top = stave.getYForTopText(this.text_line - 1.5);
+        }
+      } else { // Without a stem
+        top = stave.getYForTopText(this.text_line - 1);
+        bottom = stave.getYForBottomText(this.text_line - 2);
+      }
+    }
+
+    var is_above = (this.position === Modifier.Position.ABOVE);
+    var note_line = this.note.getLineNumber(is_above);
+
+    // Beamed stems are longer than quarter note stems.
+    if (!is_on_head && this.note.beam) {
+      line_spacing = this.note.beam.beam_count * 0.5;
+    }
+
+    // If articulation will overlap a line, reposition it.
+    if (needsLineAdjustment(this, note_line, line_spacing)) line_spacing += 0.5;
+
+    var glyph_y_between_lines;
+    if (this.position === Modifier.Position.ABOVE) {
+      shiftY = this.articulation.shift_up;
+      glyph_y_between_lines = (top - 7) - (spacing * (this.text_line + line_spacing));
+
+      if (this.articulation.between_lines) {
+        glyph_y = glyph_y_between_lines;
+      } else {
+        glyph_y = Math.min(stave.getYForTopText(this.text_line) - 3, glyph_y_between_lines);
+      }
+    } else {
+      shiftY = this.articulation.shift_down - 10;
+
+      glyph_y_between_lines = bottom + 10 + spacing * (this.text_line + line_spacing);
+      if (this.articulation.between_lines) {
+        glyph_y = glyph_y_between_lines;
+      } else {
+        glyph_y = Math.max(stave.getYForBottomText(this.text_line), glyph_y_between_lines);
+      }
+    }
+
+    var glyph_x = start.x + this.articulation.shift_right;
+    glyph_y += shiftY + this.y_shift;
+
+    L("Rendering articulation: ", this.articulation, glyph_x, glyph_y);
+    VF.renderGlyph(this.context, glyph_x, glyph_y, this.render_options.font_scale, this.articulation.code);
+
+    //var context = this.context;
+    //context.save();
+    //context.beginPath();
+    //context.rect(glyph_x, glyph_y, 10, 10);
+    //context.fillStyle = 'rgba(0, 0, 255, 0.5)';
+    //context.fill();
+    //context.restore();
+
+
+    // ### START ADDITION
+    this.x = glyph_x;
+    this.y = glyph_y;
+    // ### END ADDITION
+
+  };
+
+
+
+
+
+
 /**
  * Changes:
  * 1) set default partial beam direction to left instead of right (that's the correct direction in
@@ -15056,71 +15185,79 @@ Vex.Flow.TextDynamics = (function(){
           var y_displacement = Vex.Flow.STEM_WIDTH;
 
           if (!note.hasStem()) {
-            if (note.isRest() && this.render_options.show_stemlets) {
-              var centerGlyphX = note.getCenterGlyphX();
-
-              var width = this.render_options.beam_width;
-              var total_width = ((this.beam_count - 1) * width * 1.5) + width;
-
-              var stemlet_height = (total_width - y_displacement + this.render_options.stemlet_extension);
-
-              var beam_y = this.getSlopeY(centerGlyphX, first_x_px, first_y_px, this.slope) + this.y_shift;
-              var start_y = beam_y + (Vex.Flow.Stem.HEIGHT * this.stem_direction);
-              var end_y = beam_y + (stemlet_height * this.stem_direction);
-
-              // Draw Stemlet
-              note.setStem(new Vex.Flow.Stem({
-                x_begin : centerGlyphX,
-                x_end : centerGlyphX,
-                y_bottom : this.stem_direction === 1 ? end_y : start_y,
-                y_top : this.stem_direction === 1 ? start_y : end_y,
-                y_extend : y_displacement,
-                stem_extension : -1, // To avoid protruding through the beam
-                stem_direction : this.stem_direction
-              }));
-            }
-
+            // SKIPPED in MEI2VF
+            //if (note.isRest() && this.render_options.show_stemlets) {
+            //  var centerGlyphX = note.getCenterGlyphX();
+            //
+            //  var width = this.render_options.beam_width;
+            //  var total_width = ((this.beam_count - 1) * width * 1.5) + width;
+            //
+            //  var stemlet_height = (total_width - y_displacement + this.render_options.stemlet_extension);
+            //
+            //  var beam_y = this.getSlopeY(centerGlyphX, first_x_px, first_y_px, this.slope) + this.y_shift;
+            //  var start_y = beam_y + (Vex.Flow.Stem.HEIGHT * this.stem_direction);
+            //  var end_y = beam_y + (stemlet_height * this.stem_direction);
+            //
+            //  // Draw Stemlet
+            //  note.setStem(new Vex.Flow.Stem({
+            //    x_begin : centerGlyphX,
+            //    x_end : centerGlyphX,
+            //    y_bottom : this.stem_direction === 1 ? end_y : start_y,
+            //    y_top : this.stem_direction === 1 ? start_y : end_y,
+            //    y_extend : y_displacement,
+            //    stem_extension : -1, // To avoid protruding through the beam
+            //    stem_direction : this.stem_direction
+            //  }));
+            //}
             continue;
           }
 
           var slope_y = this.getSlopeY(x_px, first_x_px, first_y_px, this.slope) + this.y_shift;
 
-          // addition to the stem extension when notes are on the other side of the beam
-          var additional_stem_extension;
-          if (note.stem_direction === this.stem_direction) {
-            additional_stem_extension = 0;
+          var note_stem_dir = note.getStemDirection();
+          var beam_width = this.render_options.beam_width;
+          var stem_through_beams_length = beam_width- 1;
+          var regular_beam_count = 0;
+          var stem_extension;
+
+          if (note_stem_dir === this.stem_direction) {
+            // set stem extension for notes on the regular side of the beam
+            stem_extension = Math.abs(top_y_px - slope_y) - Stem.HEIGHT - 1;
+
           } else {
-            var prev_note, regular_dir_beam_count = true;
-            var k;
-            k = i;
+            // set stem extension for notes on the opposite side of the beam
+
+            var prev_note;
+            var k = i;
             while (k--) {
               prev_note = this.notes[k];
               if (prev_note.stem_direction === this.stem_direction) {
-                regular_dir_beam_count = prev_note.getBeamCount();
+                regular_beam_count = prev_note.getBeamCount();
                 break;
               }
             }
             //            var next_note = this.notes[i+1];
             //            prev_note.getBeamCount() - next_note.getBeamCount()
 
-            if (regular_dir_beam_count > 1) {
-              var width = this.render_options.beam_width;
-              regular_dir_beam_count = Math.min (regular_dir_beam_count, note.getGlyph().beam_count);
-              additional_stem_extension = (((regular_dir_beam_count - 1) * width * 1.5) + width - 1)
-                * -1;
+            if (regular_beam_count > 1) {
+              regular_beam_count = Math.min(regular_beam_count, note.getGlyph().beam_count);
+              stem_through_beams_length += (regular_beam_count - 1) * beam_width * 1.5;
             }
-
+            stem_extension = -Math.abs(top_y_px - slope_y) - Stem.HEIGHT + .5 + stem_through_beams_length;
           }
+
 
           note.setStem(new Vex.Flow.Stem({
             x_begin : x_px - (Vex.Flow.STEM_WIDTH / 2),
             x_end : x_px,
-            y_top : this.stem_direction === 1 ? top_y_px : base_y_px,
-            y_bottom : this.stem_direction === 1 ? base_y_px : top_y_px,
+            y_top : note_stem_dir === 1 ? top_y_px : base_y_px,
+            y_bottom : note_stem_dir === 1 ? base_y_px : top_y_px,
             y_extend : y_displacement,
-            stem_extension : Math.abs(top_y_px - slope_y) - Stem.HEIGHT - 1 + additional_stem_extension,
-            stem_direction : this.stem_direction
+            stem_extension : stem_extension,
+            stem_direction : note_stem_dir
           }));
+
+
         }
       },
 
@@ -15142,8 +15279,7 @@ Vex.Flow.TextDynamics = (function(){
           var right_partial = duration !== "8" && unshared_beams < 0;
 
           return {
-            left : prev_note,
-            right : right_partial
+            left : prev_note, right : right_partial
           };
         }
 
@@ -15161,9 +15297,7 @@ Vex.Flow.TextDynamics = (function(){
               if (!note.isRest()) {
 
                 var new_line = {
-                  start : stem_x,
-                  end : null,
-                  flipped : note.getStemDirection() !== this.stem_direction
+                  start : stem_x, end : null, flipped : note.getStemDirection() !== this.stem_direction
                 };
 
                 if (partial.left && !partial.right) {
@@ -15278,32 +15412,32 @@ Vex.Flow.TextDynamics = (function(){
         // TODO integrate!:
 
 
-        var beam_width = this.render_options.beam_width * this.stem_direction * -1;
+        beam_width = this.render_options.beam_width * this.stem_direction * -1;
 
-        var first_y_px = first_note.getStemExtents().topY + (beam_width * 0.5);
-        var last_y_px = last_note.getStemExtents().topY + (beam_width * 0.5);
+        first_y_px = first_note.getStemExtents().topY + (beam_width * 0.5);
+        last_y_px = last_note.getStemExtents().topY + (beam_width * 0.5);
 
-        var first_x_px = first_note.getStemX();
+        first_x_px = first_note.getStemX();
 
         var inc = false;
 
         // Draw the beams.
-        for (var i = 0; i < valid_beam_durations.length; ++i) {
-          var duration = valid_beam_durations[i];
-          var beam_lines = this.getBeamLines(duration);
+        for (i = 0; i < valid_beam_durations.length; ++i) {
+          duration = valid_beam_durations[i];
+          beam_lines = this.getBeamLines(duration);
 
-          for (var j = 0; j < beam_lines.length; ++j) {
-            var beam_line = beam_lines[j];
+          for (j = 0; j < beam_lines.length; ++j) {
+            beam_line = beam_lines[j];
 
             if (beam_line.flipped) {
               inc = true;
 
-              var first_x = beam_line.start - (this.stem_direction * -1 == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
-              var first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
+              first_x = beam_line.start - (this.stem_direction * -1 == Stem.DOWN ? Vex.Flow.STEM_WIDTH / 2 : 0);
+              first_y = this.getSlopeY(first_x, first_x_px, first_y_px, this.slope);
 
-              var last_x = beam_line.end +
-                           (this.stem_direction * -1 == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
-              var last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
+              last_x =
+              beam_line.end + (this.stem_direction * -1 == 1 ? (Vex.Flow.STEM_WIDTH / 3) : (-Vex.Flow.STEM_WIDTH / 3));
+              last_y = this.getSlopeY(last_x, first_x_px, first_y_px, this.slope);
 
               this.context.beginPath();
               this.context.moveTo(first_x, first_y + this.y_shift);
@@ -15369,8 +15503,9 @@ Vex.Flow.TextDynamics = (function(){
         }
       });
 
-      if (lineSum >= 0)
+      if (lineSum >= 0) {
         return Stem.DOWN;
+      }
       return Stem.UP;
     }
 
@@ -15754,7 +15889,6 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
-
   VF.Curve.prototype.renderCurve = function (params) {
     var ctx = this.context;
     var cps = this.render_options.cps;
@@ -15778,17 +15912,63 @@ Vex.Flow.TextDynamics = (function(){
     var cp_spacing = (last_x - first_x) / (cps.length + 2);
 
     ctx.beginPath();
-    ctx.moveTo(first_x, first_y);
-    ctx.bezierCurveTo(first_x + cp_spacing + cps[0].x, first_y + (cps[0].y * params.direction), last_x - cp_spacing +
-                                                                                                cps[1].x, last_y +
-                                                                                                          (cps[1].y *
-                                                                                                           params.direction), last_x, last_y);
-    ctx.bezierCurveTo(last_x - cp_spacing + cps[1].x, last_y + ((cps[1].y + thickness) * params.direction), first_x +
-                                                                                                            cp_spacing +
-                                                                                                            cps[0].x, first_y +
-                                                                                                                      ((cps[0].y +
-                                                                                                                        thickness) *
-                                                                                                                       params.direction), first_x, first_y);
+
+    if (this.render_options.custom_cps) {
+      // adjustments to MEI bezier encoding practice
+      var cps_0_x = first_x + cps[0].x;
+      var cps_0_y = first_y + cps[0].y;
+      var cps_1_x = last_x + cps[1].x;
+      var cps_1_y = last_y + cps[1].y;
+      ctx.moveTo(first_x, first_y);
+      ctx.bezierCurveTo(cps_0_x, cps_0_y, cps_1_x, cps_1_y, last_x, last_y);
+      ctx.bezierCurveTo(cps_1_x, cps_1_y + thickness, cps_0_x, cps_0_y + thickness, first_x, first_y);
+    } else {
+      var cps_0_x = cps[0].x;
+      var cps_0_y = cps[0].y;
+      var cps_1_x = cps[1].x;
+      var cps_1_y = cps[1].y;
+
+      var x_diff = last_x-first_x;
+      var y_diff = last_y-first_y;
+
+      // decrease height of very narrow slurs
+      if(x_diff < 60) {
+        cps_0_y = 5 + cps_0_y * (x_diff / 120);
+        cps_1_y = 5 + cps_1_y *(x_diff / 120);
+      }
+
+      // adjust cps when y_diff is bigger than x_diff
+      var max_y_diff = x_diff/2;
+      if (y_diff > max_y_diff) {
+        if (params.direction === 1) {
+          cps_0_y += Math.abs(y_diff);
+        } else {
+          cps_1_y += Math.abs(y_diff);
+        }
+      } else if (y_diff < -max_y_diff) {
+        //cps[0].y += -y_diff * -1;
+
+        if (params.direction === 1) {
+          cps_1_y += Math.abs(y_diff);
+        } else {
+          cps_0_y += Math.abs(y_diff);
+        }
+      }
+
+
+      ctx.moveTo(first_x, first_y);
+      ctx.bezierCurveTo(first_x + cp_spacing + cps_0_x,
+        first_y + (cps_0_y * params.direction),
+        last_x - cp_spacing + cps_1_x,
+        last_y + (cps_1_y * params.direction),
+        last_x, last_y);
+      ctx.bezierCurveTo(last_x - cp_spacing + cps_1_x,
+        last_y + ((cps_1_y + thickness) * params.direction),
+        first_x + cp_spacing + cps_0_x,
+        first_y + ((cps_0_y + thickness) * params.direction),
+        first_x, first_y);
+    }
+
     ctx.stroke();
     ctx.closePath();
     ctx.fill();
@@ -15860,7 +16040,38 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
+  VF.articulationCodes.articulations['a^b'] = {   // Marcato below
+    code : "v16",
+    width : 8,
+    shift_right : 0,
+    shift_up : 6,
+    shift_down : 8,
+    between_lines : false
+  };
 
+  VF.articulationCodes.articulations['avb'] = {   // Staccatissimo below
+    code : "v66",
+    width : 4,
+    shift_right : 0,
+    shift_up : 3,
+    shift_down : -3,
+    between_lines : true
+  };
+
+
+  VF.Font.glyphs['v66'] = {
+    "x_min" : -73.5,
+    "x_max" : 72.140625,
+    "ha" : 74,
+    "o" : "m -36 -126 b 0 0 -17 -56 -1 0 b 70 -254 0 0 70 -249 l 72 -255 l 0 -255 l -73 -255 l -72 -254 b -36 -126 -72 -254 -55 -195 "
+  };
+
+  VF.Font.glyphs['v16'] = {
+    "x_min" : -155.171875,
+    "x_max" : 153.8125,
+    "ha" : 157,
+    "o" : "m -137 353 b -129 355 -134 353 -132 355 b -102 333 -118 355 -111 348 b -8 129 -63 273 -32 205 b 0 106 -4 116 -1 106 b 6 129 0 106 2 116 b 100 333 31 205 62 273 b 114 349 107 344 108 347 b 127 353 118 352 123 353 b 153 327 141 353 153 344 b 144 302 153 320 153 317 b 29 18 96 227 54 123 l 25 -4 b -1 -26 21 -19 13 -26 b -27 -4 -14 -26 -23 -19 l -31 18 b -145 302 -55 123 -98 227 b -155 327 -155 317 -155 320 b -137 353 -155 340 -148 349 "
+  };
 
   // use square breve glyph instead of VexFlow's ||O||
   VF.durationToGlyph.duration_codes['1/2'].type.n = {code_head : "noteheadDoubleWholeSquare"};
@@ -15887,30 +16098,19 @@ Vex.Flow.TextDynamics = (function(){
         dot_shiftY : 0,
         line_above : 0,
         line_below : 0
-      },
-      type : {
+      }, type : {
         "n" : { // Longa note
           code_head : "noteheadCMNLonga"
-        },
-        // the following shapes are not supported with longas
+        }, // the following shapes are not supported with longas
         "h" : { // Breve note harmonic
           code_head : "v59"
-        },
-        "m" : { // Breve note muted -
-          code_head : "vf",
-          stem_offset : 0
-        },
-        "r" : { // Breve rest
-          code_head : "v31",
-          head_width : 24,
-          rest : true,
-          position : "B/5",
-          dot_shiftY : 0.5
-        },
-        "s" : { // Breve note slash -
+        }, "m" : { // Breve note muted -
+          code_head : "vf", stem_offset : 0
+        }, "r" : { // Breve rest
+          code_head : "v31", head_width : 24, rest : true, position : "B/5", dot_shiftY : 0.5
+        }, "s" : { // Breve note slash -
           // Drawn with canvas primitives
-          head_width : 15,
-          position : "B/4"
+          head_width : 15, position : "B/4"
         }
       }
     };
@@ -15924,10 +16124,7 @@ Vex.Flow.TextDynamics = (function(){
   };
   // NOT PART OF BRAVURA:
   VF.Font.glyphs["noteheadCMNLonga"] = {
-    "x_min" : 0,
-    "x_max" : 746,
-    "ha" : 746,
-    // based on the Bravura breve glyph; CHANGES: all values < -1400
+    "x_min" : 0, "x_max" : 746, "ha" : 746, // based on the Bravura breve glyph; CHANGES: all values < -1400
     "o" : "0 0 117 0 1 1 560 560 1 -1 0 -1120 " + "m 724 350 " + "b 746 328 736 350 746 340 " + "l 746 -1428 " +
           "b 724 -1450 746 -1439 736 -1450 " + "b 701 -1428 711 -1450 701 -1439 " + "l 701 -270 " +
           "b 659 -234 701 -253 683 -234 " + "l 83 -234 " + "b 45 -276 67 -234 45 -256 " + "l 45 -328 " +
@@ -15936,6 +16133,71 @@ Vex.Flow.TextDynamics = (function(){
           "b 701 265 679 218 701 232 " + "l 701 328 " + "b 724 350 701 340 711 350 " + "m 45 18 " + "l 45 -36 " +
           "b 146 -94 45 -70 83 -94 " + "l 606 -94 " + "b 701 -36 664 -94 701 -77 " + "l 701 28 " +
           "b 606 78 701 57 664 78 " + "l 139 78 " + "b 45 18 71 78 45 59 "
+  };
+
+
+/**
+ * Modifications:
+ * 1) added conditions in draw() to align notes and create new slur only once. If the note
+ * alignment function were called multiple times, the grace notes would get shifted further and
+ * further each time draw() is called.
+ */
+
+
+
+  VF.GraceNoteGroup.prototype.draw = function () {
+    if (!this.context) {
+      throw new Vex.RuntimeError("NoContext", "Can't draw Grace note without a context.");
+    }
+
+    var note = this.getNote();
+
+    if (!(note && (this.index !== null))) {
+      throw new Vex.RuntimeError("NoAttachedNote", "Can't draw grace note without a parent note and parent note index.");
+    }
+
+    function alignGraceNotesWithNote(grace_notes, note) {
+      // Shift over the tick contexts of each note
+      // So that th aligned with the note
+      var tickContext = note.getTickContext();
+      var extraPx = tickContext.getExtraPx();
+      var x = tickContext.getX() - extraPx.left - extraPx.extraLeft;
+      grace_notes.forEach(function (graceNote) {
+        var tick_context = graceNote.getTickContext();
+        var x_offset = tick_context.getX();
+        graceNote.setStave(note.stave);
+        tick_context.setX(x + x_offset);
+      });
+    }
+
+    if (this.graceNotesAligned !== true) {
+      alignGraceNotesWithNote(this.grace_notes, note);
+      this.graceNotesAligned = true;
+    }
+
+    // Draw notes
+    this.grace_notes.forEach(function (graceNote) {
+      graceNote.setContext(this.context).draw();
+    }, this);
+
+    // Draw beam
+    if (this.beam) {
+      this.beam.setContext(this.context).draw();
+    }
+
+    if (this.show_slur) {
+      if (!this.slur) {
+        // Create and draw slur
+        this.slur = new Vex.Flow.StaveTie({
+          last_note : this.grace_notes[0],
+          first_note : note,
+          first_indices : [0],
+          last_indices : [0]
+        });
+        this.slur.render_options.cp2 = 12;
+      }
+      this.slur.setContext(this.context).draw();
+    }
   };
 
 
@@ -16305,6 +16567,116 @@ Vex.Flow.TextDynamics = (function(){
   }());
 
 
+/**
+ * Modifications:
+ * 1) added top_text_line and bottom_text_line to state object
+ */
+
+
+
+
+  // [VexFlow](http://vexflow.com) - Copyright (c) Mohit Muthanna 2010.
+  //
+  // ## Description
+  //
+  // This class implements various types of modifiers to notes (e.g. bends,
+  // fingering positions etc.)
+
+  VF.ModifierContext = (function() {
+    function ModifierContext() {
+      // Current modifiers
+      this.modifiers = {};
+
+      // Formatting data.
+      this.preFormatted = false;
+      this.postFormatted = false;
+      this.width = 0;
+      this.spacing = 0;
+      this.state = {
+        left_shift: 0,
+        right_shift: 0,
+        text_line: 0,
+        top_text_line : 0,
+        bottom_text_line : 0
+      };
+
+      // Add new modifiers to this array. The ordering is significant -- lower
+      // modifiers are formatted and rendered before higher ones.
+      this.PREFORMAT = [
+        VF.StaveNote,
+        VF.Dot,
+        VF.FretHandFinger,
+        VF.Accidental,
+        VF.GraceNoteGroup,
+        VF.Stroke,
+        VF.StringNumber,
+        VF.Articulation,
+        VF.Ornament,
+        VF.Annotation,
+        VF.Bend,
+        VF.Vibrato
+      ];
+
+      // If post-formatting is required for an element, add it to this array.
+      this.POSTFORMAT = [ VF.StaveNote ];
+    }
+
+    // To enable logging for this class. Set `VF.ModifierContext.DEBUG` to `true`.
+    function L() { if (ModifierContext.DEBUG) Vex.L("VF.ModifierContext", arguments); }
+
+    ModifierContext.prototype = {
+      addModifier: function(modifier) {
+        var type = modifier.getCategory();
+        if (!this.modifiers[type]) this.modifiers[type] = [];
+        this.modifiers[type].push(modifier);
+        modifier.setModifierContext(this);
+        this.preFormatted = false;
+        return this;
+      },
+
+      getModifiers: function(type) { return this.modifiers[type]; },
+      getWidth: function() { return this.width; },
+      getExtraLeftPx: function() { return this.state.left_shift; },
+      getExtraRightPx: function() { return this.state.right_shift; },
+      getState: function() { return this.state; },
+
+      getMetrics: function() {
+        if (!this.formatted) throw new Vex.RERR("UnformattedModifier",
+          "Unformatted modifier has no metrics.");
+
+        return {
+          width: this.state.left_shift + this.state.right_shift + this.spacing,
+          spacing: this.spacing,
+          extra_left_px: this.state.left_shift,
+          extra_right_px: this.state.right_shift
+        };
+      },
+
+      preFormat: function() {
+        if (this.preFormatted) return;
+        this.PREFORMAT.forEach(function(modifier) {
+          L("Preformatting ModifierContext: ", modifier.CATEGORY);
+          modifier.format(this.getModifiers(modifier.CATEGORY), this.state, this);
+        }, this);
+
+        // Update width of this modifier context
+        this.width = this.state.left_shift + this.state.right_shift;
+        this.preFormatted = true;
+      },
+
+      postFormat: function() {
+        if (this.postFormatted) return;
+        this.POSTFORMAT.forEach(function(modifier) {
+          L("Postformatting ModifierContext: ", modifier.CATEGORY);
+          modifier.postFormat(this.getModifiers(modifier.CATEGORY), this);
+        }, this);
+      }
+    };
+
+    return ModifierContext;
+  }());
+
+
 
 
   VF.Ornament.prototype.setMeiElement = function (element) {
@@ -16322,12 +16694,9 @@ Vex.Flow.TextDynamics = (function(){
     if (!ornaments || ornaments.length === 0) return false;
 
     var text_line = state.text_line;
-    var max_width = 0;
-
     var top_text_line = state.top_text_line;
-    if (top_text_line === undefined) top_text_line = text_line;
     var bottom_text_line = state.bottom_text_line;
-    if (bottom_text_line === undefined) bottom_text_line = text_line;
+    var max_width = 0;
 
     // Format Articulations
     var width;
@@ -16372,15 +16741,17 @@ Vex.Flow.TextDynamics = (function(){
     var stem_direction = this.note.getStemDirection();
     var stave = this.note.getStave();
 
+    // TODO support bottom ornaments
+
     // Get stem extents
     var stem_ext = this.note.getStem().getExtents();
     var top, bottom;
     if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
       top = stem_ext.baseY;
-      bottom = stem_ext.topY;
+      //bottom = stem_ext.topY;
     } else {
       top = stem_ext.topY;
-      bottom = stem_ext.baseY;
+      //bottom = stem_ext.baseY;
     }
 
     // TabNotes don't have stems attached to them. Tab stems are rendered
@@ -16389,13 +16760,13 @@ Vex.Flow.TextDynamics = (function(){
     if (is_tabnote) {
       if (this.note.hasStem()) {
         if (stem_direction === Vex.Flow.StaveNote.STEM_UP) {
-          bottom = stave.getYForBottomText(this.text_line - 2);
+          //bottom = stave.getYForBottomText(this.text_line - 2);
         } else if (stem_direction === Vex.Flow.StaveNote.STEM_DOWN) {
           top = stave.getYForTopText(this.text_line - 1.5);
         }
       } else { // Without a stem
         top = stave.getYForTopText(this.text_line - 1);
-        bottom = stave.getYForBottomText(this.text_line - 2);
+        //bottom = stave.getYForBottomText(this.text_line - 2);
       }
     }
 
@@ -16786,9 +17157,8 @@ Vex.Flow.TextDynamics = (function(){
       getBottomY : function () {
         var options = this.options;
         var spacing = options.spacing_between_lines_px;
-        var score_bottom = this.getYForLine(options.num_lines) + (options.space_below_staff_ln * spacing);
 
-        return score_bottom;
+        return this.getYForLine(options.num_lines) + (options.space_below_staff_ln * spacing);
       },
 
       getBottomLineY : function () {
@@ -16800,9 +17170,7 @@ Vex.Flow.TextDynamics = (function(){
         var spacing = options.spacing_between_lines_px;
         var headroom = options.space_above_staff_ln;
 
-        var y = this.y + ((line * spacing) + (headroom * spacing)) - (THICKNESS / 2);
-
-        return y;
+        return this.y + ((line * spacing) + (headroom * spacing)) - (THICKNESS / 2);
       },
 
       getYForTopText : function (line, font_scale) {
@@ -16821,9 +17189,8 @@ Vex.Flow.TextDynamics = (function(){
         var options = this.options;
         var spacing = options.spacing_between_lines_px;
         var headroom = options.space_above_staff_ln;
-        var y = this.y + (headroom * spacing) + (5 * spacing) - (line * spacing);
 
-        return y;
+        return this.y + (headroom * spacing) + (5 * spacing) - (line * spacing);
       },
 
       getYForGlyphs : function () {
@@ -17071,6 +17438,76 @@ Vex.Flow.TextDynamics = (function(){
   };
 
 
+  // TODO modify to draw lines for whole/half rests outside of the staff system
+//  // Draw the ledger lines between the stave and the highest/lowest keys
+//  drawLedgerLines: function(){
+//    if (this.isRest()) { return; }
+//    if (!this.context) throw new Vex.RERR("NoCanvasContext",
+//      "Can't draw without a canvas context.");
+//    var ctx = this.context;
+//
+//    var bounds = this.getNoteHeadBounds();
+//    var highest_line = bounds.highest_line;
+//    var lowest_line = bounds.lowest_line;
+//    var head_x = this.note_heads[0].getAbsoluteX();
+//
+//    var that = this;
+//    function stroke(y) {
+//      if (that.use_default_head_x === true)  {
+//        head_x = that.getAbsoluteX() + that.x_shift;
+//      }
+//      var x = head_x - that.render_options.stroke_px;
+//      var length = ((head_x + that.glyph.head_width) - head_x) +
+//                   (that.render_options.stroke_px * 2);
+//
+//      ctx.fillRect(x, y, length, 1);
+//    }
+//
+//    var line; // iterator
+//    for (line = 6; line <= highest_line; ++line) {
+//      stroke(this.stave.getYForNote(line));
+//    }
+//
+//    for (line = 0; line >= lowest_line; --line) {
+//      stroke(this.stave.getYForNote(line));
+//    }
+//  };
+
+
+  VF.StaveNote.prototype.draw = function() {
+    if (!this.context) throw new Vex.RERR("NoCanvasContext",
+      "Can't draw without a canvas context.");
+    if (!this.stave) throw new Vex.RERR("NoStave",
+      "Can't draw without a stave.");
+    if (this.ys.length === 0) throw new Vex.RERR("NoYValues",
+      "Can't draw note without Y values.");
+
+    var x_begin = this.getNoteHeadBeginX();
+    var x_end = this.getNoteHeadEndX();
+
+    var render_stem = this.hasStem() && !this.beam;
+
+    // Format note head x positions
+    this.note_heads.forEach(function(note_head) {
+      note_head.setX(x_begin);
+    }, this);
+
+
+    // Format stem x positions
+    this.stem.setNoteHeadXBounds(x_begin, x_end);
+
+
+    // Draw each part of the note
+    this.drawLedgerLines();
+    if (render_stem) this.drawStem();
+    this.drawNoteHeads();
+    this.drawFlag();
+    this.drawModifiers();
+  }
+
+
+
+;
 /**
  * Modifications:
  * 1) Added ctx.save() etc
@@ -17242,10 +17679,12 @@ Vex.Flow.TextDynamics = (function(){
         this.y = y;
         this.height = height;
 
+        var height_diff;
+
         switch (this.hairpin) {
           case StaveHairpin.type.CRESC:
             if (params.continued_left) {
-              var height_diff = height * 0.2;
+              height_diff = height * 0.2;
               ctx.moveTo(x1 + l_shift, y);
               ctx.lineTo(x, y + height_diff);
               ctx.moveTo(x + l_shift,  y + height - height_diff);
@@ -17258,7 +17697,7 @@ Vex.Flow.TextDynamics = (function(){
             break;
           case StaveHairpin.type.DECRESC:
             if (params.continued_right) {
-              var height_diff = height * 0.2;
+              height_diff = height * 0.2;
               ctx.moveTo(x + l_shift, y);
               ctx.lineTo(x1, y + height_diff);
               ctx.moveTo(x1 + l_shift,  y + height - height_diff);
@@ -17283,10 +17722,11 @@ Vex.Flow.TextDynamics = (function(){
 
         var first_note = this.first_note;
         var last_note = this.last_note;
+        var start, end;
 
         if (first_note && last_note) {
-          var start = first_note.getModifierStartXY(this.position, 0);
-          var end = last_note.getModifierStartXY(this.position, 0);
+          start = first_note.getModifierStartXY(this.position, 0);
+          end = last_note.getModifierStartXY(this.position, 0);
 
           this.renderHairpin({
             first_x : start.x,
@@ -17300,7 +17740,7 @@ Vex.Flow.TextDynamics = (function(){
           });
           return true;
         } else if (first_note) {
-          var start = first_note.getModifierStartXY(this.position, 0);
+          start = first_note.getModifierStartXY(this.position, 0);
           this.renderHairpin({
             first_x : start.x,
             last_x : first_note.getStave().getSlurEndX(),
@@ -17314,7 +17754,7 @@ Vex.Flow.TextDynamics = (function(){
           return true;
 
         } else {
-          var end = last_note.getModifierStartXY(this.position, 0);
+          end = last_note.getModifierStartXY(this.position, 0);
           this.renderHairpin({
             first_x : last_note.getStave().getSlurStartX(),
             last_x : end.x,
@@ -17444,11 +17884,11 @@ Vex.Flow.TextDynamics = (function(){
 
       // START ADDITION
       setDir : function (dir) {
-        this.curvedir = dir;
+        this.direction = dir;
       },
 
       getDir : function () {
-        return this.curvedir;
+        return this.direction;
       },
       // END ADDITION
 
@@ -17456,14 +17896,6 @@ Vex.Flow.TextDynamics = (function(){
         if (params.first_ys.length === 0 || params.last_ys.length === 0) {
           throw new Vex.RERR("BadArguments", "No Y-values to render");
         }
-
-        // START ADDITION
-        if (this.curvedir) {
-          params.direction = (this.curvedir === 'above') ? -1 : 1;
-        } else {
-          this.curvedir = params.direction;
-        }
-        // END ADDITION
 
         var ctx = this.context;
         var cp1 = this.render_options.cp1;
@@ -17543,13 +17975,19 @@ Vex.Flow.TextDynamics = (function(){
           this.last_indices = this.first_indices;
         }
 
+        // START MODIFICATION
+        if (!this.direction) {
+          this.direction = stem_direction;
+        }
+
         this.renderTie({
           first_x_px : first_x_px,
           last_x_px : last_x_px,
           first_ys : first_ys,
           last_ys : last_ys,
-          direction : stem_direction
+          direction : this.direction
         });
+        // END MODIFICATION
 
         this.renderText(first_x_px, last_x_px);
         return true;
@@ -17684,7 +18122,7 @@ Vex.Flow.TextDynamics = (function(){
 
       state.left_shift += x_shift;
       return true;
-    }
+    };
 
     // ## Prototype Methods
     Vex.Inherit(Stroke, Modifier, {
@@ -18018,6 +18456,159 @@ Vex.Flow.TextDynamics = (function(){
     }
     
   };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  /**
+   * @class MEI2VF.Util
+   * @singleton
+   * @private
+   */
+  var Util = {
+
+    /**
+     * returns the attributes of an element or an empty object if the element doesn't have attributes
+     */
+    attsToObj : function (element) {
+      var i, obj = {};
+      if (element.hasAttributes()) {
+        i = element.attributes.length;
+        while (i--) {
+          obj[element.attributes[i].nodeName] = element.attributes[i].nodeValue;
+        }
+      }
+      return obj;
+    },
+
+    pListToArray : function (pList) {
+      return (pList !== null) ? pList.split(' ') : [];
+    },
+
+    /**
+     *
+     */
+    serializeElement : function (element) {
+      var result = '<' + element.localName, i, j, atts, att;
+      if (element.hasAttributes()) {
+        atts = element.attributes;
+        for (i = 0, j = atts.length; i < j; i += 1) {
+          att = atts.item(i);
+          result += ' ' + att.nodeName + '="' + att.nodeValue + '"';
+        }
+      }
+      return result + '>';
+    },
+
+
+    /**
+     * jQuery's method, without window check
+     * @param obj
+     * @returns {boolean}
+     */
+    isPlainObject : function (obj) {
+      // Not plain objects:
+      // - Any object or value whose internal [[Class]] property is not "[object Object]"
+      // - DOM nodes
+      if (typeof obj !== "object" || obj.nodeType) {
+        return false;
+      }
+      if (obj.constructor && !obj.hasOwnProperty.call(obj.constructor.prototype, "isPrototypeOf")) {
+        return false;
+      }
+      // If the function hasn't returned already, we're confident that
+      // |obj| is a plain object, created by {} or constructed with new Object
+      return true;
+    },
+
+    /**
+     * jQuery's extend method, without deep parameter (deep is assumed to be true)
+     */
+    extend : function () {
+      var options, name, src, copy, copyIsArray, clone, target = arguments[ 0 ] || {}, i = 1, length = arguments.length;
+
+      if (typeof target !== "object" && typeof target !== 'function') {
+        target = {};
+      }
+
+      for (; i < length; i++) {
+        // Only deal with non-null/undefined values
+        if ((options = arguments[ i ]) != null) {
+          // Extend the base object
+          for (name in options) {
+            src = target[ name ];
+            copy = options[ name ];
+            // Prevent never-ending loop
+            if (target === copy) {
+              continue;
+            }
+            // Recurse if we're merging plain objects or arrays
+            if (copy && ( Util.isPlainObject(copy) || (copyIsArray = Array.isArray(copy)) )) {
+              if (copyIsArray) {
+                copyIsArray = false;
+                clone = src && Array.isArray(src) ? src : [];
+              } else {
+                clone = src && Util.isPlainObject(src) ? src : {};
+              }
+              // Never move original objects, clone them
+              target[ name ] = Util.extend(clone, copy);
+              // Don't bring in undefined values
+            } else if (copy !== undefined) {
+              target[ name ] = copy;
+            }
+          }
+        }
+      }
+      // Return the modified object
+      return target;
+    },
+
+    // from sizzle.js
+    getText : function (elem) {
+      var node, ret = "", i = 0, nodeType = elem.nodeType;
+      if (!nodeType) {
+        // If no nodeType, this is expected to be an array
+        while ((node = elem[i++])) {
+          // Do not traverse comment nodes
+          ret += this.getText(node);
+        }
+      } else if (nodeType === 1 || nodeType === 9 || nodeType === 11) {
+        // Use textContent for elements
+        // innerText usage removed for consistency of new lines (jQuery #11153)
+        if (typeof elem.textContent === "string") {
+          return elem.textContent;
+        } else {
+          // Traverse its children
+          for (elem = elem.firstChild; elem; elem = elem.nextSibling) {
+            ret += this.getText(elem);
+          }
+        }
+      } else if (nodeType === 3 || nodeType === 4) {
+        return elem.nodeValue;
+      }
+      // Do not include comment or processing instruction nodes
+      return ret;
+    },
+
+    getNormalizedText : function (elem) {
+      return Util.getText(elem).replace(/\s+/g, ' ')
+    }
+
+  };
 
 
   if (!window.MeiLib) window.MeiLib = {};
@@ -18049,19 +18640,19 @@ Vex.Flow.TextDynamics = (function(){
   if (!window.MeiLib) window.MeiLib = {};
 
   /**
-   * @class EventEnumerator
+   * @class MeiLib.EventEnumerator
    * Enumerate over the children events of node (node is a layer, beam or tuplet).
    * @constructor
    * @param {Object} node an XML DOM object
-   * @param {} proportion
+   * @param {Object} proportion
    */
   MeiLib.EventEnumerator = function (node, proportion) {
     this.init(node, proportion);
   };
   /**
    * @method init
-   * @param {} node
-   * @param {} proportion
+   * @param {Node} node
+   * @param {Object} proportion
    */
   MeiLib.EventEnumerator.prototype.init = function (node, proportion) {
     if (!node) {
@@ -18862,7 +19453,7 @@ Vex.Flow.TextDynamics = (function(){
    * sectionplane
    *
    * @param {Object} alt_inst_update
-   * @return the updated score
+   * @return {Object} the updated score
    */
   MeiLib.MeiDoc.prototype.replaceAltInstance = function (alt_inst_update) {
 
@@ -18967,9 +19558,9 @@ Vex.Flow.TextDynamics = (function(){
    * Get a slice of the sectionview_score.
    *
    * @param params
-   *            {Obejct} contains the parameters for slicing. For more info see at
+   *            {Object} contains the parameters for slicing. For more info see at
    *            documentation of MeiLib.SliceMEI
-   * @return an XML DOM object containing the slice of the plain MEI
+   * @return {Object} an XML DOM object containing the slice of the plain MEI
    */
   MeiLib.MeiDoc.prototype.getSectionViewSlice = function (params) {
     return MeiLib.SliceMEI(this.sectionview_score, params);
@@ -18994,159 +19585,6 @@ Vex.Flow.TextDynamics = (function(){
     slice.ALTs = this.ALTs;
     slice.altgroups = this.altgroups;
     return slice;
-  };
-/*
- * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-
-  /**
-   * @class MEI2VF.Util
-   * @singleton
-   * @private
-   */
-  var Util = {
-
-    /**
-     * returns the attributes of an element or an empty object if the element doesn't have attributes
-     */
-    attsToObj : function (element) {
-      var i, obj = {};
-      if (element.hasAttributes()) {
-        i = element.attributes.length;
-        while (i--) {
-          obj[element.attributes[i].nodeName] = element.attributes[i].nodeValue;
-        }
-      }
-      return obj;
-    },
-
-    pListToArray : function (pList) {
-      return (pList !== null) ? pList.split(' ') : [];
-    },
-
-    /**
-     *
-     */
-    serializeElement : function (element) {
-      var result = '<' + element.localName, i, j, atts, att;
-      if (element.hasAttributes()) {
-        atts = element.attributes;
-        for (i = 0, j = atts.length; i < j; i += 1) {
-          att = atts.item(i);
-          result += ' ' + att.nodeName + '="' + att.nodeValue + '"';
-        }
-      }
-      return result + '>';
-    },
-
-
-    /**
-     * jQuery's method, without window check
-     * @param obj
-     * @returns {boolean}
-     */
-    isPlainObject : function (obj) {
-      // Not plain objects:
-      // - Any object or value whose internal [[Class]] property is not "[object Object]"
-      // - DOM nodes
-      if (typeof obj !== "object" || obj.nodeType) {
-        return false;
-      }
-      if (obj.constructor && !obj.hasOwnProperty.call(obj.constructor.prototype, "isPrototypeOf")) {
-        return false;
-      }
-      // If the function hasn't returned already, we're confident that
-      // |obj| is a plain object, created by {} or constructed with new Object
-      return true;
-    },
-
-    /**
-     * jQuery's extend method, without deep parameter (deep is assumed to be true)
-     */
-    extend : function () {
-      var options, name, src, copy, copyIsArray, clone, target = arguments[ 0 ] || {}, i = 1, length = arguments.length;
-
-      if (typeof target !== "object" && typeof target !== 'function') {
-        target = {};
-      }
-
-      for (; i < length; i++) {
-        // Only deal with non-null/undefined values
-        if ((options = arguments[ i ]) != null) {
-          // Extend the base object
-          for (name in options) {
-            src = target[ name ];
-            copy = options[ name ];
-            // Prevent never-ending loop
-            if (target === copy) {
-              continue;
-            }
-            // Recurse if we're merging plain objects or arrays
-            if (copy && ( Util.isPlainObject(copy) || (copyIsArray = Array.isArray(copy)) )) {
-              if (copyIsArray) {
-                copyIsArray = false;
-                clone = src && Array.isArray(src) ? src : [];
-              } else {
-                clone = src && Util.isPlainObject(src) ? src : {};
-              }
-              // Never move original objects, clone them
-              target[ name ] = Util.extend(clone, copy);
-              // Don't bring in undefined values
-            } else if (copy !== undefined) {
-              target[ name ] = copy;
-            }
-          }
-        }
-      }
-      // Return the modified object
-      return target;
-    },
-
-    // from sizzle.js
-    getText : function (elem) {
-      var node, ret = "", i = 0, nodeType = elem.nodeType;
-      if (!nodeType) {
-        // If no nodeType, this is expected to be an array
-        while ((node = elem[i++])) {
-          // Do not traverse comment nodes
-          ret += getText(node);
-        }
-      } else if (nodeType === 1 || nodeType === 9 || nodeType === 11) {
-        // Use textContent for elements
-        // innerText usage removed for consistency of new lines (jQuery #11153)
-        if (typeof elem.textContent === "string") {
-          return elem.textContent;
-        } else {
-          // Traverse its children
-          for (elem = elem.firstChild; elem; elem = elem.nextSibling) {
-            ret += getText(elem);
-          }
-        }
-      } else if (nodeType === 3 || nodeType === 4) {
-        return elem.nodeValue;
-      }
-      // Do not include comment or processing instruction nodes
-      return ret;
-    },
-
-    getNormalizedText : function (elem) {
-      return Util.getText(elem).replace(/\s+/g, ' ')
-    }
-
   };
 
   /*
@@ -19289,11 +19727,10 @@ Vex.Flow.TextDynamics = (function(){
       // change the meter unit according to the ratio in the tuplet, the get the duration as if the tuplet were a beam
       var num = +tuplet.getAttribute('num') || 3;
       var numbase = +tuplet.getAttribute('numbase') || 2;
-      var acc = durationOf_Beam(tuplet, {
+      return durationOf_Beam(tuplet, {
         count : meter.count,
         unit : meter.unit * numbase / num
       });
-      return acc;
     };
 
     var evnt_name = evnt.localName;
@@ -19345,7 +19782,7 @@ Vex.Flow.TextDynamics = (function(){
     var eventList = new MeiLib.EventEnumerator(layer);
     var evnt;
     var dist;
-    var prev_evnt;
+    var prev_evnt = null;
     // previous event
     var prev_dist;
     // previous distance
@@ -19633,7 +20070,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
-  var EventContext = function (notes_by_id, system_n, beamInfosToResolve) {
+  var EventContext = function (notes_by_id, system_n) {
 
     var me = this;
 
@@ -19793,7 +20230,7 @@ Vex.Flow.TextDynamics = (function(){
 
   /**
    * @private
-   * @namespace Tables
+   * @namespace {Object} Tables
    */
   var Tables = {
 
@@ -19871,6 +20308,20 @@ Vex.Flow.TextDynamics = (function(){
       // 'heel':
       // 'toe':
       // 'tap':
+      'lhpizz' : 'a+',
+      'dot' : 'a.',
+      'stroke' : 'a|'
+    },
+
+    articulationsBelow : {
+      'acc' : 'a>',
+      'stacc' : 'a.',
+      'ten' : 'a-',
+      'stacciss' : 'avb', // different glyph
+      'marc' : 'a^b', // different glyph
+      'dnbow' : 'am',
+      'upbow' : 'a|',
+      'snap' : 'ao',
       'lhpizz' : 'a+',
       'dot' : 'a.',
       'stroke' : 'a|'
@@ -20042,17 +20493,17 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Element} element the articulation element
      */
     addArticulation : function (note, element) {
-      var i, j, k, articCode, vexArtic, articElement;
+      var i, j, k, articCode, vexArtic, articElement, place;
 
-      var articElement = element.getAttribute('artic');
+      articElement = element.getAttribute('artic');
 
       if (articElement !== null) {
 
         var artics = articElement.split(' ');
 
         for (k=0;k<artics.length;k++) {
-
-          articCode = Tables.articulations[artics[k]];
+          place = element.getAttribute('place');
+          articCode = (place==='below') ? Tables.articulationsBelow[artics[k]] : Tables.articulations[artics[k]];
 
           if (articCode) {
             vexArtic = null;
@@ -20065,12 +20516,11 @@ Vex.Flow.TextDynamics = (function(){
             if (vexArtic) {
               vexArtic.addMeiElement(element);
             } else {
-              var vexArtic = new Articulation(articCode).addMeiElement(element);
-              var place = element.getAttribute('place');
+              vexArtic = new Articulation(articCode).addMeiElement(element);
               if (place) {
                 vexArtic.setPosition(Tables.positions[place]);
               } else{
-                // sets position to null; null positions are processed in Articulation.draw()
+                // sets position to null; null positions are set in Articulation.draw()
                 vexArtic.setPosition(null);
               }
               note.addArticulation(0, vexArtic);
@@ -20857,11 +21307,10 @@ Vex.Flow.TextDynamics = (function(){
       // change the meter unit according to the ratio in the tuplet, the get the duration as if the tuplet were a beam
       var num = +tuplet.getAttribute('num') || 3;
       var numbase = +tuplet.getAttribute('numbase') || 2;
-      var acc = durationOf_Beam(tuplet, {
+      return durationOf_Beam(tuplet, {
         count : meter.count,
         unit : meter.unit * numbase / num
       });
-      return acc;
     };
 
     var evnt_name = evnt.localName;
@@ -20913,7 +21362,7 @@ Vex.Flow.TextDynamics = (function(){
     var eventList = new MeiLib.EventEnumerator(layer);
     var evnt;
     var dist;
-    var prev_evnt;
+    var prev_evnt = null;
     // previous event
     var prev_dist;
     // previous distance
@@ -21421,7 +21870,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.EventLinkCollection
+   * @class EventLinkCollection
    * @private
    *
    * @constructor
@@ -21478,7 +21927,6 @@ Vex.Flow.TextDynamics = (function(){
 
       // convert tstamp into startid in current measure
       var local_tstamp2id = function (tstamp, lnkelem, measureElement) {
-        var tstamp;
 
         var stffinf = link_staveInfo(lnkelem);
         var stave = measureElement.querySelector('staff[n="' + stffinf.stave_n + '"]');
@@ -21638,8 +22086,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Hairpins
-   * @extend MEI2VF.EventLinkCollection
+   * @class Hairpins
+   * @extend EventLinkCollection
    * @private
    *
    * @constructor
@@ -21704,7 +22152,9 @@ Vex.Flow.TextDynamics = (function(){
       }, type);
 
       vex_options = {
-        height : stave_spacing * (parseFloat(params.opening) || 1),
+        // processing of @opening skipped for aesthetic reasons
+        //height : stave_spacing * (parseFloat(params.opening) || 1),
+        height: stave_spacing,
         y_shift : 0,
         left_shift_px : 0,
         right_shift_px : 0
@@ -21742,8 +22192,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Ties
-   * @extend MEI2VF.EventLinkCollection
+   * @class Ties
+   * @extend EventLinkCollection
    * @private
    *
    * @constructor
@@ -21880,7 +22330,10 @@ Vex.Flow.TextDynamics = (function(){
         first_indices : f_note.index,
         last_indices : l_note.index
       });
-      vexTie.setDir(params.curvedir);
+
+      if (params.curvedir) {
+        vexTie.setDir((params.curvedir === 'above') ? -1 : 1);
+      }
       if (f_note.vexNote && f_note.vexNote.grace === true) {
         vexTie.render_options.first_x_shift = -5;
       }
@@ -21912,8 +22365,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Slurs
-   * @extend MEI2VF.EventLinkCollection
+   * @class Slurs
+   * @extend EventLinkCollection
    * @private
    *
    * @constructor
@@ -21965,14 +22418,17 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     createVexFromInfos : function (notes_by_id) {
-      var me = this, f_note, l_note, i, j, model, bezier, params;
+      var me = this, f_note, l_note, i, j, model, bezier, params, curveDir, layerDir, slurOptions = {};
+
+      var BELOW = -1;
+      var ABOVE = 1;
+
 
       for (i = 0, j = me.allModels.length; i < j; i++) {
         model = me.allModels[i];
-
         params = model.params;
+        curveDir = (params.curvedir === 'above') ? ABOVE : (params.curvedir === 'below') ? BELOW : null;
 
-        var keysInChord;
         f_note = notes_by_id[model.getFirstId()] || {};
         l_note = notes_by_id[model.getLastId()] || {};
 
@@ -21988,207 +22444,204 @@ Vex.Flow.TextDynamics = (function(){
           return true;
         }
 
-        // if no @curvedir is specified, set @curvedir according to the layer direction or to
-        // the position of a note in a chord
-        if (!params.curvedir) {
-          var layerDir = f_note.layerDir || l_note.layerDir;
-          if (layerDir) {
-            // calculate default curve direction based on the relative layer
-            params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
-          } else {
-            // if the slur links to a note in a chord, let the outer slurs of the
-            // chord point outwards
-
-
-            // TODO adjust to slurs!!
-            if (f_note.vexNote) {
-              keysInChord = f_note.vexNote.keys.length;
-              if (keysInChord > 1) {
-                params.curvedir =
-                (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
-              }
-            } else {
-              keysInChord = l_note.vexNote.keys.length;
-              if (keysInChord > 1) {
-                params.curvedir =
-                +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
-              }
-            }
-          }
-        }
-
-
-        var slurOptions = {
-          y_shift_start : +params.startvo || undefined,
-          y_shift_end : +params.endvo || undefined
-
-        };
-
         var firstStemDir, lastStemDir;
         if (f_note.vexNote) firstStemDir = f_note.vexNote.getStemDirection();
         if (l_note.vexNote) lastStemDir = l_note.vexNote.getStemDirection();
+        layerDir = f_note.layerDir || l_note.layerDir;
+        var firstDefinedStemDir = firstStemDir || lastStemDir;
 
 
-        //bezier = params.bezier;
-        // ignore bezier for now!
+        // TODO
+        // STEPS :
+        // 1) if bezier, use bezier, otherwise calculate curvedir
+        // 2) if y shift, use y shift, otherwise calculate position
+
+
+        // ### STEP 1: Determine curve and curve dir
+
+        bezier = params.bezier;
+        //ignore bezier for now!
         bezier = null;
-        //      if (bezier) {
-        //        slurOptions.cps = me.bezierStringToCps(bezier);
-        //      } else {
-        //
-
-
-        if (params.curvedir) {
-          // CURVEDIR SPECIFIED
-
-          if ((params.curvedir === 'above' && lastStemDir === 1) ||
-              (params.curvedir === 'below' && lastStemDir === -1)) {
-            //        slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-            slurOptions.invert = true;
-          }
-
-
-          // FIXED PLACE - SINGLE LAYER
-          if (f_note.vexNote && l_note.vexNote) {
-
-            var firstNoteLine = f_note.vexNote.getLineNumber();
-            var lastNoteLine = l_note.vexNote.getLineNumber();
-
-            var distance = firstNoteLine - lastNoteLine;
-
-//            console.log(f_note);
-//            console.log(f_note.vexNote.getLineNumber())
-//            console.log(l_note.vexNote.getLineNumber())
-//            console.log(distance);
-
-            //            if (distance > 2.5) {
-            //
-            //              if (firstStemDir !== lastStemDir) {
-            //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-            //              }
-            //
-            //            }
-
-            // TODO improve: make Curvedir a number 1 / -1
-
-            if (firstStemDir !== lastStemDir) {
-              if ((distance < -0.5 && params.curvedir === 'above') || (distance > 0.5 && params.curvedir === 'below')) {
-                // first note noticeably lower than last note
-                slurOptions.position = VF.Curve.Position.NEAR_TOP;
-                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
-              } else if ((distance > 0.5 && params.curvedir === 'above') ||
-                         (distance < -0.5 && params.curvedir === 'below')) {
-                // first note noticeably higher than last note
-                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-                //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-              }
-            } else {
-              if (slurOptions.invert === true) {
-                slurOptions.position = VF.Curve.Position.NEAR_TOP;
-              } else {
-                //                slurOptions.position = VF.Curve.Position.NEAR_HEAD;
-              }
-            }
-
-
-            //            if (distance < -2.5 && lastStemDir === 1) {
-            //              // first note noticeably lower than last note and last note pointing upwards
-            //              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-            //            }
-
-          } else {
-
-            // set rules for the case when only first or last vexNote are specified
-
-          }
-
+        if (bezier) {
+          slurOptions.cps = me.bezierStringToCps(bezier);
+          slurOptions.custom_cps = true;
+          // bezier overrrides @curvedir
+          curveDir = (slurOptions.cps[0].y < 0) ? ABOVE : BELOW;
         } else {
-          // NO CURVEDIR SPECIFIED
 
-
-          if (f_note.layerDir || l_note.layerDir) {
-            // NO FIXED PLACE - MULTI LAYER
-            slurOptions.invert = true;
-
-            if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
-              slurOptions.position = VF.Curve.Position.NEAR_TOP;
-
-              if (f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
-                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
-              }
-
-            }
-          } else {
-            // NO FIXED PLACE - SINGLE LAYER
-
-            var firstNoteLine = f_note.vexNote.getLineNumber();
-            var lastNoteLine = l_note.vexNote.getLineNumber();
-
-            var distance = firstNoteLine - lastNoteLine;
-
-            if (firstStemDir !== lastStemDir) {
-              if ((distance < -0.5 && params.curvedir === 'above') || (distance > 0.5 && params.curvedir === 'below')) {
-                // first note noticeably lower than last note
-                slurOptions.position = VF.Curve.Position.NEAR_TOP;
-                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
-              } else if ((distance > 0.5 && params.curvedir === 'above') ||
-                         (distance < -0.5 && params.curvedir === 'below')) {
-                // first note noticeably higher than last note
-                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-                //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
-              }
+          if (!curveDir) {
+            // if no @curvedir is specified, set @curvedir according to the layer direction or to
+            // the position of a note in a chord
+            if (layerDir) {
+              // if @layerdir is specified, set curveDir to @layerdir
+              curveDir = layerDir;
             } else {
-              if (slurOptions.invert === true) {
-                slurOptions.position = VF.Curve.Position.NEAR_TOP;
-              } else {
-                //                slurOptions.position = VF.Curve.Position.NEAR_HEAD;
-              }
-            }
+              // if the slur links to a note in a chord, let the outer slurs of the
+              // chord point outwards
 
+              // TODO adjust to slurs!!
+              //              keysInChord = firstDefinedNote.vexNote.keys.length;
+              //              if (keysInChord > 1) {
+              //                curveDir = (+firstDefinedNote.index === 0) ? BELOW :
+              //                           (+firstDefinedNote.index === keysInChord - 1) ? ABOVE : undefined;
+              //              } else {
+              //                curveDir = firstDefinedStemDir * -1;
+              //              }
+
+              curveDir = firstDefinedStemDir * -1;
+
+            }
           }
+
+          // adjust slurOptions to curveDir
+          slurOptions.invert = !((curveDir === BELOW && lastStemDir === ABOVE) || (curveDir === ABOVE && lastStemDir === BELOW));
+
         }
 
 
+        // TODO refactor: take stem-top and stem-bottom into account
+
+        // ### STEP 2: Determine position
+
+        var startvo = parseFloat(params.startvo);
+        var endvo = parseFloat(params.endvo);
+
+        // skip this for now
+        startvo = null;
+
+        if (startvo && endvo) {
+          slurOptions.y_shift_start = startvo;
+          slurOptions.y_shift_end = endvo;
+        } else {
+
+          if (!f_note.vexNote || !l_note.vexNote || !f_note.vexNote.hasStem() || !l_note.vexNote.hasStem()) {
+            // always position at head when one of the notes doesn't have a stem
+            slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+            slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+
+          } else if (firstStemDir === lastStemDir || !firstStemDir || !lastStemDir) {
+            // same stem direction in both notes
+
+            // shift slurs to stem end if stem direction equals curve direction
+            if (firstDefinedStemDir === curveDir) {
+              slurOptions.position = VF.Curve.Position.NEAR_TOP;
+              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            } else {
+              slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+              slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+            }
+
+          } else {
+            // different direction in notes
+
+            // change position
+            if (firstDefinedStemDir === curveDir) {
+              slurOptions.position = VF.Curve.Position.NEAR_TOP;
+              slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+            } else {
+              slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+              slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+            }
+
+          }
+
+        }
+
+
+        //
+        //          var setPositionBasedOnDistance = function () {
+        //            var firstNoteLine = f_note.vexNote.getLineNumber();
+        //            var lastNoteLine = l_note.vexNote.getLineNumber();
+        //            var distance = firstNoteLine - lastNoteLine;
+        //            if (firstStemDir !== lastStemDir) {
+        //              if ((firstStemDir === ABOVE && distance < -0.5 && curveDir === ABOVE) ||
+        //                  (lastStemDir === BELOW && distance > 0.5 && curveDir === BELOW)) {
+        //                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+        //                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+        //              } else if ((distance > 0.5 && curveDir === ABOVE) || (distance < -0.5 && curveDir === BELOW)) {
+        //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+        //                //                slurOptions.position_end = VF.Curve.Position.NEAR_TOP;
+        //              } else if (distance > 0.5 || distance < -0.5) {
+        //                slurOptions.position = VF.Curve.Position.NEAR_HEAD;
+        //                slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+        //              }
+        //            } else {
+        //              if (slurOptions.invert === true) {
+        //                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+        //              }
+        //            }
+        //          };
+        //
+        //          if (curveDir && f_note.vexNote && l_note.vexNote && f_note.vexNote.duration !== 'w' &&
+        //              l_note.vexNote.duration !== 'w') {
+        //            // CURVEDIR SPECIFIED - TWO NOTES THERE
+        //            setPositionBasedOnDistance();
+        //
+        //          } else {
+        //            // NO CURVEDIR SPECIFIED
+        //
+        //            if (f_note.layerDir || l_note.layerDir) {
+        //              // NO FIXED PLACE - MULTI LAYER
+        //              slurOptions.invert = true;
+        //
+        //              if (f_note.vexNote && l_note.vexNote && f_note.vexNote.hasStem() && l_note.vexNote.hasStem()) {
+        //                slurOptions.position = VF.Curve.Position.NEAR_TOP;
+        //
+        //                if (f_note.vexNote.getStemDirection() !== l_note.vexNote.getStemDirection()) {
+        //                  slurOptions.position_end = VF.Curve.Position.NEAR_HEAD;
+        //                }
+        //
+        //              }
+        //            } else {
+        //              if (f_note.vexNote && l_note.vexNote) {
+        //                setPositionBasedOnDistance();
+        //              }
+        //            }
+        //          }
+        //
+        //        }
+
+        //        console.log('curve dir: ' + curveDir + ', ' + 'layer dir: ' + params.layerDir + ', ');
+
+        // finally, in all cases, handle system breaks and create slur objects
         if (f_note.system !== undefined && l_note.system !== undefined && f_note.system !== l_note.system) {
           me.createSingleSlur(f_note, {}, {
             y_shift_start : slurOptions.y_shift_start,
             y_shift_end : slurOptions.y_shift_end,
-            invert: ((params.curvedir === 'above' && firstStemDir === 1) ||
-                     (params.curvedir === 'below' && firstStemDir === -1)),
-            position: slurOptions.position,
+            invert : ((curveDir === ABOVE && firstStemDir === ABOVE) || (curveDir === BELOW && firstStemDir === BELOW)),
+            position : slurOptions.position,
             position_end : slurOptions.position
           });
 
           slurOptions.position = slurOptions.position_end;
+          slurOptions.invert =
+          ((curveDir === ABOVE && lastStemDir === ABOVE) || (curveDir === BELOW && lastStemDir === BELOW));
           me.createSingleSlur({}, l_note, slurOptions);
         } else {
           me.createSingleSlur(f_note, l_note, slurOptions);
         }
+
       }
       return this;
     },
 
     createSingleSlur : function (f_note, l_note, slurOptions) {
-      var me = this, vexSlur;
-
-      vexSlur = new VF.Curve(f_note.vexNote, l_note.vexNote, slurOptions);
-
-      me.allVexObjects.push(vexSlur);
+      this.allVexObjects.push(new VF.Curve(f_note.vexNote, l_note.vexNote, slurOptions));
     },
 
     bezierStringToCps : function (str) {
       var cps = [], regex, matched;
-      regex = /(\-?\d+)\s+(\-?\d+)/g;
+      regex = /(\-?[\d|\.]+)\s+(\-?[\d|\.]+)/g;
       while (matched = regex.exec(str)) {
         cps.push({
           x : +matched[1],
           y : +matched[2]
         });
       }
-
-      // TODO allow less and more than two set of cps in VexFlow
-      if (!cps[1]) cps[1] = cps[0];
-
+      if (!cps[1]) {
+        Logger.info('Incomplete attribute', 'Expected four control points in slur/@bezier, but only found two. Providing cps 3 & 4 on basis on cps 1 & 2.');
+        cps[1] = {x : -cps[0].x, y : cps[0].y};
+      }
       return cps;
     }
   });
@@ -22216,7 +22669,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.EventPointerCollection
+   * @class EventPointerCollection
    * @private
    *
    * @constructor
@@ -22251,29 +22704,20 @@ Vex.Flow.TextDynamics = (function(){
       this.font = font;
     },
 
-    createVexFromInfos : function (notes_by_id) {
-      var me = this, i, model, note;
-      i = me.allModels.length;
-      while (i--) {
-        model = me.allModels[i];
-        note = notes_by_id[model.startid];
-        if (note) {
-          me.addToNote(model, note);
-        } else {
-          if (model.startid) {
-            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                             ' could not be processed because the reference "' + model.startid +
-                                             '" could not be resolved.');
-          } else {
-            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
-                                             ' could not be processed because it could not be assigned to an element.');
-          }
-        }
-      }
+    /**
+     * adds a new model to {@link #allModels}
+     * @param {Object} obj the object to add
+     */
+    addModel : function (obj) {
+      this.allModels.push(obj);
     },
 
-    addToNote : function () {
-      throw new RuntimeError('You have to provide a addToNote() method when inheriting MEI2VF.EventPointerCollection.');
+    /**
+     * gets all models
+     * @return {Object[]} all models in {@link #allModels}
+     */
+    getModels : function () {
+      return this.allModels;
     },
 
     createInfos : function (elements, measureElement) {
@@ -22342,20 +22786,30 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    /**
-     * adds a new model to {@link #allModels}
-     * @param {Object} obj the object to add
-     */
-    addModel : function (obj) {
-      this.allModels.push(obj);
+
+    createVexFromInfos : function (notes_by_id) {
+      var me = this, i, model, note;
+      i = me.allModels.length;
+      while (i--) {
+        model = me.allModels[i];
+        note = notes_by_id[model.startid];
+        if (note) {
+          me.addToNote(model, note);
+        } else {
+          if (model.startid) {
+            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
+                                             ' could not be processed because the reference "' + model.startid +
+                                             '" could not be resolved.');
+          } else {
+            Logger.warn('Unknown reference', Util.serializeElement(model.element) +
+                                             ' could not be processed because it could not be assigned to an element.');
+          }
+        }
+      }
     },
 
-    /**
-     * gets all models
-     * @return {Object[]} all models in {@link #allModels}
-     */
-    getModels : function () {
-      return this.allModels;
+    addToNote : function () {
+      throw new RuntimeError('You have to provide an addToNote() method when inheriting MEI2VF.EventPointerCollection.');
     }
   };
 /*
@@ -22377,8 +22831,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Arpeggios
-   * @extend MEI2VF.EventPointerCollection
+   * @class Arpeggios
+   * @extend EventPointerCollection
    * @private
    *
    * @constructor
@@ -22496,8 +22950,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Directives
-   * @extend MEI2VF.EventPointerCollection
+   * @class Directives
+   * @extend EventPointerCollection
    * @private
    *
    * @constructor
@@ -22569,8 +23023,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Dynamics
-   * @extend MEI2VF.EventPointerCollection
+   * @class Dynamics
+   * @extend EventPointerCollection
    * @private
    *
    * @constructor
@@ -22622,8 +23076,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Fermatas
-   * @extend MEI2VF.EventPointerCollection
+   * @class Fermatas
+   * @extend EventPointerCollection
    * @private
    *
    * @constructor
@@ -22662,8 +23116,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Ornaments
-   * @extend MEI2VF.PointerCollection
+   * @class Ornaments
+   * @extend PointerCollection
    * @private
    *
    * @constructor
@@ -22678,67 +23132,52 @@ Vex.Flow.TextDynamics = (function(){
       Ornaments.superclass.init.call(this, systemInfo, font);
     },
 
-    addToNote : function (model, note) {
-      this.addOrnamentToNote(note.vexNote, model);
-    },
-
     /**
      * adds an ornament to a note-like object
      * @method addOrnamentToNote
-     * @param {Vex.Flow.StaveNote} note the note-like VexFlow object
-     * @param {Object} model the data model
-     * @param {Number} index The index of the note in a chord (optional)
+     * @param {Object} model
+     * @param {Object} note
      */
-    addOrnamentToNote : function (note, model, index) {
+    addToNote : function (model, note) {
       var atts = model.atts;
       // TODO support @tstamp2 etc -> make Link instead of Pointer
 
       var ornamentMap = {
-        'trill':'tr',
-        'mordent':'mordent',
-        'turn': 'turn'
+        'trill' : 'tr', 'mordent' : 'mordent', 'turn' : 'turn'
       };
 
       var name = ornamentMap[model.element.localName];
 
       var form;
-      if (name==='mordent') {
+      if (name === 'mordent') {
         form = (atts.form === 'inv') ? '' : '_inverted';
       } else {
         form = (atts.form === 'inv') ? '_inverted' : '';
       }
 
-
-
-
       var vexOrnament = new VF.Ornament(name + form);
 
       vexOrnament.setMeiElement(model.element);
 
+      // not yet implemented in vexFlow
+      //      var place = atts.place;
+      //      if (place) {
+      //        vexOrnament.position = Tables.positions[place];
+      //      }
 
-      // not yet implemented in vexFlow!?
-//      var place = atts.place;
-//      if (place) {
-//        vexOrnament.position = Tables.positions[place];
-//      }
-
-
-//      notesBar1[0].addModifier(0, new Vex.Flow.Ornament("mordent"));
-//      notesBar1[1].addModifier(0, new Vex.Flow.Ornament("mordent_inverted"));
-//      notesBar1[2].addModifier(0, new Vex.Flow.Ornament("turn"));
-//      notesBar1[3].addModifier(0, new Vex.Flow.Ornament("turn_inverted"));
-//      notesBar1[4].addModifier(0, new Vex.Flow.Ornament("tr"));
-//      notesBar1[5].addModifier(0, new Vex.Flow.Ornament("upprall"));
-//      notesBar1[6].addModifier(0, new Vex.Flow.Ornament("downprall"));
-//      notesBar1[7].addModifier(0, new Vex.Flow.Ornament("prallup"));
-//      notesBar1[8].addModifier(0, new Vex.Flow.Ornament("pralldown"));
-//      notesBar1[9].addModifier(0, new Vex.Flow.Ornament("upmordent"));
-//      notesBar1[10].addModifier(0, new Vex.Flow.Ornament("downmordent"));
-//      notesBar1[11].addModifier(0, new Vex.Flow.Ornament("lineprall"));
-//      notesBar1[12].addModifier(0, new Vex.Flow.Ornament("prallprall"));
-
-
-
+      //      notesBar1[0].addModifier(0, new Vex.Flow.Ornament("mordent"));
+      //      notesBar1[1].addModifier(0, new Vex.Flow.Ornament("mordent_inverted"));
+      //      notesBar1[2].addModifier(0, new Vex.Flow.Ornament("turn"));
+      //      notesBar1[3].addModifier(0, new Vex.Flow.Ornament("turn_inverted"));
+      //      notesBar1[4].addModifier(0, new Vex.Flow.Ornament("tr"));
+      //      notesBar1[5].addModifier(0, new Vex.Flow.Ornament("upprall"));
+      //      notesBar1[6].addModifier(0, new Vex.Flow.Ornament("downprall"));
+      //      notesBar1[7].addModifier(0, new Vex.Flow.Ornament("prallup"));
+      //      notesBar1[8].addModifier(0, new Vex.Flow.Ornament("pralldown"));
+      //      notesBar1[9].addModifier(0, new Vex.Flow.Ornament("upmordent"));
+      //      notesBar1[10].addModifier(0, new Vex.Flow.Ornament("downmordent"));
+      //      notesBar1[11].addModifier(0, new Vex.Flow.Ornament("lineprall"));
+      //      notesBar1[12].addModifier(0, new Vex.Flow.Ornament("prallprall"));
 
       if (atts.accidupper) {
         vexOrnament.setUpperAccidental(Tables.accidentals[atts.accidupper]);
@@ -22746,9 +23185,293 @@ Vex.Flow.TextDynamics = (function(){
       if (atts.accidlower) {
         vexOrnament.setLowerAccidental(Tables.accidentals[atts.accidlower]);
       }
-
-      note.addModifier(index || 0, vexOrnament);
+      note.vexNote.addModifier(0, vexOrnament);
     }
+  });
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  var SpanCollection = function() {};
+
+  SpanCollection.prototype = {
+
+    init: function () {
+      var me = this;
+      me.spanElements = [];
+      me.vexObjects = [];
+    },
+
+    addSpanElements: function (elements) {
+      this.spanElements.push(elements);
+    },
+
+    addVexObject : function (obj) {
+      this.vexObjects.push(obj);
+    },
+
+    resolveSpans : function (elements, fragmentPostProcessor, notes_by_id) {
+      var me = this, i, j, element, pList, pListArray, startIdAtt, endIdAtt;
+
+      for (i = 0, j = elements.length; i < j; i++) {
+        element = elements[i];
+        pList = element.getAttribute('plist');
+        pListArray = Util.pListToArray(pList);
+
+        startIdAtt = element.getAttribute('startid');
+        endIdAtt = element.getAttribute('endid');
+        if (startIdAtt !== null || endIdAtt !== null) {
+          // insert startid and endid to the plist if they're not already there
+          if (pListArray[0] !== startIdAtt) {
+            pListArray.unshift(startIdAtt);
+          }
+          if (pListArray[pListArray.length - 1] !== endIdAtt) {
+            pListArray.push(endIdAtt);
+          }
+          var voices = [];
+          var firstMeasure;
+          var noteObjects = pListArray.map(function (item, index) {
+            var obj = notes_by_id[item.substring(1)];
+            if (!obj) {
+              throw new RuntimeError('Reference "' + item + '" given in ' + Util.serializeElement(element) +
+                                     ' not found.')
+            }
+            var voice = obj.vexNote.voice;
+            if (index === 0) {
+              firstMeasure = $(obj.meiNote).closest('measure').get(0);
+            }
+            var voiceIndex = voices.indexOf(voice);
+            if (voiceIndex === -1) {
+              // voice index remains -1 if the note is not in the start measure; it will not get
+              // included then when adding spaces
+              if (!firstMeasure || $(obj.meiNote).closest('measure').get(0) === firstMeasure) {
+                //noinspection JSReferencingMutableVariableFromClosure
+                voiceIndex = voices.push(voice) - 1;
+              }
+            }
+            return {
+              obj : obj, voiceIndex : voiceIndex, vexNote : obj.vexNote
+            };
+          });
+
+          var newSpace;
+
+          var createSpaceFrom = function (vexNote, stave) {
+            var gn = new VF.GhostNote(vexNote.getDuration());
+
+            // TODO handle dots
+            gn.setStave(stave);
+            return gn;
+          };
+
+          var notes = noteObjects.map(function (item) {
+            return item.vexNote;
+          });
+
+          var newVoiceSegment;
+          var indicesInVoice;
+
+          if (voices.length > 1) {
+            // create spaces in voices
+
+            for (var m = 0, n = voices.length; m < n; m++) {
+              newVoiceSegment = [];
+              indicesInVoice = [];
+              for (var o = 0, p = noteObjects.length; o < p; o++) {
+                if (noteObjects[o].voiceIndex === m) {
+                  newVoiceSegment[o] = noteObjects[o].vexNote;
+                  indicesInVoice.push(voices[m].tickables.indexOf(noteObjects[o].vexNote));
+                } else if (noteObjects[o].voiceIndex !== -1) {
+
+                  // TODO handle this later for each measure!!!
+                  newSpace = createSpaceFrom(noteObjects[o].vexNote, voices[m].tickables[0].stave);
+                  newVoiceSegment[o] = newSpace;
+                }
+              }
+
+              var t = voices[m].tickables;
+              if (m !== 0 && typeof fragmentPostProcessor === 'function') {
+                fragmentPostProcessor(element, newVoiceSegment);
+              }
+              voices[m].tickables =
+              t.slice(0, indicesInVoice[0]).concat(newVoiceSegment).concat(t.slice(indicesInVoice[indicesInVoice.length -
+                                                                                                  1] + 1));
+            }
+          }
+
+          me.createVexObject(notes, voices, element);
+
+        } else {
+          Logger.warn('Missing attributes', 'Could not process ' + Util.serializeElement(element) +
+                                            ', because @startid or @endid is missing.')
+        }
+      }
+    },
+
+    createVexObject : function () {
+      throw new RuntimeError('createVexObject() method not implemented.');
+    },
+
+    postFormat : function () {
+      var i, j, items = this.vexObjects;
+      for (i = 0, j = items.length; i < j; i++) {
+        items[i].postFormat();
+      }
+    },
+
+    setContext : function(ctx) {
+      this.ctx = ctx;
+      return this;
+    },
+
+    draw : function () {
+      var me = this, i, j, items = me.vexObjects, ctx = me.ctx;
+      for (i = 0, j = items.length; i < j; i++) {
+        items[i].setContext(ctx).draw();
+      }
+    }
+
+
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  /**
+   * @class BeamCollection
+   * @extend SpanCollection
+   * @private
+   *
+   * @constructor
+   */
+  var BeamCollection = function () {
+    this.init();
+  };
+
+  Vex.Inherit(BeamCollection, SpanCollection, {
+
+    init : function () {
+      BeamCollection.superclass.init.call(this);
+    },
+
+    resolveSpanElements : function (notes_by_id) {
+      var me = this;
+      me.resolveSpans(me.spanElements, null, notes_by_id);
+    },
+
+    createVexObject : function (notes) {
+      this.vexObjects.push(new VF.Beam(notes, false));
+    }
+
+  });
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  /**
+   * @class TupletCollection
+   * @extend SpanCollection
+   * @private
+   *
+   * @constructor
+   */
+  var TupletCollection = function () {
+    this.init();
+  };
+
+  Vex.Inherit(TupletCollection, SpanCollection, {
+
+    init : function () {
+      TupletCollection.superclass.init.call(this);
+    },
+
+    resolveSpanElements : function (notes_by_id) {
+      var me = this;
+
+      var fragmentPostProcessor = function (element, slice) {
+        new VF.Tuplet(slice, {
+          num_notes : parseInt(element.getAttribute('num'), 10) || 3,
+          beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
+        })
+      };
+
+      me.resolveSpans(me.spanElements, fragmentPostProcessor, notes_by_id);
+    },
+
+    createVexObject : function (notes, voices, element) {
+      var me=this, tickables, tuplet, voice, i, j;
+
+      tuplet = new VF.Tuplet(notes, {
+        num_notes : parseInt(element.getAttribute('num'), 10) || 3,
+        beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
+      });
+
+      if (element.getAttribute('num.format') === 'ratio') {
+        tuplet.setRatioed(true);
+      }
+
+      tuplet.setBracketed(element.getAttribute('bracket.visible') === 'true');
+
+      var bracketPlace = element.getAttribute('bracket.place');
+      if (bracketPlace) {
+        tuplet.setTupletLocation((bracketPlace === 'above') ? 1 : -1);
+      }
+
+      me.vexObjects.push(tuplet);
+
+      // TODO make this more efficient
+      for (i = 0, j = voices.length; i < j; i++) {
+        voice = voices[i];
+        tickables = voice.tickables;
+        voice.ticksUsed = new Vex.Flow.Fraction(0, 1);
+        voice.tickables = [];
+        voice.addTickables(tickables);
+      }
+
+    }
+
   });
 /*
  * MEItoVexFlow, Hyphenation class
@@ -22947,6 +23670,7 @@ Vex.Flow.TextDynamics = (function(){
      */
     format : function () {
       var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding, lowestTextLine;
+      var notesInContext;
 
       padding = 20;
 
@@ -22966,6 +23690,16 @@ Vex.Flow.TextDynamics = (function(){
           // first pass: get lowest y
           for (i = 0, j = verse.length; i < j; i++) {
             verse[i].setTextLine(text_line);
+
+            notesInContext = verse[i].getModifierContext().modifiers.stavenotes;
+
+            if (notesInContext.length > 1) {
+              verse[i].setNote(notesInContext[0]);
+            }
+
+            // TODO compare lowest Ys
+
+
             lowestY = Math.max(lowestY, verse[i].preProcess());
 
 //            lowestTextLine = Math.max(lowestTextLine, verse[i].text_line);
@@ -23012,8 +23746,8 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
-  var Syllable = function (element, font) {
-    this.init(Util.getText(element));
+  var Syllable = function (text, element, font) {
+    this.init(text);
     this.setFont(font.family, font.size, font.weight);
     this.setMeiElement(element);
     this.setLineSpacing(font.spacing);
@@ -23551,7 +24285,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
   /**
-   * @class MEI2VF.Measure
+   * @class Measure
    * @private
    *
    * @constructor
@@ -23698,7 +24432,7 @@ Vex.Flow.TextDynamics = (function(){
      */
     addRehearsalMarks : function () {
       var me = this, stave_n, vexStave, offsetX, i, j, rehElement;
-      for (i=0,j=me.rehElements.length;i<j;i++) {
+      for (i = 0, j = me.rehElements.length; i < j; i++) {
         rehElement = me.rehElements[i];
         stave_n = rehElement.getAttribute('staff');
         vexStave = me.staves[stave_n];
@@ -23717,17 +24451,14 @@ Vex.Flow.TextDynamics = (function(){
      */
     addTempoToStaves : function () {
       var me = this, offsetX, vexStave, vexTempo, atts, halfLineDistance, i, j, tempoElement;
-      for (i=0,j=me.tempoElements.length;i<j;i++) {
+      for (i = 0, j = me.tempoElements.length; i < j; i++) {
         tempoElement = me.tempoElements[i];
 
         atts = Util.attsToObj(tempoElement);
         vexStave = me.staves[atts.staff];
         halfLineDistance = vexStave.getSpacingBetweenLines() / 2;
         vexTempo = new VF.StaveTempo({
-          name : Util.getText(tempoElement),
-          duration : atts['mm.unit'],
-          dots : +atts['mm.dots'],
-          bpm : +atts.mm
+          name : Util.getText(tempoElement), duration : atts['mm.unit'], dots : +atts['mm.dots'], bpm : +atts.mm
         }, vexStave.x, 5);
         if (atts.vo) {
           vexTempo.setShiftY(+atts.vo * halfLineDistance);
@@ -23752,7 +24483,7 @@ Vex.Flow.TextDynamics = (function(){
      * calculates the minimum width of the current measure
      */
     calculateMinWidth : function () {
-      var me = this, i, staves, stave, repeatPadding, maxNoteStartX=0, maxEndModifierW =0;
+      var me = this, i, staves, stave, repeatPadding, maxNoteStartX = 0, maxEndModifierW = 0;
 
       staves = me.staves;
       i = staves.length;
@@ -23898,6 +24629,104 @@ Vex.Flow.TextDynamics = (function(){
 
 
 
+  var Page = function () {
+    this.init();
+  };
+
+  Page.prototype = {
+
+    STAVE_HEIGHT : 40,
+
+    init : function () {
+      var me = this;
+      /**
+       * Contains all {@link System} objects
+       * @property {System[]} systems
+       */
+      me.systems = [];
+    },
+
+    formatSystems : function (pageInfo, systemInfo, cfg, ctx) {
+      var me = this, i, j, totalMinSystemWidth = 0, minSystemWidth, broadestSystemN = 1;
+      var systems = me.systems;
+      j = systems.length;
+
+      // calculate page width if me.cfg.pageWidth is falsy
+      if (!cfg.pageWidth) {
+        for (i = 0; i < j; i++) {
+          minSystemWidth = systems[i].preFormat(ctx);
+          if (totalMinSystemWidth < minSystemWidth) {
+            broadestSystemN = i;
+            totalMinSystemWidth = minSystemWidth;
+          }
+        }
+
+        // calculate the width of all systems based on the final width of the system with the
+        // largest minSystemWidth and the default space to be added to each measure
+        var totalSystemWidth = totalMinSystemWidth +
+                               (systems[broadestSystemN].voiceFillFactorSum * cfg.defaultSpacingInMeasure);
+        pageInfo.setPrintSpaceWidth(totalSystemWidth);
+
+        for (i = 0; i < j; i++) {
+          systems[i].setFinalMeasureWidths(totalSystemWidth);
+          systems[i].format(ctx);
+        }
+
+      } else {
+        // ... if me.cfg.pageWidth is specified, format the measures based on that width
+        for (i = 0; i < j; i++) {
+          minSystemWidth = systems[i].preFormat(ctx);
+          systems[i].setFinalMeasureWidths();
+          systems[i].format(ctx);
+        }
+      }
+
+      pageInfo.setLowestY(systemInfo.getCurrentLowestY() + me.STAVE_HEIGHT);
+
+    },
+
+    addSystem : function (system, n) {
+      this.systems[n] = system;
+    },
+
+    getSystems : function () {
+      return this.systems;
+    },
+
+    setContext : function(ctx) {
+      this.ctx = ctx;
+      return this;
+    },
+
+    drawSystems : function () {
+      var me = this, i, j, systems = me.systems, ctx = me.ctx;
+      j = systems.length;
+      for (i = 0; i < j; i++) {
+        systems[i].draw(ctx);
+      }
+    }
+
+
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+
   var PageInfo = function (config) {
 
     var me = this;
@@ -23954,7 +24783,7 @@ Vex.Flow.TextDynamics = (function(){
       this.lowestY = lowestY;
     },
 
-    getLowestY : function (lowestY) {
+    getLowestY : function () {
       return this.lowestY;
     },
 
@@ -24068,6 +24897,7 @@ Vex.Flow.TextDynamics = (function(){
      */
     format : function () {
       var me = this, stave_n, verse_n, text_line, verse, i, j, lowestY, padding, lowestTextLine;
+      var notesInContext;
 
       padding = 20;
 
@@ -24087,6 +24917,16 @@ Vex.Flow.TextDynamics = (function(){
           // first pass: get lowest y
           for (i = 0, j = verse.length; i < j; i++) {
             verse[i].setTextLine(text_line);
+
+            notesInContext = verse[i].getModifierContext().modifiers.stavenotes;
+
+            if (notesInContext.length > 1) {
+              verse[i].setNote(notesInContext[0]);
+            }
+
+            // TODO compare lowest Ys
+
+
             lowestY = Math.max(lowestY, verse[i].preProcess());
 
 //            lowestTextLine = Math.max(lowestTextLine, verse[i].text_line);
@@ -24147,14 +24987,16 @@ Vex.Flow.TextDynamics = (function(){
   /**
    * A single instance of a staff system, containing and processing information
    * about the measures contained
-   * @class MEI2VF.System
+   * @class System
    * @private
    *
+   * @param pageInfo
+   * @param systemInfo
+   * @param system_n
    * @constructor
-   * @param {Object} config The configuration object
    */
-  var System = function (config) {
-    this.init(config);
+  var System = function (pageInfo, systemInfo, system_n) {
+    this.init(pageInfo, systemInfo, system_n);
   };
 
   System.prototype = {
@@ -24166,9 +25008,12 @@ Vex.Flow.TextDynamics = (function(){
     LABEL_PADDING : 20,
 
     /**
-     * @param {Object} config The configuration object
+     *
+     * @param pageInfo
+     * @param systemInfo
+     * @param system_n
      */
-    init : function (config) {
+    init : function (pageInfo, systemInfo, system_n) {
       var me = this;
 
       /**
@@ -24176,34 +25021,40 @@ Vex.Flow.TextDynamics = (function(){
        * MEI file or null if there is no margin specified. In the latter case,
        * the margin will be calculated on basis of the text width of the labels
        */
-      me.leftMar = config.leftMar;
+      me.leftMar = systemInfo.getLeftMar();
       /**
        * @cfg {Object} coords the coords of the current system
        * @cfg {Number} coords.x the x coordinate of the system
        * @cfg {Number} coords.y the y coordinate of the system
        * @cfg {Number} coords.width the system width
        */
-      me.coords = config.coords;
+      var printSpace = pageInfo.getPrintSpace();
+      me.coords = {
+        x : printSpace.left,
+        y : (system_n === 0) ? printSpace.top : systemInfo.getCurrentLowestY() + systemInfo.cfg.systemSpacing,
+        width : printSpace.width
+      };
       /**
        * @cfg {Number[]} staveYs the y coordinates of all staves in the current
        * system
        */
-      me.staveYs = config.staveYs;
+      me.staveYs = systemInfo.getYs(me.coords.y);
       /**
        * an instance of MEI2VF.Verses dealing with and storing all verse lines
        * found in the MEI document
        * @property {MEI2VF.Verses} verses
        */
-      me.verses = new Verses(config.versesCfg);
+      me.verses = new Verses(systemInfo.getVerseConfig());
       /**
        * @cfg {String[]} labels the labels of all staves in the current system
        */
-      me.labels = config.labels;
+      me.labels = systemInfo.getStaveLabels(system_n);
       /**
        * @property {MEI2VF.Measure[]} measures the measures in the current
        * system
        */
       me.measures = [];
+      me.systemVoiceYBounds = [];
     },
 
     /**
@@ -24339,6 +25190,8 @@ Vex.Flow.TextDynamics = (function(){
         if (measures[i]) {
           labels = (i === 0) ? me.labels : null;
           measures[i].format(offsetX, labels);
+          //me.updateSystemVoiceYBounds(measures[i].getVoices().getYBounds());
+
           offsetX += measures[i].getW();
         }
         measures[i].addRehearsalMarks();
@@ -24352,6 +25205,12 @@ Vex.Flow.TextDynamics = (function(){
 
       me.verses.format();
       return me;
+    },
+
+    updateSystemVoiceYBounds : function(bounds) {
+      var me = this;
+      me.systemVoiceYBounds.push(bounds);
+      console.log(me.systemVoiceYBounds);
     },
 
 
@@ -24485,6 +25344,7 @@ Vex.Flow.TextDynamics = (function(){
      * @public
      * @param staffDef
      * @param scoreDef
+     * @param skipRenderWith
      */
     updateDef : function (staffDef, scoreDef, skipRenderWith) {
       var me = this, clefDefiningElement, timeSigDefiningElement, keySigDefiningElement;
@@ -24533,7 +25393,9 @@ Vex.Flow.TextDynamics = (function(){
 
     /**
      * @private
-     * @param newStaffDef
+     * @param clefDefiningElement
+     * @param keySigDefiningElement
+     * @param timeSigDefiningElement
      */
     updateRenderWith : function (clefDefiningElement, keySigDefiningElement, timeSigDefiningElement) {
       var me = this, result, hasEqualAtt;
@@ -24954,6 +25816,34 @@ Vex.Flow.TextDynamics = (function(){
       return this.currentStaveInfos;
     },
 
+
+    /**
+     * @method getStaveLabels
+     */
+    getStaveLabels : function (currentSystem_n) {
+      var me = this, labels, i, infos, labelType;
+      labels = {};
+      if (!me.cfg.labelMode) {
+        return labels;
+      }
+      labelType = (me.cfg.labelMode === 'full' && currentSystem_n === 0) ? 'label' : 'labelAbbr';
+      infos = me.getAllStaveInfos();
+      i = infos.length;
+      while (i--) {
+        if (infos[i]) {
+          labels[i] = infos[i][labelType];
+        }
+      }
+      return labels;
+    },
+
+    getVerseConfig : function () {
+      var me = this;
+      return {
+        font : me.cfg.lyricsFont, maxHyphenDistance : me.cfg.maxHyphenDistance
+      };
+    },
+
     /**
      * @method
      */
@@ -25155,6 +26045,7 @@ Vex.Flow.TextDynamics = (function(){
      * reads a staffDef, writes it to currentStaveInfos
      *
      * @param {Element} element
+     * @param {Element} scoreDef
      * @return {Number} the staff number of the staffDef
      */
     processStaffDef : function (element, scoreDef) {
@@ -25281,8 +26172,6 @@ Vex.Flow.TextDynamics = (function(){
       return me.formatter.getMinTotalWidth();
     },
 
-    // TODO it might be necessary to calculate this for every voice
-    // TODO also check if this works well with mRests!
     /**
      * returns how much of the total tick count in the measure is actually used by the first voice
      * return {Number}
@@ -25324,7 +26213,22 @@ Vex.Flow.TextDynamics = (function(){
     //      }
     //    },
 
-    draw : function (context, staves) {
+    // TODO: also use this for auto y formatting!!
+
+    getYBounds : function () {
+      var me = this, vStaveWise = me.vexVoicesStaffWise;
+      var yBounds = {};
+      for (var i in vStaveWise) {
+        yBounds[i] = [];
+        for (var k= 0,l=vStaveWise[i].length;k<l;k++) {
+          yBounds[i].push(vStaveWise[i][k].getBoundingBox());
+        }
+      }
+      return yBounds;
+    },
+
+
+    draw : function (context) {
       var i, staveVoice, all_voices = this.all_voices;
       for (i = 0; i < all_voices.length; ++i) {
         staveVoice = all_voices[i];
@@ -25340,11 +26244,11 @@ Vex.Flow.TextDynamics = (function(){
       for (var i = 0; i < this.tickables.length; ++i) {
         var tickable = this.tickables[i];
 
-        tickable.setStave(tickable.getStave());
-
         if (!tickable.getStave()) {
           throw new Vex.RuntimeError("MissingStave", "The voice cannot draw tickables without staves.");
         }
+
+        tickable.setStave(tickable.getStave());
 
         if (i === 0) boundingBox = tickable.getBoundingBox();
 
@@ -25435,57 +26339,44 @@ Vex.Flow.TextDynamics = (function(){
 
   Converter.prototype = {
 
-    BOTTOM : VF.Annotation.VerticalJustify.BOTTOM,
-
-    STAVE_HEIGHT : 40,
-
     defaults : {
       /**
        * @cfg {Number|null} pageWidth The width of the page. If null, the page width is calculated on
        * basis of the page content
        */
-      pageWidth : null,
-      /**
+      pageWidth : null, /**
        * @cfg {Number} pageTopMar The page top margin
        */
-      pageTopMar : 60,
-      /**
+      pageTopMar : 60, /**
        * @cfg {Number} pageBottomMar The page bottom margin
        */
-      pageBottomMar : 80,
-      /**
+      pageBottomMar : 80, /**
        * @cfg {Number} pageLeftMar The page left margin
        */
-      pageLeftMar : 20,
-      /**
+      pageLeftMar : 20, /**
        * @cfg {Number} pageRightMar The page right margin
        */
-      pageRightMar : 20,
-      /**
+      pageRightMar : 20, /**
        * @cfg {Number} defaultSpacingInMeasure The default spacing added to a measure's minimum
        * width when no page width is specified (i.e. when the width cannot be determined on basis
        * of the page width)
        */
-      defaultSpacingInMeasure : 180,
-      /**
+      defaultSpacingInMeasure : 180, /**
        * @cfg {Number} systemSpacing The default spacing between two stave
        * systems
        */
-      systemSpacing : 90,
-      /**
+      systemSpacing : 90, /**
        * @cfg {Number} staveSpacing The default spacing between two staves
        * within a system; overridden by the spacing attribute of a staffDef
        * element in the MEI code
        */
-      staveSpacing : 60,
-      /**
+      staveSpacing : 60, /**
        * @cfg {Boolean} autoStaveConnectorLine Specifies if a stave connector
        * line is drawn on the left of systems by default; if set to true, the
        * auto line will not appear when staffDef/@symbol="none" is set for the
        * outermost staffDef element
        */
-      autoStaveConnectorLine : true,
-      /**
+      autoStaveConnectorLine : true, /**
        * @cfg {"full"/"abbr"/null} labelMode Specifies the way voice labels are
        * added
        * to staves. Values:
@@ -25503,54 +26394,38 @@ Vex.Flow.TextDynamics = (function(){
        * @cfg {Number} maxHyphenDistance The maximum distance (in pixels)
        * between two hyphens in the lyrics lines
        */
-      maxHyphenDistance : 75,
-      /**
+      maxHyphenDistance : 75, /**
        * @cfg {Object} lyricsFont The font used for rendering lyrics (and
        * hyphens)
        * @cfg {String} lyricsFont.family the font family
        * @cfg {Number} lyricsFont.size the font size
-       *
-       * NB the weight properties can be used to specify style, weight
-       * or both (space separated); some of the objects are passed directly
-       * to vexFlow (which requires the name 'weight'), so the name is
-       * 'weight'
        */
       lyricsFont : {
-        family : 'Times',
-        size : 15,
-        spacing : 1.3
-      },
-      /**
+        family : 'Times', size : 15, spacing : 1.3
+      }, /**
        * @cfg {Object} annotFont the font used for annotations (for example,
        * 'pizz.')
        * @cfg {String} annotFont.family the font family
        * @cfg {Number} annotFont.size the font size
        */
       annotFont : {
-        family : 'Times',
-        size : 15
-      },
-      /**
+        family : 'Times', size : 15
+      }, /**
        * @cfg {Object} dynamFont the font used for dynamics
        * @cfg {String} dynamFont.family the font family
        * @cfg {Number} dynamFont.size the font size
        * @cfg {String} dynamFont.weight the font weight
        */
       dynamFont : {
-        family : 'Times',
-        size : 17.5,
-        weight : 'bold italic'
-      },
-      /**
+        family : 'Times', size : 17.5, weight : 'bold italic'
+      }, /**
        * @cfg {Object} tempoFont The tempo font
        * @cfg {String} tempoFont.family the font family
        * @cfg {Number} tempoFont.size the font size
        * @cfg {String} tempoFont.weight the font weight
        */
       tempoFont : {
-        family : "Times",
-        size : 17,
-        weight : "bold"
+        family : "Times", size : 17, weight : "bold"
       }
     },
 
@@ -25608,38 +26483,24 @@ Vex.Flow.TextDynamics = (function(){
      */
     reset : function () {
       var me = this;
+
+      me.page = new Page();
+
       me.systemInfo.init(me.cfg);
       /**
        * @property {MEI2VF.EventLink[][]} unresolvedTStamp2
        */
       me.unresolvedTStamp2 = [];
       /**
-       * Contains all {@link MEI2VF.System} objects
-       * @property {MEI2VF.System[]} systems
-       */
-      me.systems = [];
-      /**
        * Contains all Vex.Flow.Stave objects. Addressing scheme:
        * [measure_n][stave_n]
        * @property {Vex.Flow.Stave[][]} allVexMeasureStaves
        */
       me.allVexMeasureStaves = [];
-      /**
-       * Contains all Vex.Flow.Beam objects. Data is just pushed in
-       * and later processed as a whole, so the array index is
-       * irrelevant.
-       * @property {Vex.Flow.Beam[]} allBeams
-       */
-      me.allBeams = [];
-      me.allBeamSpans = [];
-      me.allTupletSpans = [];
-      /**
-       * Contains all Vex.Flow.Tuplet objects. Data is just pushed in
-       * and later processed as a whole, so the array index is
-       * irrelevant.
-       * @property {Vex.Flow.Tuplet[]} allTuplets
-       */
-      me.allTuplets = [];
+
+      me.beams = new BeamCollection();
+      me.tuplets = new TupletCollection();
+
       /**
        * an instance of MEI2VF.Dynamics dealing with and storing all dynamics
        * found in the MEI document
@@ -25730,7 +26591,7 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     /**
-     * Calls {@link #reset} and then processes the specified MEI document or
+     * Processes the specified MEI document or
      * document fragment. The generated objects can
      * be processed further or drawn immediately to a canvas via {@link #draw}.
      * @method process
@@ -25740,7 +26601,6 @@ Vex.Flow.TextDynamics = (function(){
      */
     process : function (xmlDoc) {
       var me = this;
-      me.reset();
 
       //      me.systemInfo.processScoreDef(xmlDoc.getElementsByTagName('scoreDef')[0]);
       //      me.processSections(xmlDoc);
@@ -25760,169 +26620,16 @@ Vex.Flow.TextDynamics = (function(){
       me.slurs.createVexFromInfos(me.notes_by_id);
       me.hairpins.createVexFromInfos(me.notes_by_id);
 
-      me.resolveTupletSpans();
-      me.resolveBeamSpans();
+      me.tuplets.resolveSpanElements(me.notes_by_id);
+      me.beams.resolveSpanElements(me.notes_by_id);
 
       return me;
     },
 
-    resolveBeamSpans : function () {
-      var me = this;
-      var spanObjectCreator = function (notes, voices, element) {
-        me.allBeams.push(new VF.Beam(notes, false));
-      };
-      me.resolveSpans(me.allBeamSpans, spanObjectCreator, null);
-    },
-
-    resolveTupletSpans : function () {
-      var me = this;
-
-      var fragmentPostProcessor = function (element, slice) {
-        new VF.Tuplet(slice, {
-          num_notes : parseInt(element.getAttribute('num'), 10) || 3,
-          beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
-        })
-      };
-
-      var spanObjectCreator = function (notes, voices, element) {
-        var tickables, tuplet, voice;
-
-        tuplet = new VF.Tuplet(notes, {
-          num_notes : parseInt(element.getAttribute('num'), 10) || 3,
-          beats_occupied : parseInt(element.getAttribute('numbase'), 10) || 2
-        });
-
-        if (element.getAttribute('num.format') === 'ratio') {
-          tuplet.setRatioed(true);
-        }
-
-        tuplet.setBracketed(element.getAttribute('bracket.visible') === 'true');
-
-        var bracketPlace = element.getAttribute('bracket.place');
-        if (bracketPlace) {
-          tuplet.setTupletLocation((bracketPlace === 'above') ? 1 : -1);
-        }
-
-        me.allTuplets.push(tuplet);
-
-        // TODO make this more efficient
-        for (m = 0, n = voices.length; m < n; m++) {
-          voice = voices[m];
-          tickables = voice.tickables;
-          var v = voice;
-          v.ticksUsed = new Vex.Flow.Fraction(0, 1);
-          voice.tickables = [];
-          voice.addTickables(tickables);
-        }
-      };
-
-      me.resolveSpans(me.allTupletSpans, spanObjectCreator, fragmentPostProcessor);
-    },
-
-
-    resolveSpans : function (elements, spanObjectCreator, fragmentPostProcessor) {
-      var me = this, i, j, elements, idString, element, notes;
-
-      for (i = 0, j = elements.length; i < j; i++) {
-        notes = [];
-        element = elements[i];
-        var pList = element.getAttribute('plist');
-        var pListArray = Util.pListToArray(pList);
-
-        var startIdAtt = element.getAttribute('startid');
-        var endIdAtt = element.getAttribute('endid');
-        if (startIdAtt !== null || endIdAtt !== null) {
-          // insert startid and endid to the plist if they're not already there
-          if (pListArray[0] !== startIdAtt) {
-            pListArray.unshift(startIdAtt);
-          }
-          if (pListArray[pListArray.length - 1] !== endIdAtt) {
-            pListArray.push(endIdAtt);
-          }
-          var voices = [];
-          var firstMeasure;
-          var noteObjects = pListArray.map(function (item, index) {
-            var obj = me.notes_by_id[item.substring(1)];
-            if (!obj) {
-              throw new RuntimeError('Reference "' + item + '" given in ' + Util.serializeElement(element) +
-                                     ' not found.')
-            }
-            var voice = obj.vexNote.voice;
-            if (index === 0) {
-              firstMeasure = $(obj.meiNote).closest('measure').get(0);
-            }
-            var voiceIndex = voices.indexOf(voice);
-            if (voiceIndex === -1) {
-              // voice index remains -1 if the note is not in the start measure; it will not get
-              // included then when adding spaces
-              if (!firstMeasure || $(obj.meiNote).closest('measure').get(0) === firstMeasure) {
-                voiceIndex = voices.push(voice) - 1;
-              }
-            }
-            return {
-              obj : obj,
-              voiceIndex : voiceIndex,
-              vexNote : obj.vexNote
-            };
-          });
-
-          var newSpace;
-
-          var createSpaceFrom = function (vexNote, stave) {
-            var gn = new VF.GhostNote(vexNote.getDuration());
-
-            // TODO handle dots
-            gn.setStave(stave);
-            return gn;
-          };
-
-          var notes = noteObjects.map(function (item) {
-            return item.vexNote;
-          });
-
-          var newVoiceSegment;
-          var indicesInVoice;
-
-          if (voices.length > 1) {
-            // create spaces in voices
-
-            for (var m = 0, n = voices.length; m < n; m++) {
-              newVoiceSegment = [];
-              indicesInVoice = [];
-              for (var o = 0, p = noteObjects.length; o < p; o++) {
-                if (noteObjects[o].voiceIndex === m) {
-                  newVoiceSegment[o] = noteObjects[o].vexNote;
-                  indicesInVoice.push(voices[m].tickables.indexOf(noteObjects[o].vexNote));
-                } else if (noteObjects[o].voiceIndex !== -1) {
-
-                  // TODO handle this later for each measure!!!
-                  newSpace = createSpaceFrom(noteObjects[o].vexNote, voices[m].tickables[0].stave);
-                  newVoiceSegment[o] = newSpace;
-                }
-              }
-
-              var t = voices[m].tickables;
-              if (m !== 0 && typeof fragmentPostProcessor === 'function') {
-                fragmentPostProcessor(element, newVoiceSegment);
-              }
-              voices[m].tickables =
-              t.slice(0, indicesInVoice[0]).concat(newVoiceSegment).concat(t.slice(indicesInVoice[indicesInVoice.length -
-                                                                                                  1] + 1));
-            }
-          }
-
-          spanObjectCreator(notes, voices, element);
-
-        } else {
-          Logger.warn('Missing attributes', 'Could not process ' + Util.serializeElement(element) +
-                                            ', because @startid or @endid is missing.')
-        }
-      }
-    },
-
     format : function (ctx) {
       var me = this;
-      me.formatSystems(me.systems, ctx);
+      me.page.formatSystems(me.pageInfo, me.systemInfo, me.cfg, ctx);
+      me.beams.postFormat();
     },
 
     /**
@@ -25934,9 +26641,9 @@ Vex.Flow.TextDynamics = (function(){
      */
     draw : function (ctx) {
       var me = this;
-      me.drawSystems(me.systems, ctx);
-      me.setContextAndDraw(me.allBeams, ctx);
-      me.setContextAndDraw(me.allTuplets, ctx);
+      me.page.setContext(ctx).drawSystems();
+      me.beams.setContext(ctx).draw();
+      me.tuplets.setContext(ctx).draw();
       me.ties.setContext(ctx).draw();
       me.slurs.setContext(ctx).draw();
       me.hairpins.setContext(ctx).draw();
@@ -25981,8 +26688,7 @@ Vex.Flow.TextDynamics = (function(){
         }
       }
       return {
-        width : area_width,
-        height : height
+        width : area_width, height : height
       };
     },
 
@@ -26002,7 +26708,7 @@ Vex.Flow.TextDynamics = (function(){
      * @return {MEI2VF.System[]}
      */
     getSystems : function () {
-      return this.systems;
+      return this.page.getSystems();
     },
 
     /**
@@ -26020,31 +26726,14 @@ Vex.Flow.TextDynamics = (function(){
      * @method createNewSystem
      */
     createNewSystem : function () {
-      var me = this, system, coords;
+      var me = this, system;
 
       Logger.debug('Converter.createNewSystem()', '{enter}');
 
       me.pendingSystemBreak = false;
       me.currentSystem_n += 1;
 
-      var printSpace = me.pageInfo.getPrintSpace();
-
-      coords = {
-        x : printSpace.left,
-        y : (me.currentSystem_n === 0) ? printSpace.top : me.systemInfo.getCurrentLowestY() + me.cfg.systemSpacing,
-        width : printSpace.width
-      };
-
-      system = new System({
-        leftMar : me.systemInfo.getLeftMar(),
-        coords : coords,
-        staveYs : me.systemInfo.getYs(coords.y),
-        labels : me.getStaveLabels(),
-        versesCfg : {
-          font : me.cfg.lyricsFont,
-          maxHyphenDistance : me.cfg.maxHyphenDistance
-        }
-      });
+      system = new System(me.pageInfo, me.systemInfo, me.currentSystem_n);
 
       if (me.pendingSectionBreak) {
         me.pendingSectionBreak = false;
@@ -26053,7 +26742,7 @@ Vex.Flow.TextDynamics = (function(){
         me.systemInfo.forceStaveStartInfos();
       }
 
-      me.systems[me.currentSystem_n] = system;
+      me.page.addSystem(system, me.currentSystem_n);
       return system;
     },
 
@@ -26232,24 +26921,25 @@ Vex.Flow.TextDynamics = (function(){
      * Processes a MEI measure element
      * @method processMeasure
      * @param {Element} element the MEI measure element
+     * @param {Object} sectionContext the context shared by the current elements
      */
     processMeasure : function (element, sectionContext) {
-      var me = this, atSystemStart, system, system_n, childNodes;
+      var me = this, atSystemStart, systems, system, system_n, childNodes;
 
       if (me.pendingSectionBreak || me.pendingSystemBreak) {
         system = me.createNewSystem();
         atSystemStart = true;
       } else {
-        system_n = me.systems.length - 1;
-        system = me.systems[system_n];
+        systems = me.page.getSystems();
+        system_n = systems.length - 1;
+        system = systems[system_n];
         atSystemStart = false;
       }
 
       Logger.debug('Converter.processMeasure()', '{enter}');
 
       var barlineInfo = {
-        leftBarline : element.getAttribute('left'),
-        rightBarline : element.getAttribute('right')
+        leftBarline : element.getAttribute('left'), rightBarline : element.getAttribute('right')
       };
 
 
@@ -26313,10 +27003,10 @@ Vex.Flow.TextDynamics = (function(){
             rehElements.push(childNodes[i]);
             break;
           case 'beamSpan':
-            me.allBeamSpans.push(childNodes[i]);
+            me.beams.addSpanElements(childNodes[i]);
             break;
           case 'tupletSpan':
-            me.allTupletSpans.push(childNodes[i]);
+            me.tuplets.addSpanElements(childNodes[i]);
             break;
           default:
             Logger.info('Not supported', '<' + childNodes[i].localName + '> is not supported as child of <measure>.');
@@ -26363,9 +27053,7 @@ Vex.Flow.TextDynamics = (function(){
           system_n : me.currentSystem_n
         } : null,
         inlineConnectorCfg : {
-          models : me.systemInfo.inlineConnectorInfos,
-          staves : staves,
-          barlineInfo : barlineInfo
+          models : me.systemInfo.inlineConnectorInfos, staves : staves, barlineInfo : barlineInfo
         },
         tempoElements : tempoElements,
         rehElements : rehElements,
@@ -26400,7 +27088,6 @@ Vex.Flow.TextDynamics = (function(){
 
       eventContext.emptyClefCheckQueue();
 
-
     },
 
 
@@ -26433,9 +27120,7 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         stave = new Stave({
-          system : system,
-          y : system.getStaveYs()[stave_n],
-          barlineInfo : barlineInfo
+          system : system, y : system.getStaveYs()[stave_n], barlineInfo : barlineInfo
         });
         staves[stave_n] = stave;
 
@@ -26509,26 +27194,6 @@ Vex.Flow.TextDynamics = (function(){
     },
 
     /**
-     * @method getStaveLabels
-     */
-    getStaveLabels : function () {
-      var me = this, labels, i, infos, labelType;
-      labels = {};
-      if (!me.cfg.labelMode) {
-        return labels;
-      }
-      labelType = (me.cfg.labelMode === 'full' && me.currentSystem_n === 0) ? 'label' : 'labelAbbr';
-      infos = me.systemInfo.getAllStaveInfos();
-      i = infos.length;
-      while (i--) {
-        if (infos[i]) {
-          labels[i] = infos[i][labelType];
-        }
-      }
-      return labels;
-    },
-
-    /**
      * Processes a single stave in a measure
      *
      * @method processStaveEvents
@@ -26538,6 +27203,7 @@ Vex.Flow.TextDynamics = (function(){
      * @param {Number} measureIndex the index of the current measure
      * @param {MEI2VF.StaveVoices} currentStaveVoices The current StaveVoices
      * object
+     * @param {EventContext} eventContext the context shared by the current events
      */
     processStaveEvents : function (staves, staveElement, measureIndex, currentStaveVoices, eventContext) {
       var me = this, stave, stave_n, layerElements, i, j, vexNotes, staveInfo;
@@ -26586,9 +27252,7 @@ Vex.Flow.TextDynamics = (function(){
         throw new RuntimeError('me.createVexVoice() voice_contents argument must be an array.');
       }
       voice = new VF.Voice({
-        num_beats : meter.count,
-        beat_value : meter.unit,
-        resolution : VF.RESOLUTION
+        num_beats : meter.count, beat_value : meter.unit, resolution : VF.RESOLUTION
       });
       voice.setStrict(false);
       voice.addTickables(voiceContents);
@@ -26608,8 +27272,7 @@ Vex.Flow.TextDynamics = (function(){
       if (unresolvedTStamp2) {
         for (i = 0, j = unresolvedTStamp2.length; i < j; i++) {
           unresolvedTStamp2[i].setContext({
-            layer : layer,
-            meter : meter
+            layer : layer, meter : meter
           });
           // TODO: remove eventLink from the list
           unresolvedTStamp2[i] = null;
@@ -26683,7 +27346,7 @@ Vex.Flow.TextDynamics = (function(){
      * @method processNote
      */
     processNote : function (eventContext, element, staveInfo) {
-      var me = this, xml_id, mei_tie, mei_slur, atts, note_opts, note, clef, vexPitch, stave, stave_n, otherStave;
+      var me = this, xml_id, mei_tie, mei_slur, atts, note_opts, note, clef, vexPitch, stave, otherStave;
 
       atts = Util.attsToObj(element);
 
@@ -26748,8 +27411,7 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         eventContext.addEvent(xml_id, {
-          meiNote : element,
-          vexNote : note
+          meiNote : element, vexNote : note
         });
 
         if (eventContext.clefChangeInfo) {
@@ -26777,13 +27439,12 @@ Vex.Flow.TextDynamics = (function(){
      * @method processChord
      */
     processChord : function (eventContext, element, staveInfo) {
-      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j, mei_tie, mei_slur, clef, stave, otherStave;
+      var me = this, noteElements, xml_id, chord, chord_opts, atts, i, j, mei_slur, clef, stave, otherStave;
 
       noteElements = element.getElementsByTagName('note');
 
       atts = Util.attsToObj(element);
 
-      mei_tie = atts.tie;
       mei_slur = atts.slur;
 
       xml_id = MeiLib.XMLID(element);
@@ -26846,9 +27507,7 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         eventContext.addEvent(xml_id, {
-          meiNote : element,
-          vexNote : chord,
-          index : allNoteIndices
+          meiNote : element, vexNote : chord, index : allNoteIndices
         });
 
         if (eventContext.clefChangeInfo) {
@@ -26895,9 +27554,7 @@ Vex.Flow.TextDynamics = (function(){
       }
 
       eventContext.addEvent(xml_id, {
-        meiNote : chordElement,
-        vexNote : chord,
-        index : [chordIndex]
+        meiNote : chordElement, vexNote : chord, index : [chordIndex]
       });
 
       var childNodes = element.childNodes;
@@ -26949,8 +27606,7 @@ Vex.Flow.TextDynamics = (function(){
 
 
         eventContext.addEvent(xml_id, {
-          meiNote : element,
-          vexNote : rest
+          meiNote : element, vexNote : rest
         });
         return rest;
       } catch (e) {
@@ -26982,8 +27638,7 @@ Vex.Flow.TextDynamics = (function(){
         }
 
         eventContext.addEvent(xml_id, {
-          meiNote : element,
-          vexNote : mRest
+          meiNote : element, vexNote : mRest
         });
         return mRest;
       } catch (e) {
@@ -26998,7 +27653,7 @@ Vex.Flow.TextDynamics = (function(){
       var space = null;
       if (element.hasAttribute('dur')) {
         try {
-          space = new Space({ element : element, stave : eventContext.getStave() });
+          space = new Space({element : element, stave : eventContext.getStave()});
 
           if (eventContext.isInBeam()) {
             eventContext.setSpaceInBeam(true);
@@ -27092,7 +27747,7 @@ Vex.Flow.TextDynamics = (function(){
       if (filteredVexNotes && filteredVexNotes.length > 1) {
         try {
           // set autostem parameter of VF.Beam to true if neither layerDir nor any stem direction in the beam is specified
-          me.allBeams.push(new VF.Beam(filteredVexNotes, !eventContext.getLayerDir() &&
+          me.beams.addVexObject(new VF.Beam(filteredVexNotes, !eventContext.getLayerDir() &&
                                                          eventContext.getStemDirInBeam() === false));
         } catch (e) {
           Logger.error('VexFlow Error', 'An error occurred processing ' + Util.serializeElement(element) + ': "' +
@@ -27147,7 +27802,7 @@ Vex.Flow.TextDynamics = (function(){
         tuplet.setTupletLocation((bracketPlace === 'above') ? 1 : -1);
       }
 
-      me.allTuplets.push(tuplet);
+      me.tuplets.addVexObject(tuplet);
       return vexNotes;
     },
 
@@ -27159,14 +27814,12 @@ Vex.Flow.TextDynamics = (function(){
       for (i = 0, j = mei_tie.length; i < j; ++i) {
         if (mei_tie[i] === 't' || mei_tie[i] === 'm') {
           me.ties.terminateTie(xml_id, {
-            vexPitch : vexPitch,
-            stave_n : stave_n
+            vexPitch : vexPitch, stave_n : stave_n
           });
         }
         if (mei_tie[i] === 'i' || mei_tie[i] === 'm') {
           me.ties.startTie(xml_id, {
-            vexPitch : vexPitch,
-            stave_n : stave_n
+            vexPitch : vexPitch, stave_n : stave_n
           });
         }
       }
@@ -27206,8 +27859,7 @@ Vex.Flow.TextDynamics = (function(){
         numbered_token = numbered_tokens[i];
         if (numbered_token.length === 1) {
           result.push({
-            letter : numbered_token,
-            nesting_level : 0
+            letter : numbered_token, nesting_level : 0
           });
         } else if (numbered_token.length === 2) {
           num = +numbered_token[1];
@@ -27215,8 +27867,7 @@ Vex.Flow.TextDynamics = (function(){
             throw new RuntimeError('badly formed slur attribute');
           }
           result.push({
-            letter : numbered_token[0],
-            nesting_level : num
+            letter : numbered_token[0], nesting_level : num
           });
         } else {
           throw new RuntimeError('badly formed slur attribute');
@@ -27231,67 +27882,672 @@ Vex.Flow.TextDynamics = (function(){
     processSyllables : function (note, element, stave_n) {
       var me = this, i, j, syllables, vexSyllable;
       syllables = element.getElementsByTagName('syl');
-      for (i = 0, j = syllables.length; i < j; i++) {
-        vexSyllable = new Syllable(syllables[i], me.cfg.lyricsFont);
+      if (element.hasAttribute('syl')) {
+        vexSyllable = new Syllable(element.getAttribute('syl').replace(/\s+/g, ' '), element, me.cfg.lyricsFont);
         note.addAnnotation(0, vexSyllable);
-        me.systems[me.currentSystem_n].verses.addSyllable(vexSyllable, syllables[i], stave_n);
+        me.page.getSystems()[me.currentSystem_n].verses.addSyllable(vexSyllable, element, stave_n);
       }
-    },
-
-    setContextAndDraw : function (items, ctx) {
-      var i, j;
-      for (i = 0, j = items.length; i < j; i++) {
-        items[i].setContext(ctx).draw();
-      }
-    },
-
-    formatSystems : function (systems, ctx) {
-      var me = this, i, j, totalMinSystemWidth = 0, minSystemWidth, broadestSystemN = 1;
-      j = systems.length;
-
-      // calculate page width if me.cfg.pageWidth is falsy
-      if (!me.cfg.pageWidth) {
-        for (i = 0; i < j; i++) {
-          minSystemWidth = systems[i].preFormat(ctx);
-          if (totalMinSystemWidth < minSystemWidth) {
-            broadestSystemN = i;
-            totalMinSystemWidth = minSystemWidth;
-          }
-        }
-
-        // calculate the width of all systems based on the final width of the system with the
-        // largest minSystemWidth and the default space to be added to each measure
-        var totalSystemWidth = totalMinSystemWidth +
-                               (systems[broadestSystemN].voiceFillFactorSum * me.cfg.defaultSpacingInMeasure);
-        me.pageInfo.setPrintSpaceWidth(totalSystemWidth);
-
-        for (i = 0; i < j; i++) {
-          systems[i].setFinalMeasureWidths(totalSystemWidth);
-          systems[i].format(ctx);
-        }
-
-      } else {
-        // ... if me.cfg.pageWidth is specified, format the measures based on that width
-        for (i = 0; i < j; i++) {
-          minSystemWidth = systems[i].preFormat(ctx);
-          systems[i].setFinalMeasureWidths();
-          systems[i].format(ctx);
-        }
-      }
-
-      me.pageInfo.setLowestY(me.systemInfo.getCurrentLowestY() + me.STAVE_HEIGHT);
-
-    },
-
-    drawSystems : function (systems, ctx) {
-      var i, j;
-      j = systems.length;
-      for (i = 0; i < j; i++) {
-        systems[i].draw(ctx);
+      for (i = 0, j = syllables.length; i < j; i++) {
+        vexSyllable = new Syllable(Util.getNormalizedText(syllables[i]), syllables[i], me.cfg.lyricsFont);
+        note.addAnnotation(0, vexSyllable);
+        me.page.getSystems()[me.currentSystem_n].verses.addSyllable(vexSyllable, syllables[i], stave_n);
       }
     }
 
   };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+  /**
+   * @exports mei2text/Text
+   */
+
+  var Text = function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
+    this.init(meiElement, opts, overrideOpts, customText, meiNodeMatch);
+  };
+
+  Text.prototype = {
+
+    init : function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
+      var me = this, atts;
+
+      me.meiElement = meiElement;
+      me.meiNodeMatch = meiNodeMatch;
+      atts = (overrideOpts) ? opts : $.extend({}, opts, Util.attsToObj(meiElement));
+      me.x = +atts.x;
+      me.y = +atts.y;
+
+      me.h = +atts.fontsize;
+      me.textAlign = atts.halign || 'left';
+      me.text = (customText === undefined) ? $(meiElement).text() : customText;
+
+      me.atts = atts;
+    },
+
+    setX : function (x) {
+      this.x = x;
+    },
+
+    setY : function (y) {
+      this.y = y;
+    },
+
+    setContainer : function (container) {
+      this.container = container;
+    },
+
+    getContainer : function () {
+      return this.container;
+    },
+
+    setTextAlign : function (textAlign) {
+      this.textAlign = textAlign;
+    },
+
+    getArea : function () {
+      var me = this;
+
+      return {
+        x : me.x - 6,
+        y : me.y - me.h,
+        w : me.w + 12,
+        h : me.h + 8,
+        x1 : me.x + me.w + 6,
+        y1 : me.y + 8,
+        meiElement : me.meiElement,
+        meiNodeMatch : me.meiNodeMatch,
+        xmlid : null
+      };
+    },
+
+    setContext : function (ctx) {
+      this.ctx = ctx;
+      return this;
+    },
+
+    preProcess : function () {
+      var me = this, ctx = me.ctx, atts = me.atts;
+
+      me.h = atts.fontsize * 2;
+
+      this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + (me.h) + 'px ' + atts.fontfamily;
+      ctx.font = this.font;
+      me.w = ctx.measureText(me.text).width;
+      return this;
+    },
+
+    draw : function () {
+      var me = this;
+      me.ctx.textAlign = me.textAlign;
+      me.ctx.font = me.font;
+      me.ctx.fillText(me.text, me.x, me.y);
+    }
+
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+  /**
+   * @exports mei2text/AnchoredTexts
+   */
+
+  /**
+   * @class MEI2TEXT.AnchoredTexts
+   * @private
+   *
+   * @constructor
+   */
+  var AnchoredTexts = function (font) {
+    var me = this;
+
+    me.font = font;
+
+    me.allTexts = [];
+  };
+
+  AnchoredTexts.prototype = {
+
+    getAll : function () {
+      return this.allTexts;
+    },
+
+    /**
+     * Creates a model object from an element and adds it to {@link #allTexts}
+     * @param {Element} element
+     * @stave {Stave} stave
+     */
+    addText : function (element, stave) {
+      var me = this;
+      var text = new Text(element, {
+        fontfamily : me.font.family,
+        fontweight : me.font.weight,
+        fontsize : me.font.size,
+        fontstyle : ''
+      });
+      text.setContainer (stave);
+      me.allTexts.push(text);
+    },
+
+    /**
+     * Gets an element's first ancestor with the specified localName
+     * @param {Element} element the start element
+     * @param {String} localName the localName of the ancestor
+     * @returns {Element}
+     */
+    getAncestor : function (element, localName) {
+      while (( element = element.parentElement) && (element.localName !== localName)) {}
+      return element;
+    },
+
+    setContext : function (ctx) {
+      this.ctx = ctx;
+      return this;
+    },
+
+    draw : function () {
+      var me = this, stave, ctx = me.ctx, i, j, text;
+
+      for (i=0,j=me.allTexts.length;i<j;i++) {
+        text = me.allTexts[i];
+
+        if (!text.y) {
+          stave = text.getContainer();
+          text.setY(stave.getYForLine(3) - 4 + (+text.atts.vo * stave.getSpacingBetweenLines() / 2 || 0));
+        }
+        if (!text.x) {
+          if (!stave) {
+            stave = text.getContainer();
+          }
+          text.setX(stave.getGlyphStartX() + (+text.atts.ho * stave.getSpacingBetweenLines() / 2 || 0));
+        }
+
+        text.setContext(ctx).preProcess().draw();
+      }
+    }
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+  /**
+   * @exports mei2text/MeasureNumbers
+   */
+
+  /**
+   * @class MEI2TEXT.MeasureNumbers
+   * @private
+   *
+   * @constructor
+   */
+  var MeasureNumbers = function (font) {
+    this.font = font;
+  };
+
+  MeasureNumbers.prototype = {
+
+    addToSystemStarts : function (systems) {
+      var me = this, i, measure, stave, volta, n;
+      i = systems.length;
+      while (i--) {
+        measure = systems[i].getMeasure(0);
+        stave = measure.getFirstDefinedStave();
+        if (measure && stave) {
+          n = measure.getNAttr();
+
+          // don't render measure numbers 0 and 1
+          if (parseInt(n, 10) > 1) {
+            volta = me.getStaveVolta(stave.modifiers);
+            if (volta) volta.setShiftY(volta.y_shift - me.font.size);
+
+            stave.setMeasure(n).font = me.font;
+          }
+        }
+      }
+    },
+
+    getStaveVolta : function (staveModifiers) {
+      var i, j;
+      for (i=2,j=staveModifiers.length;i<j;i++) {
+        if (staveModifiers[i] instanceof VF.Volta) {
+          return staveModifiers[i];
+        }
+      }
+    }
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+  /**
+   * @exports mei2text/PgHead
+   */
+
+  /**
+   * @class PgHead
+   * @private
+   *
+   * @constructor
+   */
+  var PgHead = function (element, scale) {
+    this.init(element, scale);
+  };
+
+  PgHead.prototype = {
+
+    init : function (scale) {
+      var me = this;
+
+      me.scale = scale;
+      me.defaultFontSize = 12;
+      me.lineHeight = 1.3;
+
+      // TODO treat rend[@align]s like floating HTML divs
+      /**
+       * Contains the MSV.Text objects ordered by line number. Each descendant text node
+       * of the pgHead element is stored in its own Text object
+       * @type {Text[][]}
+       */
+      me.textsByLine = [
+        []
+      ];
+      me.line_n = 0;
+
+      /**
+       * Current coordinates
+       * @type {{x: *, y: *, w: *}}
+       */
+      me.currentCoords = {};
+
+    },
+
+    processElement : function (element) {
+      var me  = this;
+      me.htmlToArray(element, {
+        fontsize : me.defaultFontSize,
+        fontweight : '',
+        fontstyle : '',
+        fontfamily : 'Times'
+      });
+      me.calculateHeight();
+    },
+
+    calculateHeight : function () {
+      var me = this, maxFontSizeInLine, i, j, k, l, textLine, text, totalHeight = 0;
+      for (i = 0, j = me.textsByLine.length; i < j; i++) {
+        textLine = me.textsByLine[i];
+        maxFontSizeInLine = 0;
+        for (k = 0, l = textLine.length; k < l; k++) {
+          text = textLine[k];
+          text.h = text.atts.fontsize * 2;
+          maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
+        }
+        totalHeight += maxFontSizeInLine * me.lineHeight;
+      }
+      me.height = totalHeight;
+    },
+
+    setStartXY : function (x, y) {
+      this.currentCoords.x = x;
+      this.currentCoords.y = y;
+    },
+
+    setWidth : function (width) {
+      this.currentCoords.w = width;
+    },
+
+    getLowestY : function () {
+      return this.currentCoords.y + this.height;
+    },
+
+    getTextsByLine : function () {
+      return this.textsByLine;
+    },
+
+    htmlToArray : function (element, opts) {
+      var me = this, atts, defaults, text, i, j, childNodes, nodeMatch;
+
+      childNodes = element.childNodes;
+
+      for (i = 0, j = childNodes.length; i < j; i++) {
+
+        if (childNodes[i].nodeName === '#text') {
+          text = childNodes[i].textContent.replace(/([\n|\r]+\s*)/g, ' ');
+          if (text) {
+            // MSV.Text always expects an element as the first argument; we pass
+            // the parent element of the current text node. If the parent
+            // element contains more than one child, a nodeMatch parameter is
+            // added; this way, the text node in concern can laber be addressed
+            // unambiguously by evaluating element and nodeMatch.
+            nodeMatch = (j === 1) ? null : {type : 'child', value : i};
+            me.textsByLine[me.line_n].push(new Text(element, opts, true, text, nodeMatch));
+          }
+        } else {
+          switch (childNodes[i].localName) {
+            case undefined :
+              break;
+            case 'lb' :
+              me.breakLine();
+              break;
+            case 'title' :
+              atts = Util.attsToObj(childNodes[i]);
+              defaults = {
+                halign : 'center'
+              };
+              me.htmlToArray(childNodes[i], $.extend({}, opts, defaults, atts));
+              me.breakLine();
+              break;
+            default :
+              atts = Util.attsToObj(childNodes[i]);
+              me.htmlToArray(childNodes[i], $.extend({}, opts, atts));
+              // FIXME handle line breaks differently
+              if (atts.halign == 'center') {
+                me.breakLine();
+              }
+
+          }
+        }
+      }
+    },
+
+    breakLine : function () {
+      var me = this;
+      me.line_n += 1;
+      me.textsByLine[me.line_n] = [];
+    },
+
+    setContext : function (ctx) {
+      this.ctx = ctx;
+      return this;
+    },
+
+    draw : function () {
+      var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i, j, k, l, textLine, text;
+
+      var currentCoords = {
+        x : me.currentCoords.x,
+        y : me.currentCoords.y,
+        w : me.currentCoords.w
+      };
+
+      for (i = 0, j = me.textsByLine.length; i < j; i++) {
+        textLine = me.textsByLine[i];
+        leftTexts = [];
+        centerTexts = [];
+        rightTexts = [];
+        maxFontSizeInLine = 0;
+
+        for (k = 0, l = textLine.length; k < l; k++) {
+          text = textLine[k];
+          text.setContext(me.ctx).preProcess(me.scale);
+          text.setTextAlign('left');
+          switch (text.atts.halign) {
+            case 'center' :
+              centerTexts.push(text);
+              break;
+            case 'right' :
+              rightTexts.push(text);
+              break;
+            default :
+              leftTexts.push(text);
+          }
+        }
+
+        maxFontSizeInLine =
+        Math.max(me.drawCenterTexts(centerTexts, currentCoords), me.drawRightAlignedTexts(rightTexts, currentCoords), me.drawLeftAlignedTexts(leftTexts, currentCoords));
+
+        currentCoords.y += maxFontSizeInLine * me.lineHeight;
+
+      }
+    },
+
+    drawCenterTexts : function (centerTexts, currentCoords) {
+      var me = this, maxFontSize, totalTextWidth = 0, i;
+
+      i = centerTexts.length;
+      while (i--) {
+        totalTextWidth += centerTexts[i].w;
+      }
+
+      maxFontSize = me.drawLeftAlignedTexts(centerTexts, {
+        x : currentCoords.x + (currentCoords.w / 2) - (totalTextWidth / 2),
+        y : currentCoords.y,
+        w : currentCoords.w
+      }, me.ctx);
+      return maxFontSize;
+    },
+
+    drawRightAlignedTexts : function (rightTexts, currentCoords) {
+      var maxH = 0, offsetX = 0, obj, i;
+      i = rightTexts.length;
+      while (i--) {
+        obj = rightTexts[i];
+        offsetX += obj.w;
+        obj.setX(currentCoords.x + currentCoords.w - offsetX);
+        obj.setY(currentCoords.y + obj.h);
+        obj.draw();
+        maxH = Math.max(obj.h, maxH);
+      }
+      return maxH;
+    },
+
+    drawLeftAlignedTexts : function (leftTexts, currentCoords) {
+      var maxH = 0, offsetX = 0;
+      $.each(leftTexts, function (i, obj) {
+        obj.setX(currentCoords.x + offsetX);
+        obj.setY(currentCoords.y + obj.h);
+        obj.draw();
+        offsetX += obj.w;
+        maxH = Math.max(obj.h, maxH);
+      });
+      return maxH;
+    }
+
+  };
+/*
+ * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+
+  var ExtendedConverter = function (config) {
+    this.init();
+
+    if (config) {
+      this.initConfig(config);
+    }
+  };
+
+  Vex.Inherit(ExtendedConverter, Converter, {
+
+    init : function () {
+      var me = this, defaults = me.defaults;
+      /**
+       * @cfg {Number} pageScale The page scale (set 1 for 100%, 0.5 for 50%
+       * etc.)
+       */
+      defaults.pageScale = 1;
+      /**
+       * @cfg {Number} pageHeight The height of the page. Null for auto height
+       */
+      defaults.pageHeight = null;
+      /**
+       * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
+       * automatically be added to each system start
+       */
+      defaults.autoMeasureNumbers = false;
+      /**
+       * @cfg {Object} measureNumberFont The measure number font
+       * @cfg {String} measureNumberFont.family the font family
+       * @cfg {Number} measureNumberFont.size the font size
+       * @cfg {String} measureNumberFont.weight the font weight
+       */
+      defaults.measureNumberFont = {
+        family : 'Times', size : 14, weight : 'Italic'
+      };
+      /**
+       * @cfg {Object} anchoredTextFont The anchored text font
+       * @cfg {String} anchoredTextFont.family the font family
+       * @cfg {Number} anchoredTextFont.size the font size
+       * @cfg {String} anchoredTextFont.weight the font weight
+       */
+      defaults.anchoredTextFont = {
+        family : 'Times', size : 22, weight : ''
+      };
+      /**
+       * @cfg (Boolean) processPgHead Specifies if pgHead elemements should be rendered
+       */
+      defaults.processPgHead = true;
+      /**
+       * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
+       */
+
+      Stave.prototype.lineColor = '#000000';
+    },
+
+
+    initConfig : function (cfg) {
+      var me = this, pgHeadLowestY;
+      ExtendedConverter.superclass.initConfig.call(me, cfg);
+
+      if (me.cfg.processPgHead) {
+
+        me.systemInfo.processPgHead = function (element) {
+          if (!me.pgHead) {
+            var printSpace = me.pageInfo.getPrintSpace();
+            me.pgHead = new PgHead(me.cfg.pageScale);
+            me.pgHead.processElement(element);
+            me.pgHead.setStartXY(printSpace.left, me.pageInfo.pageTopMar + 90); // increase top padding for header
+            pgHeadLowestY = me.pgHead.getLowestY();
+            if (pgHeadLowestY) {
+              // round the y value in order to prevent blurred staff lines on the canvas
+              printSpace.top = Math.ceil(pgHeadLowestY) + 30;
+            }
+          }
+        };
+
+        me.systemInfo.processPgFoot = function (element) {
+          if (!me.pgFoot) {
+            me.pgFoot = new PgHead(me.cfg.pageScale);
+            me.pgFoot.processElement(element);
+          }
+        };
+
+      }
+    },
+
+    process : function (xmlDoc) {
+      var me = this;
+      ExtendedConverter.superclass.process.call(me, xmlDoc);
+      if (me.cfg.autoMeasureNumbers) {
+        me.measureNumbers.addToSystemStarts(me.getSystems());
+      }
+    },
+
+    format: function (ctx) {
+      var me = this, printSpace = me.pageInfo.getPrintSpace();
+      ExtendedConverter.superclass.format.call(me, ctx);
+      if (me.pgHead) {
+        me.pgHead.setWidth(printSpace.width);
+      }
+      if (me.pgFoot) {
+        me.pgFoot.setStartXY(printSpace.left, me.pageInfo.getLowestY() + 80);
+        me.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.pageInfo.pageBottomMar);
+        me.pgFoot.setWidth(printSpace.width);
+      }
+    },
+
+    reset : function () {
+      var me = this;
+      ExtendedConverter.superclass.reset.call(me);
+      me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
+      me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
+    },
+
+    processAnchoredText : function (element, stave, stave_n, layerDir, staveInfo) {
+      this.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
+    },
+
+
+    draw : function (ctx) {
+      var me = this;
+
+      ExtendedConverter.superclass.draw.call(me, ctx);
+      if (me.pgHead) {
+        me.pgHead.setContext(ctx).draw();
+      }
+      if (me.pgFoot) {
+        me.pgFoot.setContext(ctx).draw();
+      }
+      me.anchoredTexts.setContext(ctx).draw();
+    }
+
+  });
 /*
  * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
  *
@@ -27387,7 +28643,7 @@ Vex.Flow.TextDynamics = (function(){
    */
 
   /**
-   * @class MSV.UI
+   * @class UI
    */
   var UI = function () {
     this.init();
@@ -27405,6 +28661,8 @@ Vex.Flow.TextDynamics = (function(){
     setSize : function (height, width, scale) {
 
       var me = this, i, j, h, w, canvas;
+
+      me.scale = scale;
 
       h = height * scale;
       w = width * scale;
@@ -27430,10 +28688,43 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    createLayers : function (cfg) {
+    zoom : function (scale, drawFn, scope) {
+      var me = this, canvas, ctx, i, j;
+
+      for (i = 0, j = me.layers.length; i < j; i++) {
+        canvas = me.layers[i].element;
+        ctx = me.layers[i].ctx;
+        ctx.scale(scale, scale);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      me.scale *=scale;
+
+      if (scope && typeof drawFn === 'function') {
+        drawFn.call(scope, me.layers[me.vexLayerIndex].ctx);
+      }
+
+
+      //  var scaleFactor = 1.1;
+      //  var zoom = function(clicks){
+      //    var pt = ctx.transformedPoint(lastX,lastY);
+      //    ctx.translate(pt.x,pt.y);
+      //    var factor = Math.pow(scaleFactor,clicks);
+      //    ctx.scale(factor,factor);
+      //    ctx.translate(-pt.x,-pt.y);
+      //    redraw();
+      //  }
+
+    },
+
+
+    createLayers : function (cfg, scale) {
       var me = this, element, ctx, i, j, layers, hasVexLayer = false;
 
-      me.scale = cfg.pageScale;
+      me.scale = scale;
 
       // unwrap target if it's a jQuery object
       var target = cfg.target[0] || cfg.target;
@@ -27523,18 +28814,18 @@ Vex.Flow.TextDynamics = (function(){
       return new VF.Renderer(canvas, backend || VF.Renderer.Backends.CANVAS).getContext();
     },
 
-//    scaleContext : function (ctx, cfg) {
-//      var me = this, paper, w, h;
-//      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
-//        //        paper = ctx.paper;
-//        //        h = cfg.pageHeight;
-//        //        w = cfg.pageWidth;
-//        //        paper.setSize(w * scale, h * scale);
-//        //        paper.setViewBox(0, 0, w, h);
-//      } else {
-//        ctx.scale(me.scale, me.scale);
-//      }
-//    },
+    //    scaleContext : function (ctx, cfg) {
+    //      var me = this, paper, w, h;
+    //      if (+cfg.backend === VF.Renderer.Backends.RAPHAEL) {
+    //        //        paper = ctx.paper;
+    //        //        h = cfg.pageHeight;
+    //        //        w = cfg.pageWidth;
+    //        //        paper.setSize(w * scale, h * scale);
+    //        //        paper.setViewBox(0, 0, w, h);
+    //      } else {
+    //        ctx.scale(me.scale, me.scale);
+    //      }
+    //    },
 
     registerMouseClickHandler : function (handler) {
       var me = this;
@@ -27592,6 +28883,24 @@ Vex.Flow.TextDynamics = (function(){
           }
         }
       });
+    },
+
+    registerMouseHandlers : function () {
+      var i, layer, me = this, layers = me.layers;
+      i = layers.length;
+      while (i--) {
+        layer = layers[i];
+        if (layer.type === 'highlighter') {
+          if (layer.clickHandler) {
+            me.registerMouseClickHandler(layer);
+          }
+          if (layer.highlightMode === 'hover' || (layer.mouseEnterHandler && layer.mouseLeaveHandler)) {
+            me.registerMouseMoveHandler(layer);
+          }
+        }
+      }
+      me.listenMouseClick();
+      me.listenMouseMove();
     }
 
   };
@@ -27797,7 +29106,7 @@ Vex.Flow.TextDynamics = (function(){
         v8 : 'meiClefElement'
       };
 
-      for (var i = 0; i < j; i++) {
+      for (i = 0; i < j; i++) {
         glyph = stave.glyphs[i];
         w = glyph.getMetrics().width;
         if (glyph.code) {
@@ -27810,7 +29119,6 @@ Vex.Flow.TextDynamics = (function(){
 
       j = stave.end_glyphs.length;
       x = stave.getGlyphEndX();
-      var glyph;
       for (i = 0; i < j; i++) {
         glyph = stave.end_glyphs[i];
         if (glyph.code) {
@@ -27868,7 +29176,7 @@ Vex.Flow.TextDynamics = (function(){
 
     calculateAnchoredTextAreas : function () {
       var me = this, i;
-      var texts = me.viewer.anchoredTexts.getAll();
+      var texts = me.viewer.converter.anchoredTexts.getAll();
       i = texts.length;
       while (i--) {
         me.anchoredTextAreas.push(texts[i].getArea());
@@ -27892,8 +29200,8 @@ Vex.Flow.TextDynamics = (function(){
         }
       };
 
-      calculate(me.viewer.pgHead);
-      calculate(me.viewer.pgFoot);
+      calculate(me.viewer.converter.pgHead);
+      calculate(me.viewer.converter.pgFoot);
 
     },
 
@@ -28072,502 +29380,6 @@ Vex.Flow.TextDynamics = (function(){
  */
 
   /**
-   * @exports mei2text/Text
-   */
-
-  var Text = function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
-    this.init(meiElement, opts, overrideOpts, customText, meiNodeMatch);
-  };
-
-  Text.prototype = {
-
-    init : function (meiElement, opts, overrideOpts, customText, meiNodeMatch) {
-      var me = this, atts;
-
-      me.meiElement = meiElement;
-      me.meiNodeMatch = meiNodeMatch;
-      atts = (overrideOpts) ? opts : $.extend({}, opts, Util.attsToObj(meiElement));
-      me.x = +atts.x;
-      me.y = +atts.y;
-
-      me.h = +atts.fontsize;
-      me.textAlign = atts.halign || 'left';
-      me.text = (customText === undefined) ? $(meiElement).text() : customText;
-
-      me.atts = atts;
-    },
-
-    setX : function (x) {
-      this.x = x;
-    },
-
-    setY : function (y) {
-      this.y = y;
-    },
-
-    setContainer : function (container) {
-      this.container = container;
-    },
-
-    getContainer : function () {
-      return this.container;
-    },
-
-    setTextAlign : function (textAlign) {
-      this.textAlign = textAlign;
-    },
-
-    getArea : function () {
-      var me = this;
-
-      return {
-        x : me.x - 6,
-        y : me.y - me.h,
-        w : me.w + 12,
-        h : me.h + 8,
-        x1 : me.x + me.w + 6,
-        y1 : me.y + 8,
-        meiElement : me.meiElement,
-        meiNodeMatch : me.meiNodeMatch,
-        xmlid : null
-      };
-    },
-
-    setContext : function (ctx) {
-      this.ctx = ctx;
-      return this;
-    },
-
-    preProcess : function (scale) {
-      var me = this, ctx = me.ctx, atts = me.atts;
-
-      scale = scale || 1;
-//      me.h = fontsize * scale;
-      me.h = atts.fontsize * 2;
-
-      this.font = atts.fontstyle + ' ' + atts.fontweight + ' ' + (me.h) + 'px ' + atts.fontfamily;
-      ctx.font = this.font;
-      me.w = ctx.measureText(me.text).width;
-      return this;
-    },
-
-    draw : function () {
-      var me = this;
-      me.ctx.textAlign = me.textAlign;
-      me.ctx.font = me.font;
-      me.ctx.fillText(me.text, me.x, me.y);
-    }
-
-  };
-/*
- * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-  /**
-   * @exports mei2text/AnchoredTexts
-   */
-
-  /**
-   * @class MEI2TEXT.AnchoredTexts
-   * @private
-   *
-   * @constructor
-   */
-  var AnchoredTexts = function (font) {
-    var me = this;
-
-    me.font = font;
-
-    me.allTexts = [];
-  };
-
-  AnchoredTexts.prototype = {
-
-    getAll : function () {
-      return this.allTexts;
-    },
-
-    /**
-     * Creates a model object from an element and adds it to {@link #allTexts}
-     * @param {Element} element
-     * @stave {Stave}
-     */
-    addText : function (element, stave) {
-      var me = this;
-      var text = new Text(element, {
-        fontfamily : me.font.family,
-        fontweight : me.font.weight,
-        fontsize : me.font.size,
-        fontstyle : ''
-      });
-      text.setContainer (stave);
-      me.allTexts.push(text);
-    },
-
-    /**
-     * Gets an element's first ancestor with the specified localName
-     * @param {Element} element the start element
-     * @param {String} localName the localName of the ancestor
-     * @returns {Element}
-     */
-    getAncestor : function (element, localName) {
-      while (( element = element.parentElement) && (element.localName !== localName)) {}
-      return element;
-    },
-
-    setContext : function (ctx) {
-      this.ctx = ctx;
-      return this;
-    },
-
-    draw : function () {
-      var me = this, stave, ctx = me.ctx;
-      $.each(me.allTexts, function () {
-
-        if (!this.y) {
-          stave = this.getContainer();
-          this.setY(stave.getYForLine(3) - 4 + (+this.atts.vo * stave.getSpacingBetweenLines() / 2 || 0));
-        }
-        if (!this.x) {
-          if (!stave) {
-            stave = this.getContainer();
-          }
-          this.setX(stave.getGlyphStartX() + (+this.atts.ho * stave.getSpacingBetweenLines() / 2 || 0));
-        }
-
-        this.setContext(ctx).preProcess().draw();
-
-      });
-    }
-  };
-/*
- * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-  /**
-   * @exports mei2text/MeasureNumbers
-   */
-
-  /**
-   * @class MEI2TEXT.MeasureNumbers
-   * @private
-   *
-   * @constructor
-   */
-  var MeasureNumbers = function (font) {
-    this.font = font;
-  };
-
-  MeasureNumbers.prototype = {
-
-    addToSystemStarts : function (systems) {
-      var me = this, i, measure, n;
-      i = systems.length;
-      while (i--) {
-        measure = systems[i].getMeasure(0);
-        n = measure.getNAttr();
-        if (parseInt(n, 10) > 1) {
-          measure.getFirstDefinedStave().setMeasure(n).font = me.font;
-        }
-      }
-    }
-  };
-/*
- * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-  /**
-   * @exports mei2text/PgHead
-   */
-
-  /**
-   * @class MEI2TEXT.PgHead
-   * @private
-   *
-   * @constructor
-   */
-  var PgHead = function (element, coords, scale) {
-    this.init(element, coords, scale);
-  };
-
-  PgHead.prototype = {
-
-    init : function (element, coords, scale) {
-      var me = this;
-
-      me.scale = scale;
-//      me.defaultFontSize = 12;
-      me.defaultFontSize = 12;
-      me.lineHeight = 1.3;
-
-      // TODO treat rend[@align]s like floating HTML divs
-      /**
-       * Contains the MSV.Text objects ordered by line number. Each descendant text node
-       * of the pgHead element is stored in its own Text object
-       * @type {Text[][]}
-       */
-      me.textsByLine = [
-        []
-      ];
-      me.line_n = 0;
-
-      me.htmlToArray(element, {
-        fontsize : me.defaultFontSize,
-        fontweight : '',
-        fontstyle : '',
-        fontfamily : 'Times'
-      });
-
-//      /**
-//       * @property {Number} x The x coordinate of the page head area
-//       */
-//      me.x = coords.x;
-//      /**
-//       * @property {Number} y The y coordinate of the page head area
-//       */
-//      me.y = coords.y;
-//      /**
-//       * @property {Number} w The width of the page head area
-//       */
-//      me.w = coords.w;
-
-      /**
-       * Current coordinates
-       * @type {{x: *, y: *, w: *}}
-       */
-      me.currentCoords = coords;
-
-    },
-
-    setWidth: function(width){
-      this.currentCoords.w = width;
-    },
-
-    getLowestY : function () {
-      return this.lowestY;
-    },
-
-    getTextsByLine : function () {
-      return this.textsByLine;
-    },
-
-
-    htmlToArray : function (element, opts) {
-      var me = this, atts, defaults, text, i, j, childNodes, nodeMatch;
-
-      childNodes = element.childNodes;
-
-      for (i = 0, j = childNodes.length; i < j; i++) {
-
-        if (childNodes[i].nodeName === '#text') {
-          text = childNodes[i].textContent.replace(/([\n|\r]+\s*)/g, ' ');
-          if (text) {
-            // MSV.Text always expects an element as the first argument; we pass
-            // the parent element of the current text node. If the parent
-            // element contains more than one child, a nodeMatch parameter is
-            // added; this way, the text node in concern can laber be addressed
-            // unambiguously by evaluating element and nodeMatch.
-            nodeMatch = (j === 1) ? null : {type : 'child', value : i};
-            me.textsByLine[me.line_n].push(new Text(element, opts, true, text, nodeMatch));
-          }
-        } else {
-          switch (childNodes[i].localName) {
-            case undefined :
-              break;
-            case 'lb' :
-              me.breakLine();
-              break;
-            case 'title' :
-              atts = Util.attsToObj(childNodes[i]);
-              defaults = {
-                halign : 'center'
-              };
-              me.htmlToArray(childNodes[i], $.extend({}, opts, defaults, atts));
-              me.breakLine();
-              break;
-            default :
-              atts = Util.attsToObj(childNodes[i]);
-              me.htmlToArray(childNodes[i], $.extend({}, opts, atts));
-              // FIXME handle line breaks differently
-              if (atts.halign=='center') {
-                me.breakLine();
-              }
-
-          }
-        }
-      }
-    },
-
-    breakLine : function () {
-      var me = this;
-      me.line_n += 1;
-      me.textsByLine[me.line_n] = [];
-    },
-
-    setContext : function (ctx) {
-      this.ctx = ctx;
-      return this;
-    },
-
-    preFormat : function (ctx) {
-      var me = this, maxFontSizeInLine, i, j, k, l, textLine, text;
-//      var currentCoords = me.currentCoords;
-
-      var lowestY = me.currentCoords.y;
-
-      for (i = 0, j = me.textsByLine.length; i < j; i++) {
-        textLine = me.textsByLine[i];
-        maxFontSizeInLine = 0;
-        for (k = 0, l = textLine.length; k < l; k++) {
-          text = textLine[k];
-          text.setContext(ctx).preProcess(me.scale);
-          text.setY(lowestY + text.h);
-          maxFontSizeInLine = Math.max(text.h, maxFontSizeInLine);
-        }
-        lowestY += maxFontSizeInLine * me.lineHeight;
-      }
-      me.lowestY = lowestY;
-    },
-
-
-    draw : function () {
-      var me = this, leftTexts, centerTexts, rightTexts, maxFontSizeInLine, i, j, k, l, textLine, text;
-
-      var currentCoords = me.currentCoords;
-
-      for (i = 0, j = me.textsByLine.length; i < j; i++) {
-        textLine = me.textsByLine[i];
-        leftTexts = [];
-        centerTexts = [];
-        rightTexts = [];
-        maxFontSizeInLine = 0;
-
-        for (k = 0, l = textLine.length; k < l; k++) {
-          text = textLine[k];
-//          text.setContext(me.ctx).preProcess(me.scale);
-          text.setTextAlign('left');
-          switch (text.atts.halign) {
-            case 'center' :
-              centerTexts.push(text);
-              break;
-            case 'right' :
-              rightTexts.push(text);
-              break;
-            default :
-              leftTexts.push(text);
-          }
-        }
-
-        maxFontSizeInLine =
-        Math.max(me.drawCenterTexts(centerTexts, currentCoords), me.drawRightAlignedTexts(rightTexts, currentCoords), me.drawLeftAlignedTexts(leftTexts, currentCoords));
-
-        currentCoords.y += maxFontSizeInLine * me.lineHeight;
-
-      }
-
-      me.lowestY = currentCoords.y;
-    },
-
-    drawCenterTexts : function (centerTexts, currentCoords) {
-      var me = this, maxFontSize, totalTextWidth = 0, i;
-
-      i = centerTexts.length;
-      while (i--) {
-        totalTextWidth += centerTexts[i].w;
-      }
-
-      maxFontSize = me.drawLeftAlignedTexts(centerTexts, {
-        x : currentCoords.x + (currentCoords.w / 2) - (totalTextWidth / 2),
-        y : currentCoords.y,
-        w : currentCoords.w
-      }, me.ctx);
-      return maxFontSize;
-    },
-
-    drawRightAlignedTexts : function (rightTexts, currentCoords) {
-      var maxH = 0, offsetX = 0, obj, i;
-      i = rightTexts.length;
-      while (i--) {
-        obj = rightTexts[i];
-        offsetX += obj.w;
-        obj.setX(currentCoords.x + currentCoords.w - offsetX);
-//        obj.setY(currentCoords.y + obj.h);
-        obj.draw();
-        maxH = Math.max(obj.h, maxH);
-      }
-      return maxH;
-    },
-
-    drawLeftAlignedTexts : function (leftTexts, currentCoords) {
-      var maxH = 0, offsetX = 0;
-      $.each(leftTexts, function (i, obj) {
-        obj.setX(currentCoords.x + offsetX);
-//        obj.setY(currentCoords.y + obj.h);
-        obj.draw();
-        offsetX += obj.w;
-        maxH = Math.max(obj.h, maxH);
-      });
-      return maxH;
-    }
-
-  };
-/*
- * (C) Copyright 2014 Alexander Erhard (http://alexandererhard.com/).
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-  /**
    * @exports mei2text/PreProcessor
    */
 
@@ -28585,14 +29397,9 @@ Vex.Flow.TextDynamics = (function(){
       }
     },
 
-    resolveSameAs : function (element) {
-//      this.copyElements(element, 'sameas');
-    },
-
     resolveCopyOf : function (element) {
       this.copyElements(element, 'copyof');
     },
-
 
     copyElements : function (element, attName) {
       var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;
@@ -28736,7 +29543,7 @@ Vex.Flow.TextDynamics = (function(){
    */
 
   /**
-   * @class MSV.Viewer
+   * @class Viewer
    *
    * @constructor
    * @param {Object} config For a full list, see the config options of the
@@ -28744,65 +29551,22 @@ Vex.Flow.TextDynamics = (function(){
      * MEI2VF.Converter}
    */
   var Viewer = function (config) {
-    this.init(config);
+    if (config) {
+      this.init(config);
+    }
   };
 
   Viewer.prototype = {
 
     defaults : {
       /**
-       * @cfg {Number} pageScale The page scale (set 1 for 100%, 0.5 for 50%
-       * etc.)
-       */
-      pageScale : 1,
-      /**
-       * @cfg {Number} pageHeight The height of the page. Null for auto height
-       */
-      pageHeight : null,
-      /**
-       * @cfg {Number} pageWidth The width of the page. Null for auth width
-       */
-      pageWidth : null,
-      /**
-       * @cfg {Boolean} autoMeasureNumbers Specifies if measure numbers should
-       * automatically be added to each system start
-       */
-      autoMeasureNumbers : false,
-      /**
-       * @cfg {Object} measureNumberFont The measure number font
-       * @cfg {String} measureNumberFont.family the font family
-       * @cfg {Number} measureNumberFont.size the font size
-       * @cfg {String} measureNumberFont.weight the font weight
-       */
-      measureNumberFont : {
-        family : 'Times',
-        size : 14,
-        weight : 'Italic'
-      },
-      /**
-       * @cfg {Object} anchoredTextFont The anchored text font
-       * @cfg {String} anchoredTextFont.family the font family
-       * @cfg {Number} anchoredTextFont.size the font size
-       * @cfg {String} anchoredTextFont.weight the font weight
-       */
-      anchoredTextFont : {
-        family : 'Times',
-        size : 22,
-        weight : ''
-      },
-      /**
        * @cfg (Boolean) useMeiLib Specifies if the MeiLib library should be used to pre-process the input XML document. Necessary when there are variants in the MEI document.
        */
       useMeiLib : false,
       /**
-       * @cfg (Boolean) processPgHead Specifies if pgHead elemements should be rendered
-       */
-      processPgHead : true,
-      /**
        * @cfg (Object[]) preProcess XML document pre-processing options. Set falsy if pre-processing should be skipped completely.
        */
       preProcess : [
-        'resolveSameAs',
         'resolveCopyOf',
         [
           'addXmlIdPrefix',
@@ -28827,11 +29591,11 @@ Vex.Flow.TextDynamics = (function(){
       var me = this, xmlDoc, firstScoreDef, meiDoc, layers;
 
       if (!config) {
-        throw new RuntimeError('No config passed to Viewer.');
+        throw new RuntimeError('No config passed to init function.');
       }
 
       if (!config.data) {
-        throw new RuntimeError('No XML document passed to Viewer.');
+        throw new RuntimeError('No XML document passed to init function.');
       }
 
       xmlDoc = Document.initXmlDoc(config.data);
@@ -28841,140 +29605,65 @@ Vex.Flow.TextDynamics = (function(){
         throw new RuntimeError('No <scoreDef> found in config.data.');
       }
 
-      me.cfg = $.extend(true, {}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
+      me.cfg = Util.extend({}, me.defaults, Document.getMEIPageConfig(firstScoreDef), config);
 
       if (me.cfg.preProcess) {
         PreProcessor.process(xmlDoc, me.cfg.preProcess);
       }
 
+      me.converter = new ExtendedConverter(me.cfg);
       me.UI = new UI();
-      layers = me.UI.createLayers(me.cfg);
 
+      // TODO improve
+      me.UI.redraw = function() {
+        me.converter.draw(this.layers[this.vexLayerIndex].ctx);
+//        me.converter.draw(this.layers[this.vexLayerIndex].ctx, Math.round((1/this.scale)*2)/2);
+//        me.converter.draw(this.layers[this.vexLayerIndex].ctx, Math.floor(1/this.scale) || 1);
+      };
+
+
+      me.converter.reset();
       if (me.cfg.useMeiLib) {
         meiDoc = new MeiLib.MeiDoc(xmlDoc);
-        //        meiDoc.initSectionView();
-        me.convertMEI(meiDoc.sectionview_score, layers[me.UI.vexLayerIndex].ctx);
+        me.converter.process(meiDoc.sectionview_score);
       } else {
-        me.convertMEI(xmlDoc, layers[me.UI.vexLayerIndex].ctx);
+        me.converter.process(xmlDoc);
       }
 
+      layers = me.UI.createLayers(me.cfg, me.converter.cfg.pageScale);
 
-      var height, width;
+//      layers = me.UI.createLayers(me.cfg, 1);
 
-      // if height is specified don't return the calculated height to get same behavior as width
-      if (me.cfg.pageHeight) {
-        height = me.cfg.pageHeight;
-      } else {
-        height = me.converter.pageInfo.getCalculatedHeight();
-      }
-      if (me.converter.pageInfo.hasCalculatedWidth()) {
-        width = me.converter.pageInfo.getCalculatedWidth();
-      } else {
-        width = me.cfg.pageWidth;
-      }
+      me.converter.format(layers[me.UI.vexLayerIndex].ctx);
 
-      me.UI.setSize(height, width, me.cfg.pageScale);
+      var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
+      var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
 
-      me.drawMEI(layers[me.UI.vexLayerIndex].ctx);
+//            me.UI.setSize(400, 800, 1);
+      me.UI.setSize(height, width, me.converter.cfg.pageScale);
+
+      me.converter.draw(layers[me.UI.vexLayerIndex].ctx);
+//      me.UI.zoom(-4)
 
       me.areaHelper = new AreaHelper(me);
       me.areaHelper.setAreas(meiDoc, layers);
 
-      me.registerMouseHandlers(me.UI, layers);
+      me.UI.registerMouseHandlers();
     },
 
-    registerMouseHandlers : function (UI, layers) {
-      var i, layer;
-      i = layers.length;
-      while (i--) {
-        layer = layers[i];
-        if (layer.type === 'highlighter') {
-          if (layer.clickHandler) {
-            UI.registerMouseClickHandler(layer);
-          }
-          if (layer.highlightMode === 'hover' || (layer.mouseEnterHandler && layer.mouseLeaveHandler)) {
-            UI.registerMouseMoveHandler(layer);
-          }
-        }
-      }
-      UI.listenMouseClick();
-      UI.listenMouseMove();
-    },
-
-    convertMEI : function (xmlDoc, vexCtx) {
-      var me = this, pgHeadLowestY;
-      /**
-       * @property {MEI2VF.Converter} converter the MEI2VF converter
-       */
-      me.converter = new Converter(me.cfg);
-
-      me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
-      me.converter.processAnchoredText = function (element, stave, stave_n, layerDir, staveInfo) {
-        me.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
-      };
-
-      me.converter.systemInfo.processPgHead = function (element) {
-        if (me.cfg.processPgHead && !me.pgHead) {
-          var printSpace = me.converter.pageInfo.getPrintSpace();
-          me.pgHead = new PgHead(element, {
-            // TODO remove x, y, w !?
-            x : printSpace.left,
-            y : me.converter.pageInfo.pageTopMar + 90, // increase top padding for header
-            w : printSpace.width
-          }, me.cfg.pageScale);
-          me.pgHead.preFormat(vexCtx);
-          pgHeadLowestY = me.pgHead.getLowestY();
-          if (pgHeadLowestY) {
-            // round the y value in order to prevent blurred staff lines on the canvas
-            printSpace.top = Math.ceil(pgHeadLowestY) + 30;
-          }
-        }
-      };
-
-      var pgFootElement;
-
-      me.converter.systemInfo.processPgFoot = function (element) {
-        if (me.cfg.processPgHead) {
-          pgFootElement = element;
-        }
-      };
-
-
-      me.converter.process(xmlDoc);
-      me.converter.format(vexCtx);
-
-      if (pgFootElement) {
-        var printSpace = me.converter.pageInfo.getPrintSpace();
-        me.pgFoot = new PgHead(pgFootElement, {
-          x : printSpace.left,
-          y : me.converter.pageInfo.getLowestY() + 80,
-          w : printSpace.width
-        }, me.cfg.pageScale);
-        me.pgFoot.preFormat(vexCtx);
-        me.converter.pageInfo.setLowestY(me.pgFoot.getLowestY() + me.converter.pageInfo.pageBottomMar);
-      }
-
-      if (me.cfg.autoMeasureNumbers) {
-        me.measureNumbers = new MeasureNumbers(me.cfg.measureNumberFont);
-        me.measureNumbers.addToSystemStarts(me.converter.getSystems());
-      }
-    },
-
-    drawMEI : function (ctx) {
+    zoom : function (scale) {
       var me = this;
+//      me.UI.zoom(scale);
 
-      if (me.pgHead) {
-        me.pgHead.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgHead.setContext(ctx).draw();
-      }
 
-      if (me.pgFoot) {
-        me.pgFoot.setWidth(me.converter.pageInfo.getPrintSpace().width);
-        me.pgFoot.setContext(ctx).draw();
-      }
+      me.converter.cfg.pageScale += scale;
 
-      me.converter.draw(ctx);
-      me.anchoredTexts.setContext(ctx).draw();
+      var height = me.converter.cfg.pageHeight || me.converter.pageInfo.getCalculatedHeight();
+      var width = me.converter.cfg.pageWidth || me.converter.pageInfo.getCalculatedWidth();
+      me.UI.setSize(height, width, me.converter.cfg.pageScale);
+
+      me.converter.draw(me.UI.layers[me.UI.vexLayerIndex].ctx);
+
     }
 
   };
@@ -29063,7 +29752,7 @@ Vex.Flow.TextDynamics = (function(){
    */
 
   /**
-   * @class MSV.DefaultAreaCollection
+   * @class DefaultAreaCollection
    */
   var DefaultAreaCollection = function (config) {
     this.init(config);
@@ -29272,129 +29961,6 @@ Vex.Flow.TextDynamics = (function(){
       return !(point.x < rect.x || point.x > rect.x1 || point.y < rect.y || point.y > rect.y1);
     }
   });
-
-
-
-  Stave.prototype.lineColor = '#000000';
-
-
-  /**
-   * @exports core/overrides
-   */
-
-
-  VF.Articulation.prototype.draw = function () {
-    var Modifier = VF.Modifier;
-    var L = function () {
-    };
-    if (!this.context) throw new Vex.RERR("NoContext", "Can't draw Articulation without a context.");
-    if (!(this.note && (this.index !== null))) {
-      throw new Vex.RERR("NoAttachedNote", "Can't draw Articulation without a note and index.");
-    }
-
-    var stem_direction = this.note.getStemDirection();
-    var stave = this.note.getStave();
-
-    var is_on_head = (this.position === Modifier.Position.ABOVE && stem_direction === VF.StaveNote.STEM_DOWN) ||
-                     (this.position === Modifier.Position.BELOW && stem_direction === VF.StaveNote.STEM_UP);
-
-    var needsLineAdjustment = function (articulation, note_line, line_spacing) {
-      var offset_direction = (articulation.position === Modifier.Position.ABOVE) ? 1 : -1;
-      var duration = articulation.getNote().getDuration();
-
-      if (!is_on_head && duration !== "w" && duration !== "1") {
-        // Add stem length, inless it's on a whole note
-        note_line += offset_direction * 3.5;
-      }
-
-      var articulation_line = note_line + (offset_direction * line_spacing);
-
-      if (articulation_line >= 1 && articulation_line <= 5 && articulation_line % 1 === 0) {
-        return true;
-      }
-
-      return false;
-    };
-
-    // Articulations are centered over/under the note head.
-    var start = this.note.getModifierStartXY(this.position, this.index);
-    var glyph_y = start.y;
-    var shiftY = 0;
-    var line_spacing = 1;
-    var spacing = stave.getSpacingBetweenLines();
-    var is_tabnote = this.note.getCategory() === 'tabnotes';
-    var stem_ext = this.note.getStem().getExtents();
-
-    var top = stem_ext.topY;
-    var bottom = stem_ext.baseY;
-
-    if (stem_direction === VF.StaveNote.STEM_DOWN) {
-      top = stem_ext.baseY;
-      bottom = stem_ext.topY;
-    }
-
-    // TabNotes don't have stems attached to them. Tab stems are rendered
-    // outside the stave.
-    if (is_tabnote) {
-      if (this.note.hasStem()) {
-        if (stem_direction === VF.StaveNote.STEM_UP) {
-          bottom = stave.getYForBottomText(this.text_line - 2);
-        } else if (stem_direction === VF.StaveNote.STEM_DOWN) {
-          top = stave.getYForTopText(this.text_line - 1.5);
-        }
-      } else { // Without a stem
-        top = stave.getYForTopText(this.text_line - 1);
-        bottom = stave.getYForBottomText(this.text_line - 2);
-      }
-    }
-
-    var is_above = (this.position === Modifier.Position.ABOVE);
-    var note_line = this.note.getLineNumber(is_above);
-
-    // Beamed stems are longer than quarter note stems.
-    if (!is_on_head && this.note.beam) {
-      line_spacing = this.note.beam.beam_count * 0.5;
-    }
-
-    // If articulation will overlap a line, reposition it.
-    if (needsLineAdjustment(this, note_line, line_spacing)) line_spacing += 0.5;
-
-    var glyph_y_between_lines;
-    if (this.position === Modifier.Position.ABOVE) {
-      shiftY = this.articulation.shift_up;
-      glyph_y_between_lines = (top - 7) - (spacing * (this.text_line + line_spacing));
-
-      if (this.articulation.between_lines) {
-        glyph_y = glyph_y_between_lines;
-      } else {
-        glyph_y = Math.min(stave.getYForTopText(this.text_line) - 3, glyph_y_between_lines);
-      }
-    } else {
-      shiftY = this.articulation.shift_down - 10;
-
-      glyph_y_between_lines = bottom + 10 + spacing * (this.text_line + line_spacing);
-      if (this.articulation.between_lines) {
-        glyph_y = glyph_y_between_lines;
-      } else {
-        glyph_y = Math.max(stave.getYForBottomText(this.text_line), glyph_y_between_lines);
-      }
-    }
-
-    var glyph_x = start.x + this.articulation.shift_right;
-    glyph_y += shiftY + this.y_shift;
-
-    L("Rendering articulation: ", this.articulation, glyph_x, glyph_y);
-    VF.renderGlyph(this.context, glyph_x, glyph_y, this.render_options.font_scale, this.articulation.code);
-
-    // ### START ADDITION
-    this.x = glyph_x;
-    this.y = glyph_y;
-    // ### END ADDITION
-
-  };
-
-
-
 
 
   window.MSV = {
