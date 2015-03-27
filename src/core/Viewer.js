@@ -70,7 +70,7 @@ define([
        * If no VexFlow layer is specified, a VexFlow Layer gets added automatically
        * as the top-most layer.
        */
-      layers : []
+      layers : [],
     },
 
     init : function (config) {

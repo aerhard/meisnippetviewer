@@ -42,31 +42,41 @@ define([
 
     setSize : function (height, width, scale) {
 
-      var me = this, i, j, h, w, canvas;
+      var me = this, i, j, scaledHeight, scaledWidth, canvas;
 
       me.scale = scale;
 
-      h = height * scale;
-      w = width * scale;
+      scaledHeight = height * scale;
+      scaledWidth = width * scale;
 
-      me.outerDiv.style.marginLeft = (w / 2) + 'px';
-      me.outerDiv.style.marginRight = (w / 2) + 'px';
+      me.outerDiv.style.marginLeft = (scaledWidth / 2) + 'px';
+      me.outerDiv.style.marginRight = (scaledWidth / 2) + 'px';
 
-      me.innerDiv.style.height = h + 'px';
-      me.innerDiv.style.left = (-w / 2) + 'px';
+      me.innerDiv.style.height = scaledHeight + 'px';
+      me.innerDiv.style.left = (-scaledWidth / 2) + 'px';
 
       j = me.layers.length;
       for (i = 0; i < j; i++) {
-        canvas = me.layers[i].element;
-        canvas.width = w;
-        canvas.height = h;
-        if (typeof me.layers[i].setContext === 'function') {
-          var ctx = canvas.getContext('2d');
-          me.layers[i].setContext(ctx);
-          me.layers[i].setScale(scale);
-        }
 
-        me.layers[i].ctx.scale(scale, scale);
+          canvas = me.layers[i].element;
+
+          if (canvas.localName === 'canvas') {
+
+              canvas.width = scaledWidth;
+              canvas.height = scaledHeight;
+              if (typeof me.layers[i].setContext === 'function') {
+                  var ctx = canvas.getContext('2d');
+                  me.layers[i].setContext(ctx);
+                  me.layers[i].setScale(scale);
+              }
+              me.layers[i].ctx.scale(scale, scale);
+
+          } else {
+              var svgElement = me.layers[i].ctx.svg;
+              me.layers[i].ctx.resize(scaledWidth, scaledHeight);
+              me.layers[i].ctx.scale(scale, scale);
+          }
+
       }
     },
 
@@ -130,15 +140,17 @@ define([
       me.outerDiv.appendChild(me.innerDiv = me.createInnerDiv());
 
       for (i = 0, j = layers.length; i < j; i++) {
-        element = me.createCanvas();
-        me.innerDiv.appendChild(element);
 
         if (layers[i].type === 'vex') {
+            element = me.createCanvas((cfg.backend === VF.Renderer.Backends.CANVAS) ? 'canvas':'div');
+            me.innerDiv.appendChild(element);
           me.vexLayerIndex = i;
           ctx = me.createVexContext(element, cfg.backend);
           layers[i].element = element;
           layers[i].ctx = ctx;
         } else if (layers[i].type === 'highlighter') {
+            element = me.createCanvas('canvas');
+            me.innerDiv.appendChild(element);
           layers[i].setElement(element);
         } else {
           throw new RuntimeError('Layer type "' + layers[i].type + '" not valid.');
@@ -157,13 +169,13 @@ define([
     },
 
     /**
-     * Creates a single canvas element
+     * Creates a single canvas element or element container
+     * @param {String} elementName the name of the element to create; 'canvas' for
+     * HTML5 canvases, 'div' for a SVG canvas container
      * @returns {HTMLElement}
      */
-    createCanvas : function () {
-      var canvas = document.createElement('canvas');
-      //      canvas.width = w;
-      //      canvas.height = h;
+    createCanvas : function (elementName) {
+      var canvas = document.createElement(elementName);
       canvas.style.position = 'absolute';
       canvas.style.background = 'transparent';
       return canvas;
@@ -193,7 +205,7 @@ define([
     },
 
     createVexContext : function (canvas, backend) {
-      return new VF.Renderer(canvas, backend || VF.Renderer.Backends.CANVAS).getContext();
+      return new VF.Renderer(canvas, backend || VF.Renderer.Backends.SVG).getContext();
     },
 
     //    scaleContext : function (ctx, cfg) {

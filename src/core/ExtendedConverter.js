@@ -137,9 +137,16 @@ define([
       me.anchoredTexts = new AnchoredTexts(me.cfg.anchoredTextFont);
     },
 
-    processAnchoredText : function (element, stave, stave_n, layerDir, staveInfo) {
-      this.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
-    },
+      processAnchoredText : function (eventContext, element) {
+          this.anchoredTexts.addText(element, eventContext.stave);
+      },
+
+
+
+
+    //processAnchoredText : function (element, stave, stave_n, layerDir, staveInfo) {
+    //  this.anchoredTexts.addText(element, stave, stave_n, layerDir, staveInfo);
+    //},
 
 
     draw : function (ctx) {
