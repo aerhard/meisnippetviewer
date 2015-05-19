@@ -16883,33 +16883,10 @@ var VF = Vex.Flow;
       var cps_1_x = cps[1].x;
       var cps_1_y = cps[1].y;
 
-      var x_diff = last_x-first_x;
+      //var x_diff = last_x-first_x;
       var y_diff = last_y-first_y;
 
-      // decrease height of very narrow slurs
-      if(x_diff < 60) {
-        cps_0_y = 5 + cps_0_y * (x_diff / 120);
-        cps_1_y = 5 + cps_1_y *(x_diff / 120);
-      }
-
-      // adjust cps when y_diff is bigger than x_diff
-      var max_y_diff = x_diff/2;
-      if (y_diff > max_y_diff) {
-        if (params.direction === 1) {
-          cps_0_y += Math.abs(y_diff);
-        } else {
-          cps_1_y += Math.abs(y_diff);
-        }
-      } else if (y_diff < -max_y_diff) {
-        //cps[0].y += -y_diff * -1;
-
-        if (params.direction === 1) {
-          cps_1_y += Math.abs(y_diff);
-        } else {
-          cps_0_y += Math.abs(y_diff);
-        }
-      }
-
+      cps_1_y += Math.abs(y_diff);
 
       ctx.moveTo(first_x, first_y);
       ctx.bezierCurveTo(first_x + cp_spacing + cps_0_x,
@@ -23223,7 +23200,7 @@ var VF = Vex.Flow;
       for (i=0,j=me.allModels.length;i<j;i++) {
         model = me.allModels[i];
 
-        var keysInChord;
+        var keysInChord, tieIndices;
         f_note = notes_by_id[model.getFirstId()] || {};
         l_note = notes_by_id[model.getLastId()] || {};
 
@@ -23245,21 +23222,31 @@ var VF = Vex.Flow;
           if (layerDir) {
             model.params.curvedir = layerDir === -1 ? 'below' : layerDir === 1 ? 'above' : undefined;
           } else {
-            // if the tie links to a note in a chord, let the outer ties of the
-            // chord point outwards
+            // [approximation] if the tie links to a note in a chord, set the curve direction
+            // according to the position of the note in the chord
+
             if (f_note.vexNote) {
               keysInChord = f_note.vexNote.keys.length;
-              if (keysInChord > 1) {
-                model.params.curvedir =
-                (+f_note.index === 0) ? 'below' : (+f_note.index === keysInChord - 1) ? 'above' : undefined;
-              }
+              tieIndices = f_note.index;
             } else if (l_note.vexNote) {
               keysInChord = l_note.vexNote.keys.length;
-              if (keysInChord > 1) {
-                model.params.curvedir =
-                +l_note.index === 0 ? 'below' : (+l_note.index === keysInChord - 1) ? 'above' : undefined;
-              }
+              tieIndices = l_note.index;
             }
+
+            if (keysInChord > 1) {
+
+              if (tieIndices.length === 1) {
+                model.params.curvedir =
+                  (tieIndices[0] + 1 > keysInChord / 2) ? 'above' : 'below';
+
+              } else {
+                model.params.multiCurves = tieIndices.map(function(index) {
+                  return (index + 1 > keysInChord / 2) ? 'above' : 'below';
+                });
+              }
+
+            }
+
           }
         }
 
@@ -23271,6 +23258,10 @@ var VF = Vex.Flow;
           }
           me.createSingleTie({}, l_note, model.params);
         } else {
+          var note = f_note.vexNote || l_note.vexNote;
+          if (!model.params.curvedir) {
+            model.params.curvedir = (note.getStemDirection() === -1) ? 'above' : 'below';
+          }
           // ... otherwise render only one tie:
           me.createSingleTie(f_note, l_note, model.params);
         }
@@ -23279,21 +23270,55 @@ var VF = Vex.Flow;
     },
 
     createSingleTie : function (f_note, l_note, params) {
-      var me = this, vexTie;
-      vexTie = new VF.StaveTie({
-        first_note : f_note.vexNote,
-        last_note : l_note.vexNote,
-        first_indices : f_note.index,
-        last_indices : l_note.index
-      });
+      var me = this;
 
-      if (params.curvedir) {
-        vexTie.setDir((params.curvedir === 'above') ? -1 : 1);
+      if (params.multiCurves) {
+
+        var curveDirs = params.multiCurves;
+
+        curveDirs.forEach(function(curveDir, i) {
+          var vexTie = new VF.StaveTie({
+            first_note : f_note.vexNote,
+            last_note : l_note.vexNote,
+
+            // set specified indices; if indices are not specified for a note, either
+            // use the indices of the other note (in case of a line break, i.e. when
+            // the current note is not defined) or set the default value [0]
+            first_indices : (f_note.index) ? [f_note.index[i]] : ((f_note.vexNote) ? [0] : [l_note.index[i]]),
+            last_indices : (l_note.index) ? [l_note.index[i]] : ((l_note.vexNote) ? [0] : [f_note.index[i]])
+          });
+
+          vexTie.setDir((curveDir === 'above') ? -1 : 1);
+
+          if (f_note.vexNote && f_note.vexNote.grace === true) {
+            vexTie.render_options.first_x_shift = -5;
+          }
+          me.allVexObjects.push(vexTie);
+        });
+
+      } else {
+
+        var vexTie = new VF.StaveTie({
+          first_note : f_note.vexNote,
+          last_note : l_note.vexNote,
+
+          // set specified indices; if indices are not specified for a note, either
+          // use the indices of the other note (in case of a line break, i.e. when
+          // the current note is not defined) or set the default value [0]
+          first_indices : f_note.index || ((f_note.vexNote) ? [0] : l_note.index),
+          last_indices : l_note.index || ((l_note.vexNote) ? [0] : f_note.index)
+        });
+
+        if (params.curvedir) {
+          vexTie.setDir((params.curvedir === 'above') ? -1 : 1);
+        }
+        if (f_note.vexNote && f_note.vexNote.grace === true) {
+          vexTie.render_options.first_x_shift = -5;
+        }
+        me.allVexObjects.push(vexTie);
+
       }
-      if (f_note.vexNote && f_note.vexNote.grace === true) {
-        vexTie.render_options.first_x_shift = -5;
-      }
-      me.allVexObjects.push(vexTie);
+
     }
 
   });
@@ -23402,7 +23427,7 @@ var VF = Vex.Flow;
 
         var firstStemDir, lastStemDir;
         if (f_note.vexNote) firstStemDir = f_note.vexNote.getStemDirection();
-        lastStemDir = (l_note.vexNote) ? l_note.vexNote.getStemDirection() : firstStemDir;
+        if (l_note.vexNote) lastStemDir = l_note.vexNote.getStemDirection();
         layerDir = f_note.layerDir || l_note.layerDir;
         var firstDefinedStemDir = firstStemDir || lastStemDir;
 
