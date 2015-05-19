@@ -52,12 +52,11 @@ $(document).ready(function () {
     '</note>' + '<beam>' + '<note pname="a" oct="5" dur="8" tie="t"/>' +
     '<note pname="g" accid="s" oct="5" dur="8"/>' + '<note pname="'+ keys[((count+2) % 3)+2] +'" oct="5" dur="8"/>' +
     '</beam>' + '</layer>' + '</staff>' +
-    '<slur staff="1" tstamp="1" tstamp2="6" startvo="-3" endvo="-3" bezier="20 20 20 0"/>' +
+    '<slur staff="1" startid="#n01" endid="#s01" startvo="-3" endvo="-5" bezier="40 -30 20 -10"/>' +
     '</measure>' + '<measure n="1">' + '<staff n="1">' + '<layer>' +
     '<note pname="b" accid="f" oct="5" dur="4" dots="1" tie="i"/>' + '<beam>' +
     '<note pname="b" oct="5" dur="8" tie="t"/>' + '<note pname="'+ keys[count % 4] +'" oct="5" dur="8"/>' +
     '<note pname="g" oct="5" dur="8"/>' + '</beam>' + '</layer>' + '</staff>' +
-    '<slur staff="1" tstamp="1" tstamp2="6" startvo="-3" endvo="-3" bezier="20 20 20 10"/>' +
     '</measure>' + '<measure n="3" width="50" unit="px" right="invis">' + '<staff n="1">' +
     '<layer>' + '<note pname="'+ keys[count % 4] +'" oct="5" dur="2"/>' + '<space xml:id="s01" dur="1">' +
     '</space>' + '</layer>' + '</staff>' + '</measure>' + '</section>' + '</score>' +
