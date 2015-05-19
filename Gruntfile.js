@@ -20,9 +20,6 @@ module.exports = function (grunt) {
           baseUrl : 'src',
           mainConfigFile: "src/config.js",
           out : 'tmp/<%= pkg.name %>.build.js',
-          paths: {
-            "vexflow": "empty:"
-          },
           exclude : [
             'jquery',
             'vex'
@@ -94,7 +91,7 @@ module.exports = function (grunt) {
         },
         src : [
           'src/licenses.js',
-          'bower_components/vexflow/releases/vexflow-min.js',
+          'bower_components/vexflow/releases/vexflow-debug.js',
           'src/build/post-vexflow.js',
           'tmp/<%= pkg.name %>.build.js'
         ],
