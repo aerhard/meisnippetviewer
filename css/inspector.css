@@ -1,6 +1,10 @@
 
 /*body {padding: 40px 0 150px}*/
 
+canvas {
+    left:0!important;
+}
+
 .infobar {
     margin:0;
     position:fixed;
