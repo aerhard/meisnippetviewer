@@ -24,7 +24,7 @@ define([
 
   var PreProcessor = {
 
-    process : function (element, options) {
+    process: function (element, options) {
       var me = this, i, fnName;
       for (i = 0; i < options.length; i += 1) {
         fnName = (typeof options[i] === 'string') ? options[i] : options[i][0];
@@ -36,11 +36,11 @@ define([
       }
     },
 
-    resolveCopyOf : function (element) {
+    resolveCopyOf: function (element) {
       this.copyElements(element, 'copyof');
     },
 
-    copyElements : function (element, attName) {
+    copyElements: function (element, attName) {
       var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;
       for (i = items.length; i--;) {
         item = items[i];
@@ -59,7 +59,7 @@ define([
           item.parentNode.insertBefore(clone, item.nextSibling);
           item.parentNode.removeChild(item);
         } else {
-          Logger.warn('Reference error', 'Target "'+id+'" specified in ' + Util.serializeElement(item) + ' could not be found.');
+          Logger.warn('Reference error', 'Target "' + id + '" specified in ' + Util.serializeElement(item) + ' could not be found.');
         }
       }
     },
@@ -70,7 +70,7 @@ define([
      * @param {Element} element
      * @param {Object} option The pre-processing option
      */
-    addXmlIdPrefix : function (element, option) {
+    addXmlIdPrefix: function (element, option) {
       var i, items = element.getElementsByTagName("*"), prefix = option[1];
       for (i = items.length; i--;) {
         if (!items[i].hasAttribute('xml:id')) {
@@ -83,52 +83,11 @@ define([
      * supported: up to 7 flats / sharps
      * @param element
      */
-    processDefs : function (element) {
+    processDefs: function (element) {
       var keys = {
-        s : [
-          'c',
-          'g',
-          'd',
-          'a',
-          'e',
-          'b',
-          [
-            'f',
-            's'
-          ],
-          [
-            'c',
-            's'
-          ]
-        ],
-        f : [
-          'c',
-          'f',
-          [
-            'b',
-            'f'
-          ],
-          [
-            'e',
-            'f'
-          ],
-          [
-            'a',
-            'f'
-          ],
-          [
-            'd',
-            'f'
-          ],
-          [
-            'g',
-            'f'
-          ],
-          [
-            'c',
-            'f'
-          ]
-        ]
+        s: ['c', 'g', 'd', 'a', 'e', 'b', ['f', 's'], ['c', 's']],
+        f: ['c', 'f', ['b', 'f'], ['e', 'f'], ['a', 'f'], ['d', 'f'],
+          ['g', 'f'], ['c', 'f']]
       };
 
       var process = function (items, keys) {
