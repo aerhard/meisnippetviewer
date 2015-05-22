@@ -52,7 +52,7 @@ $(document).ready(function () {
     '</note>' + '<beam>' + '<note pname="a" oct="5" dur="8" tie="t"/>' +
     '<note pname="g" accid="s" oct="5" dur="8"/>' + '<note pname="'+ keys[((count+2) % 3)+2] +'" oct="5" dur="8"/>' +
     '</beam>' + '</layer>' + '</staff>' +
-    '<slur staff="1" startid="#n01" endid="#s01" startvo="-3" endvo="-5" bezier="40 -30 20 -10"/>' +
+    '<slur staff="1" startid="#n01" endid="#s01" startvo="0.25" endvo="1.75" bezier="8 6 4 2"/>' +
     '</measure>' + '<measure n="1">' + '<staff n="1">' + '<layer>' +
     '<note pname="b" accid="f" oct="5" dur="4" dots="1" tie="i"/>' + '<beam>' +
     '<note pname="b" oct="5" dur="8" tie="t"/>' + '<note pname="'+ keys[count % 4] +'" oct="5" dur="8"/>' +
