@@ -16886,7 +16886,7 @@ var VF = Vex.Flow;
       //var x_diff = last_x-first_x;
       var y_diff = last_y-first_y;
 
-      cps_1_y += Math.abs(y_diff);
+      //cps_1_y += Math.abs(y_diff);
 
       ctx.moveTo(first_x, first_y);
       ctx.bezierCurveTo(first_x + cp_spacing + cps_0_x,
@@ -23421,7 +23421,7 @@ var VF = Vex.Flow;
           }
           console.log(model);
           Logger.warn('Slur could not be processed', 'No slur start or slur end could be found. Slur parameters: ' +
-                                                     paramString + '. Skipping slur.');
+            paramString + '. Skipping slur.');
           return true;
         }
 
@@ -23476,8 +23476,13 @@ var VF = Vex.Flow;
 
         // ### STEP 2: Determine position
 
-        var startvo = parseFloat(params.startvo);
-        var endvo = parseFloat(params.endvo);
+        // 'virtual unit' = 'A single vu is half the distance
+        // between the vertical center point of a staff line and that of an adjacent staff line.'
+        // TODO calculate
+        var vu = 5;
+
+        var startvo = -1 * parseFloat(params.startvo) * vu;
+        var endvo = -1 * parseFloat(params.endvo) * vu;
 
         slurOptions.y_shift_start = startvo;
         slurOptions.y_shift_end = endvo;
@@ -23582,7 +23587,7 @@ var VF = Vex.Flow;
 
           slurOptions.position = slurOptions.position_end;
           slurOptions.invert =
-          ((curveDir === ABOVE && lastStemDir === ABOVE) || (curveDir === BELOW && lastStemDir === BELOW));
+            ((curveDir === ABOVE && lastStemDir === ABOVE) || (curveDir === BELOW && lastStemDir === BELOW));
           me.createSingleSlur({}, l_note, slurOptions);
         } else {
           me.createSingleSlur(f_note, l_note, slurOptions);
@@ -23598,16 +23603,26 @@ var VF = Vex.Flow;
 
     bezierStringToCps : function (str) {
       var cps = [], regex, matched;
+
+      // 'virtual unit' = 'A single vu is half the distance
+      // between the vertical center point of a staff line and that of an adjacent staff line.'
+      // TODO calculate
+      var vu = 5;
+
       regex = /(\-?[\d|\.]+)\s+(\-?[\d|\.]+)/g;
       while (matched = regex.exec(str)) {
         cps.push({
-          x : +matched[1],
-          y : +matched[2]
+          x : parseFloat(matched[1]) * vu,
+          //
+          y : -1 * parseFloat(matched[2]) * vu
         });
       }
       if (!cps[1]) {
         Logger.info('Incomplete attribute', 'Expected four control points in slur/@bezier, but only found two. Providing cps 3 & 4 on basis on cps 1 & 2.');
-        cps[1] = {x : -cps[0].x, y : cps[0].y};
+        cps[1] = {
+          x : -1 * parseFloat(cps[0].x) * vu,
+          y : -1 * parseFloat(cps[0].y) * vu
+        };
       }
       return cps;
     }
@@ -25417,18 +25432,18 @@ var VF = Vex.Flow;
      * corresponding Vex.Flow.Stave object
      */
     addTempoToStaves : function () {
-      var me = this, offsetX, vexStave, vexTempo, atts, halfLineDistance, i, j, tempoElement;
+      var me = this, offsetX, vexStave, vexTempo, atts, vu, i, j, tempoElement;
       for (i = 0, j = me.tempoElements.length; i < j; i++) {
         tempoElement = me.tempoElements[i];
 
         atts = Util.attsToObj(tempoElement);
         vexStave = me.staves[atts.staff];
-        halfLineDistance = vexStave.getSpacingBetweenLines() / 2;
+        vu = vexStave.getSpacingBetweenLines() / 2;
         vexTempo = new VF.StaveTempo({
           name : Util.getText(tempoElement), duration : atts['mm.unit'], dots : +atts['mm.dots'], bpm : +atts.mm
         }, vexStave.x, 5);
         if (atts.vo) {
-          vexTempo.setShiftY(+atts.vo * halfLineDistance);
+          vexTempo.setShiftY(+atts.vo * vu * -1);
         }
         offsetX = (vexStave.getModifierXShift() > 0) ? -14 : 14;
 
@@ -25438,7 +25453,7 @@ var VF = Vex.Flow;
           offsetX -= 24;
         }
         if (atts.ho) {
-          offsetX += +atts.ho * halfLineDistance;
+          offsetX += +atts.ho * vu;
         }
         vexTempo.setShiftX(offsetX);
         vexTempo.font = me.tempoFont;
@@ -30488,7 +30503,7 @@ var VF = Vex.Flow;
 
   var PreProcessor = {
 
-    process : function (element, options) {
+    process: function (element, options) {
       var me = this, i, fnName;
       for (i = 0; i < options.length; i += 1) {
         fnName = (typeof options[i] === 'string') ? options[i] : options[i][0];
@@ -30500,11 +30515,11 @@ var VF = Vex.Flow;
       }
     },
 
-    resolveCopyOf : function (element) {
+    resolveCopyOf: function (element) {
       this.copyElements(element, 'copyof');
     },
 
-    copyElements : function (element, attName) {
+    copyElements: function (element, attName) {
       var i, items = element.querySelectorAll('[' + attName + ']'), target, id, item, clone, cloneDescendants, j;
       for (i = items.length; i--;) {
         item = items[i];
@@ -30523,7 +30538,7 @@ var VF = Vex.Flow;
           item.parentNode.insertBefore(clone, item.nextSibling);
           item.parentNode.removeChild(item);
         } else {
-          Logger.warn('Reference error', 'Target "'+id+'" specified in ' + Util.serializeElement(item) + ' could not be found.');
+          Logger.warn('Reference error', 'Target "' + id + '" specified in ' + Util.serializeElement(item) + ' could not be found.');
         }
       }
     },
@@ -30534,7 +30549,7 @@ var VF = Vex.Flow;
      * @param {Element} element
      * @param {Object} option The pre-processing option
      */
-    addXmlIdPrefix : function (element, option) {
+    addXmlIdPrefix: function (element, option) {
       var i, items = element.getElementsByTagName("*"), prefix = option[1];
       for (i = items.length; i--;) {
         if (!items[i].hasAttribute('xml:id')) {
@@ -30547,52 +30562,11 @@ var VF = Vex.Flow;
      * supported: up to 7 flats / sharps
      * @param element
      */
-    processDefs : function (element) {
+    processDefs: function (element) {
       var keys = {
-        s : [
-          'c',
-          'g',
-          'd',
-          'a',
-          'e',
-          'b',
-          [
-            'f',
-            's'
-          ],
-          [
-            'c',
-            's'
-          ]
-        ],
-        f : [
-          'c',
-          'f',
-          [
-            'b',
-            'f'
-          ],
-          [
-            'e',
-            'f'
-          ],
-          [
-            'a',
-            'f'
-          ],
-          [
-            'd',
-            'f'
-          ],
-          [
-            'g',
-            'f'
-          ],
-          [
-            'c',
-            'f'
-          ]
-        ]
+        s: ['c', 'g', 'd', 'a', 'e', 'b', ['f', 's'], ['c', 's']],
+        f: ['c', 'f', ['b', 'f'], ['e', 'f'], ['a', 'f'], ['d', 'f'],
+          ['g', 'f'], ['c', 'f']]
       };
 
       var process = function (items, keys) {
